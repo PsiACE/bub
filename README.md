@@ -9,7 +9,7 @@
 Bub it up! Your partner in every step of the build.
 
 - **Github repository**: <https://github.com/psiace/bub/>
-- **Documentation** <https://psiace.github.io/bub/>
+- **Documentation** <https://bub.build/>
 
 ## Getting started with your project
 
