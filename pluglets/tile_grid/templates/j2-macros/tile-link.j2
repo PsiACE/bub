@@ -1,0 +1,5 @@
+{% import 'pluglets/tile_grid/templates/j2-macros/tile-util.j2' as tile_util %}
+{% macro make_link_start( tile ) -%}
+<div class="terminal-mkdocs-tile-link"><a href="{{ tile.link_href }}" 
+    {%- if tile_util.is_link_only(tile) == "true" or tile_util.is_linked_image(tile) == "true" %}{%- if tile.tooltip is defined and tile.tooltip|string|length %} title="{{ tile.tooltip }}"{% endif %}{% endif %} >
+{%- endmacro -%}

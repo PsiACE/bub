@@ -1,0 +1,41 @@
+{% import 'macros/side-nav/section-index-page-title.j2' as index_helper with context %}
+
+{% macro get_base_class( nav_item ) -%}
+    {% set ns = namespace(class="terminal-mkdocs-side-nav-item", is_active_index=false) %}
+    {% if nav_item.active %}
+        {%- set ns.class = ns.class ~ "--active" -%}
+    {% endif %}
+
+    {% if "navigation.side.indexes" in features and nav_item.title == index_helper.get_section_index_page_title() %}
+        {# if nav_item is a index page, check to see if any of its' siblings are active) #}
+        {% for index_sibling in nav_item.parent.children %}
+            {% if index_sibling.active %}
+                {% set ns.is_active_index = true %}
+            {% endif %}
+        {% endfor %}
+        {% if ns.is_active_index %}
+            {%- set ns.class = ns.class ~ "--active" -%}
+        {% endif %}
+    {% endif %}
+    
+    {{ ns.class|trim }}
+{%- endmacro -%}
+
+
+{# 'terminal-mkdocs-side-nav-section-no-index' css class used to indicate a non-clickable folder #}
+{% macro get_class( nav_item ) -%}
+    {% set ns = namespace(class="") %}
+    {%- set ns.class = get_base_class( nav_item ) -%}
+
+    {% if nav_item.children %}
+        {% if "navigation.side.indexes" not in features %}
+            {%- set ns.class = ns.class ~ " terminal-mkdocs-side-nav-section-no-index" -%}
+        {% else %}
+            {% if nav_item.children|selectattr("title", "eq", index_helper.get_section_index_page_title() )|list|length == 0 %}
+                {%- set ns.class = ns.class ~ " terminal-mkdocs-side-nav-section-no-index" -%}           
+            {% endif %}
+        {% endif %}
+    {% endif %}
+
+    {{ ns.class|trim }}
+{%- endmacro -%}

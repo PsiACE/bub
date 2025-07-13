@@ -1,0 +1,9 @@
+{% macro make_search_button( idx_in_menu ) %}
+{% set search_button_ns = namespace(text="Search") %}
+<li property="itemListElement" typeof="ListItem">
+    <a href="#" class="menu-item" data-toggle="modal" data-target="#mkdocs_search_modal" property="item" typeof="SearchAction">
+        <i aria-hidden="true" class="fa fa-search"></i> <span property="name">{{ search_button_ns.text }}</span>
+    </a>
+    <meta property="position" content="{{ idx_in_menu }}">
+</li>
+{%- endmacro -%}

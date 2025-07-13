@@ -1,0 +1,26 @@
+/*! Terminal for MkDocs | MIT License | github.com/ntno/mkdocs-terminal */
+
+.terminal-mkdocs-tile-grid {
+    display: grid;
+    grid-gap: 1em;
+    grid-template-rows: auto;
+    grid-template-columns: repeat(auto-fit, minmax(calc(var(--page-width) / 6), 1fr));
+}
+
+
+/* center link text within the tile */
+
+.terminal-mkdocs-tile {
+    border: none;
+    text-align: center;
+}
+
+
+/* center images within the tile */
+
+.terminal-mkdocs-tile div>figure>img,
+.terminal-mkdocs-tile div>figure>a>img {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
