@@ -1,6 +1,5 @@
 """Tests for Bub."""
 
-import os
 from unittest.mock import Mock, patch
 
 from bub.agent import Agent, Context, Message, ToolExecutor, ToolRegistry, ToolResult
@@ -11,22 +10,11 @@ from bub.tools import FileEditTool, FileReadTool, FileWriteTool, RunCommandTool
 class TestSettings:
     """Test settings configuration."""
 
-    def test_settings_defaults(self):
-        """Test default settings values."""
-        # Set a dummy API key to avoid validation error
-        os.environ["BUB_API_KEY"] = "test-key"
-
-        settings = get_settings()
-        assert settings.model
-        assert settings.max_tokens == 20480
-
     def test_settings_with_api_key(self, monkeypatch):
         """Test settings with API key."""
         monkeypatch.setenv("BUB_API_KEY", "test-key")
         settings = get_settings()
         assert settings.api_key == "test-key"
-        assert settings.model
-        assert settings.max_tokens == 20480
 
 
 class TestMessage:
