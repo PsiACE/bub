@@ -1,7 +1,7 @@
 [project]
 name = "bub"
 version = "0.0.0"
-description = "[Placeholder] Bub it up! Your partner in every step of the build."
+description = "Bub it. Build it."
 authors = [{ name = "Chojan Shang", email = "psiace@apache.org" }]
 readme = "README.md"
 keywords = ['python']
@@ -17,19 +17,28 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
+dependencies = [
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "typer>=0.9.0",
+    "litellm>=1.0.0",
+    "rich>=13.0.0",
+]
+
 [project.urls]
 Homepage = "https://bub.build"
 Repository = "https://github.com/psiace/bub"
 Documentation = "https://bub.build"
+
+[project.scripts]
+bub = "bub.cli:app"
 
 [dependency-groups]
 dev = [
     "pytest>=7.2.0",
     "pre-commit>=2.20.0",
     "tox-uv>=1.11.3",
-
     "mypy>=0.991",
-
     "ruff>=0.11.5",
     "mkdocs>=1.4.2",
     "mkdocs-terminal>=4.7.0",
