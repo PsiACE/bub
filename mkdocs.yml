@@ -1,7 +1,7 @@
 site_name: bub
 repo_url: https://github.com/psiace/bub
 site_url: https://bub.build
-site_description: Bub it up! Your partner in every step of the build.
+site_description: Bub it. Build it.
 site_author: Chojan Shang
 edit_uri: edit/main/docs/
 repo_name: psiace/bub
@@ -9,7 +9,8 @@ copyright: Maintained by <a href="https://psiace.me">Chojan Shang</a>.
 
 nav:
   - Home: index.md
-  - Modules: modules.md
+  - Posts:
+      - Baby Bub - Bootstrap Milestone: posts/2025-07-16-baby-bub-bootstrap-milestone.md
 
 plugins:
   - search
