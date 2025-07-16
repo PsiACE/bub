@@ -1,7 +1,7 @@
 """CLI main module for Bub."""
 
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import typer
 
@@ -18,7 +18,7 @@ app = typer.Typer(
 
 
 @app.callback(invoke_without_command=True)
-def main_callback(ctx: typer.Context):
+def main_callback(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is None:
         # Default to chat mode
         chat()
@@ -39,14 +39,14 @@ def _validate_workspace(workspace_path: Path) -> None:
         _exit_with_error(f"Workspace directory does not exist: {workspace_path}")
 
 
-def _validate_api_key(settings) -> None:
+def _validate_api_key(settings: Any) -> None:
     """Validate API key is present."""
     if not settings.api_key:
         renderer.api_key_error()
         raise typer.Exit(1)
 
 
-def _create_agent(settings, workspace_path: Path, model: Optional[str], max_tokens: Optional[int]) -> Agent:
+def _create_agent(settings: Any, workspace_path: Path, model: Optional[str], max_tokens: Optional[int]) -> Agent:
     """Create and return an Agent instance."""
     return Agent(
         api_key=settings.api_key,
@@ -58,7 +58,7 @@ def _create_agent(settings, workspace_path: Path, model: Optional[str], max_toke
     )
 
 
-def _handle_special_commands(user_input: str, agent) -> bool:
+def _handle_special_commands(user_input: str, agent: Agent) -> Optional[bool]:
     cmd = user_input.lower()
     if cmd in ["quit", "exit", "q"]:
         renderer.info("Goodbye!")
@@ -86,7 +86,7 @@ def _handle_chat_loop(agent: Agent) -> None:
             if special is False:
                 continue
 
-            def on_step(kind, content):
+            def on_step(kind: str, content: str) -> None:
                 if kind == "assistant":
                     renderer.assistant_message(content)
                 elif kind == "observation":
@@ -122,7 +122,7 @@ def chat(
         renderer.welcome()
         renderer.usage_info(
             workspace_path=str(workspace_path),
-            model=agent.model,
+            model=agent.model or "",  # ensure str
             tools=agent.tool_registry.list_tools(),
         )
         renderer.info("Type 'quit', 'exit', or 'q' to end the session.")
@@ -156,7 +156,7 @@ def run(
 
         renderer.info(f"Executing: {command}")
 
-        def on_step(kind, content):
+        def on_step(kind: str, content: str) -> None:
             if kind == "assistant":
                 renderer.assistant_message(content)
             elif kind == "observation":

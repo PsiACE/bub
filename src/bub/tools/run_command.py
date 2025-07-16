@@ -2,7 +2,7 @@
 
 import shlex
 import subprocess
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Optional
 
 from pydantic import Field
 
@@ -29,7 +29,7 @@ class RunCommandTool(Tool):
     )
 
     command: str = Field(..., description="The shell command to execute, e.g., 'ls', 'cat file.txt'.")
-    cwd: str = Field(
+    cwd: Optional[str] = Field(
         default=None, description="Optional. The working directory to run the command in. Defaults to workspace root."
     )
 
@@ -67,7 +67,7 @@ class RunCommandTool(Tool):
             "description": "Execute a terminal command in the workspace",
         }
 
-    def _validate_command(self) -> str | None:
+    def _validate_command(self) -> Optional[str]:
         """Validate command for security."""
         # Check for dangerous commands
         cmd_parts = shlex.split(self.command.lower())

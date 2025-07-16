@@ -1,7 +1,7 @@
 """Core agent implementation for Bub."""
 
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import litellm
 
@@ -63,10 +63,10 @@ class Agent:
         self.conversation_history: list[Message] = []
 
         # Initialize context and tool registry
-        self.context = Context(workspace_path=workspace_path)
-        self.tool_registry = ToolRegistry()
+        self.context: Context = Context(workspace_path=workspace_path)
+        self.tool_registry: ToolRegistry = ToolRegistry()
         self.tool_registry.register_default_tools()
-        self.context.tool_registry = self.tool_registry
+        self.context.tool_registry = self.tool_registry  # type: ignore[assignment]
 
         self.tool_executor = ToolExecutor(self.context)
 
@@ -81,7 +81,7 @@ class Agent:
         """Reset the conversation history."""
         self.conversation_history = []
 
-    def chat(self, message: str, on_step=None) -> str:
+    def chat(self, message: str, on_step: Optional[Callable[[str, str], None]] = None) -> str:
         """Chat with the agent. If on_step is provided, call it with each intermediate message/observation."""
         self.conversation_history.append(Message(role="user", content=message))
 
@@ -107,8 +107,7 @@ class Agent:
                     api_key=self.api_key,
                     base_url=self.api_base,
                 )
-
-                assistant_message = response.choices[0].message.content
+                assistant_message = str(response.choices[0].message.content)
                 self.conversation_history.append(Message(role="assistant", content=assistant_message))
                 if on_step:
                     on_step("assistant", assistant_message)

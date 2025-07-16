@@ -88,7 +88,7 @@ class FileEditTool(Tool):
         except Exception as e:
             return ToolResult(success=False, data=None, error=f"Error editing file: {e!s}")
 
-    def _replace_lines(self, lines, file_path):
+    def _replace_lines(self, lines: list[str], file_path: Any) -> ToolResult:
         from .utils import sanitize_path
 
         if self.start_line is None or self.end_line is None or self.content is None:
@@ -103,7 +103,7 @@ class FileEditTool(Tool):
         safe_path = sanitize_path(file_path)
         return ToolResult(success=True, data=f"File edited successfully: {safe_path}", error=None)
 
-    def _replace_text(self, lines, file_path):
+    def _replace_text(self, lines: list[str], file_path: Any) -> ToolResult:
         from .utils import sanitize_path
 
         if self.match_text is None or self.replace_text is None:
@@ -117,7 +117,7 @@ class FileEditTool(Tool):
         safe_path = sanitize_path(file_path)
         return ToolResult(success=True, data=f"File edited successfully: {safe_path}", error=None)
 
-    def _insert_after(self, lines, file_path):
+    def _insert_after(self, lines: list[str], file_path: Any) -> ToolResult:
         from .utils import sanitize_path
 
         if self.line_number is None or self.content is None:
@@ -130,7 +130,7 @@ class FileEditTool(Tool):
         safe_path = sanitize_path(file_path)
         return ToolResult(success=True, data=f"File edited successfully: {safe_path}", error=None)
 
-    def _insert_before(self, lines, file_path):
+    def _insert_before(self, lines: list[str], file_path: Any) -> ToolResult:
         from .utils import sanitize_path
 
         if self.line_number is None or self.content is None:
@@ -143,7 +143,7 @@ class FileEditTool(Tool):
         safe_path = sanitize_path(file_path)
         return ToolResult(success=True, data=f"File edited successfully: {safe_path}", error=None)
 
-    def _delete_lines(self, lines, file_path):
+    def _delete_lines(self, lines: list[str], file_path: Any) -> ToolResult:
         from .utils import sanitize_path
 
         if self.start_line is None or self.end_line is None:
@@ -155,7 +155,7 @@ class FileEditTool(Tool):
         safe_path = sanitize_path(file_path)
         return ToolResult(success=True, data=f"File edited successfully: {safe_path}", error=None)
 
-    def _append(self, lines, file_path):
+    def _append(self, lines: list[str], file_path: Any) -> ToolResult:
         from .utils import sanitize_path
 
         if self.content is None:
@@ -165,7 +165,7 @@ class FileEditTool(Tool):
         safe_path = sanitize_path(file_path)
         return ToolResult(success=True, data=f"File edited successfully: {safe_path}", error=None)
 
-    def _prepend(self, lines, file_path):
+    def _prepend(self, lines: list[str], file_path: Any) -> ToolResult:
         from .utils import sanitize_path
 
         if self.content is None:

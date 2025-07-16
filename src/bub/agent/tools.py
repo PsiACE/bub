@@ -83,12 +83,14 @@ class Tool(ABC, BaseModel):
 class ToolExecutor:
     """Executes tools based on agent requests."""
 
-    def __init__(self, context):
+    def __init__(self, context: Context) -> None:
         self.context = context
-        self.tool_registry = context.tool_registry
+        self.tool_registry: Optional[Any] = getattr(context, "tool_registry", None)
 
-    def execute_tool(self, tool_name: str, **kwargs) -> ToolResult:
+    def execute_tool(self, tool_name: str, **kwargs: Any) -> ToolResult:
         """Execute a tool with given parameters."""
+        if self.tool_registry is None:
+            return ToolResult(success=False, data=None, error="Tool registry is not initialized.")
         tool_class = self.tool_registry.get_tool(tool_name)
         if not tool_class:
             return ToolResult(success=False, data=None, error=f"Tool not found: {tool_name}")
@@ -98,15 +100,17 @@ class ToolExecutor:
             tool_instance = tool_class(**kwargs)
 
             # Execute the tool with context
-            return tool_instance.execute(self.context)
+            result: ToolResult = tool_instance.execute(self.context)
         except ValidationError as ve:
             return ToolResult(success=False, data=None, error=f"Parameter validation failed: {ve.errors()}")
         except Exception as e:
             return ToolResult(success=False, data=None, error=f"Tool execution failed: {e!s}")
+        else:
+            return result
 
     def extract_tool_calls(self, response: str) -> list[dict[str, Any]]:
         """Extract tool calls from the response (ReAct/Action Input pattern)."""
-        tool_calls = []
+        tool_calls: list[dict[str, Any]] = []
         # Support both code block and ReAct Action/Action Input pattern
         # 1. Code block (legacy)
         tool_pattern = r"```tool\s*\n(.*?)\n```"
@@ -130,7 +134,7 @@ class ToolExecutor:
 
     def execute_tool_calls(self, tool_calls: list[dict[str, Any]]) -> str:
         """Execute tool calls and return results in Observation format."""
-        results = []
+        results: list[str] = []
         for tool_call in tool_calls:
             tool_name = tool_call.get("tool")
             parameters = tool_call.get("parameters", {})
@@ -145,7 +149,7 @@ class ToolExecutor:
 class ToolRegistry:
     """Registry for available tools."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.tools: dict[str, type[Tool]] = {}
 
     def register_tool(self, tool_class: type[Tool]) -> None:
