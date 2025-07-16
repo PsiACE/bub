@@ -10,9 +10,9 @@ from rich.prompt import Prompt
 class Renderer:
     """CLI renderer using Rich for beautiful terminal output."""
 
-    def __init__(self):
-        self.console = Console()
-        self._show_debug = False
+    def __init__(self) -> None:
+        self.console: Console = Console()
+        self._show_debug: bool = False
 
     def toggle_debug(self) -> None:
         """Toggle debug mode to show/hide TAAO process."""
