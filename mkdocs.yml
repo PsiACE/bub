@@ -9,6 +9,8 @@ copyright: Maintained by <a href="https://psiace.me">Chojan Shang</a>.
 
 nav:
   - Home: index.md
+  - Posts:
+      - Baby Bub - Bootstrap Milestone: posts/2025-07-16-baby-bub-bootstrap-milestone.md
 
 plugins:
   - search
