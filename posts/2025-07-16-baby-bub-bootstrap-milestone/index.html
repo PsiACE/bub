@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="generator" content="mkdocs-1.6.1, mkdocs-terminal-4.7.0">
+    
+    <meta name="description" content="Bub it. Build it."> 
+    
+    <meta name="author" content="Chojan Shang"> 
+    
+    <link rel="canonical" href="https://bub.build/posts/2025-07-16-baby-bub-bootstrap-milestone/"><link rel="icon" type="image/png" sizes="192x192" href="../../img/android-chrome-192x192.png" />
+<link rel="icon" type="image/png" sizes="512x512" href="../../img/android-chrome-512x512.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="../../img/apple-touch-icon.png" />
+<link rel="shortcut icon" type="image/png" sizes="48x48" href="../../img/favicon.ico" />
+<link rel="icon" type="image/png" sizes="16x16" href="../../img/favicon-16x16.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="../../img/favicon-32x32.png" />
+
+
+    
+ 
+<title>Baby Bub - Bootstrap Milestone - bub</title>
+
+
+<link href="../../css/fontawesome/css/fontawesome.min.css" rel="stylesheet">
+<link href="../../css/fontawesome/css/solid.min.css" rel="stylesheet">
+<link href="../../css/normalize.css" rel="stylesheet">
+<link href="../../css/terminal.css" rel="stylesheet">
+<link href="../../css/theme.css" rel="stylesheet">
+<link href="../../css/theme.tile_grid.css" rel="stylesheet">
+<link href="../../css/theme.footer.css" rel="stylesheet">
+<!-- dark color palette -->
+<link href="../../css/palettes/dark.css" rel="stylesheet">
+
+<!-- page layout -->
+<style>
+/* initially set page layout to a one column grid */
+.terminal-mkdocs-main-grid {
+    display: grid;
+    grid-column-gap: 1.4em;
+    grid-template-columns: auto;
+    grid-template-rows: auto;
+}
+
+/*  
+*   when side navigation is not hidden, use a two column grid.  
+*   if the screen is too narrow, fall back to the initial one column grid layout.
+*   in this case the main content will be placed under the navigation panel. 
+*/
+@media only screen and (min-width: 70em) {
+    .terminal-mkdocs-main-grid {
+        grid-template-columns: 4fr 9fr;
+    }
+}</style>
+
+
+
+    
+    <link href="../../assets/_mkdocstrings.css" rel="stylesheet">  
+    
+    
+
+    
+    <!-- search css support -->
+<link href="../../css/search/bootstrap-modal.css" rel="stylesheet">
+<!-- search scripts -->
+<script>
+    var base_url = "../..",
+    shortcuts = "{}";
+</script>
+<script src="../../js/jquery/jquery-1.10.1.min.js" defer></script>
+<script src="../../js/bootstrap/bootstrap.min.js" defer></script>
+<script src="../../js/mkdocs/base.js" defer></script>
+    
+    
+    
+    
+    <script src="../../search/main.js"></script>
+    
+
+    
+</head>
+
+<body class="terminal"><div class="container">
+    <div class="terminal-nav">
+        <header class="terminal-logo">
+            <div id="mkdocs-terminal-site-name" class="logo terminal-prompt"><a href="https://bub.build/" class="no-style">bub</a></div>
+        </header>
+        
+        <nav class="terminal-menu">
+            
+            <ul vocab="https://schema.org/" typeof="BreadcrumbList">
+                
+                
+                <li property="itemListElement" typeof="ListItem">
+                    <a href="../.." class="menu-item " property="item" typeof="WebPage">
+                        <span property="name">Home</span>
+                    </a>
+                    <meta property="position" content="0">
+                </li>
+                
+                
+                
+                    
+                    
+
+
+<li property="itemListElement" typeof="ListItem">
+    <a href="#" class="menu-item" data-toggle="modal" data-target="#mkdocs_search_modal" property="item" typeof="SearchAction">
+        <i aria-hidden="true" class="fa fa-search"></i> <span property="name">Search</span>
+    </a>
+    <meta property="position" content="1">
+</li>
+                    
+            </ul>
+            
+        </nav>
+    </div>
+</div>
+        
+    <div class="container">
+        <div class="terminal-mkdocs-main-grid"><aside id="terminal-mkdocs-side-panel"><nav>
+  
+    <ul class="terminal-mkdocs-side-nav-items">
+        
+          
+
+
+
+<li class="terminal-mkdocs-side-nav-li">
+    
+    
+    
+        
+        
+            <a class="
+
+    terminal-mkdocs-side-nav-item" href="../..">Home</a>
+        
+    
+    
+    
+  </li>
+        
+          
+
+
+
+<li class="terminal-mkdocs-side-nav-li">
+    
+    
+        
+        
+
+        
+            
+    
+        
+        <span class="
+        
+    
+
+    terminal-mkdocs-side-nav-item--active terminal-mkdocs-side-nav-section-no-index">Posts</span>
+    
+    
+        
+      
+        
+            <ul class="terminal-mkdocs-side-nav-li-ul">
+        
+            
+            
+
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        <span class="
+
+    terminal-mkdocs-side-nav-item--active">Baby Bub - Bootstrap Milestone</span>
+    
+    </li>
+            
+            
+    </ul>
+        
+    
+  </li>
+        
+    </ul>
+  
+</nav><hr>
+<nav>
+    <ul>
+        <li><a href="#baby-bub-from-inspiration-to-bootstrap-milestone">Baby Bub: From Inspiration to Bootstrap Milestone</a></li>
+        <li><a href="#genesis-inspiration-from-modern-agents">Genesis: Inspiration from Modern Agents</a></li><li><a href="#architecture-react-loop-tools-and-cli">Architecture: ReAct Loop, Tools, and CLI</a></li><li><a href="#milestone-the-first-mypy-fix-and-why-it-matters">Milestone: The First mypy Fix (and Why It Matters)</a></li><li><a href="#looking-forward-bub-as-a-bootstrap-agent">Looking Forward: Bub as a Bootstrap Agent</a></li>
+    </ul>
+</nav>
+</aside>
+            <main id="terminal-mkdocs-main-content">
+    
+    
+    
+    
+    
+
+<section id="mkdocs-terminal-content">
+    <h1 id="baby-bub-from-inspiration-to-bootstrap-milestone">Baby Bub: From Inspiration to Bootstrap Milestone<a class="headerlink" href="#baby-bub-from-inspiration-to-bootstrap-milestone" title="Permanent link">&para;</a></h1>
+<h2 id="genesis-inspiration-from-modern-agents">Genesis: Inspiration from Modern Agents<a class="headerlink" href="#genesis-inspiration-from-modern-agents" title="Permanent link">&para;</a></h2>
+<p>Bub is a CLI-first AI agent, built to "Bub it. Build it." The project draws direct inspiration from <a href="https://ampcode.com/how-to-build-an-agent">How to Build an Agent</a> and <a href="https://huggingface.co/blog/tiny-agents">Tiny Agents: Building LLM-Powered Agents from Scratch</a>. Both resources distill the essence of tool-using, loop-based, composable, and extensible agents.</p>
+<p><img alt="Baby Bub" src="../../assets/images/baby-bub.png" /></p>
+<p>But Bub is also a response to the new wave of self-improving, self-hosting agents: think Claude Code, SWE-agent, and the broader "self-bootstrapping" movement. The goal: an agent that can not only help you build, but can help build (and fix) itself.</p>
+<h2 id="architecture-react-loop-tools-and-cli">Architecture: ReAct Loop, Tools, and CLI<a class="headerlink" href="#architecture-react-loop-tools-and-cli" title="Permanent link">&para;</a></h2>
+<h3 id="the-react-loop">The ReAct Loop<a class="headerlink" href="#the-react-loop" title="Permanent link">&para;</a></h3>
+<p>At the heart of Bub is a classic ReAct loop, implemented in <a href="https://github.com/PsiACE/bub/blob/19c015/src/bub/agent/core.py"><code>src/bub/agent/core.py</code></a>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">Agent</span><span class="p">:</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="o">...</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">chat</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">on_step</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">conversation_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Message</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">message</span><span class="p">))</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>            <span class="o">...</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>            <span class="n">response</span> <span class="o">=</span> <span class="n">litellm</span><span class="o">.</span><span class="n">completion</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>            <span class="n">assistant_message</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">choices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">conversation_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Message</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="s2">&quot;assistant&quot;</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">assistant_message</span><span class="p">))</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>            <span class="o">...</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>            <span class="n">tool_calls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tool_executor</span><span class="o">.</span><span class="n">extract_tool_calls</span><span class="p">(</span><span class="n">assistant_message</span><span class="p">)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>            <span class="k">if</span> <span class="n">tool_calls</span><span class="p">:</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>                <span class="k">for</span> <span class="n">tool_call</span> <span class="ow">in</span> <span class="n">tool_calls</span><span class="p">:</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>                    <span class="o">...</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>                    <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tool_executor</span><span class="o">.</span><span class="n">execute_tool</span><span class="p">(</span><span class="n">tool_name</span><span class="p">,</span> <span class="o">**</span><span class="n">parameters</span><span class="p">)</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>                    <span class="n">observation</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Observation: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">format_result</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>                    <span class="bp">self</span><span class="o">.</span><span class="n">conversation_history</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Message</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="n">content</span><span class="o">=</span><span class="n">observation</span><span class="p">))</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>                    <span class="o">...</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>                <span class="k">continue</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>            <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>                <span class="k">return</span> <span class="n">assistant_message</span>
+</code></pre></div>
+<p>This loop enables the agent to:</p>
+<ul>
+<li>Parse LLM output for tool calls (ReAct pattern: Thought, Action, Action Input, Observation).</li>
+<li>Execute tools (file read/write/edit, shell commands) and feed results back into the conversation.</li>
+<li>Iterate until a "Final Answer" is produced.</li>
+</ul>
+<h3 id="tool-system-extensible-and-safe">Tool System: Extensible and Safe<a class="headerlink" href="#tool-system-extensible-and-safe" title="Permanent link">&para;</a></h3>
+<p>Tools are registered via a <code>ToolRegistry</code> (<a href="https://github.com/psiace/bub/blob/19c015/src/bub/agent/tools.py"><code>src/bub/agent/tools.py</code></a>), and each tool is a Pydantic model with validation and metadata. For example, the <code>RunCommandTool</code> blocks dangerous commands and validates input:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">RunCommandTool</span><span class="p">(</span><span class="n">Tool</span><span class="p">):</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="o">...</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">DANGEROUS_COMMANDS</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;rm&quot;</span><span class="p">,</span> <span class="s2">&quot;del&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">}</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_command</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>        <span class="o">...</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="k">if</span> <span class="n">base_cmd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">DANGEROUS_COMMANDS</span><span class="p">:</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Dangerous command blocked: </span><span class="si">{</span><span class="n">base_cmd</span><span class="si">}</span><span class="s2">&quot;</span>
+</code></pre></div>
+<p>This design makes it possible for the agent to safely self-modify, run tests, or even edit its own codebase—crucial for self-improvement.</p>
+<h3 id="cli-user-experience-and-debuggability">CLI: User Experience and Debuggability<a class="headerlink" href="#cli-user-experience-and-debuggability" title="Permanent link">&para;</a></h3>
+<p>The CLI (<a href="https://github.com/psiace/bub/blob/19c015/src/bub/cli/app.py"><code>src/bub/cli/app.py</code></a>) is built with Typer and Rich, providing a modern, user-friendly interface. The renderer (<a href="https://github.com/psiace/bub/blob/19c015/src/bub/cli/render.py"><code>src/bub/cli/render.py</code></a>) supports debug toggling, minimal/verbose TAAO (Thought/Action/Action Input/Observation) output, and clear error reporting.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">Renderer</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">console</span><span class="p">:</span> <span class="n">Console</span> <span class="o">=</span> <span class="n">Console</span><span class="p">()</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_show_debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="o">...</span>
+</code></pre></div>
+<h2 id="milestone-the-first-mypy-fix-and-why-it-matters">Milestone: The First mypy Fix (and Why It Matters)<a class="headerlink" href="#milestone-the-first-mypy-fix-and-why-it-matters" title="Permanent link">&para;</a></h2>
+<p>Bub aspires to self-improvement. The first tangible milestone? Fixing the very first mypy error: adding a missing return type annotation to <code>Renderer.__init__</code>, check out the <a href="https://github.com/PsiACE/bub/commit/87cdcc">commit</a>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="gd">-    def __init__(self):</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="gd">-        self.console = Console()</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="gd">-        self._show_debug = False</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="gi">+    def __init__(self) -&gt; None:</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="gi">+        self.console: Console = Console()</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="gi">+        self._show_debug: bool = False</span>
+</code></pre></div>
+<p>This change reduced the mypy error count from 24 to 23. Trivial? Maybe. But it's a proof of concept: the agent can reason about, locate, and fix type errors in its own codebase. This is the first step toward a self-hosting, self-healing agent loop—one that can eventually:</p>
+<ul>
+<li>Run static analysis on itself</li>
+<li>Propose and apply code fixes</li>
+<li>Test and validate improvements</li>
+</ul>
+<h2 id="looking-forward-bub-as-a-bootstrap-agent">Looking Forward: Bub as a Bootstrap Agent<a class="headerlink" href="#looking-forward-bub-as-a-bootstrap-agent" title="Permanent link">&para;</a></h2>
+<p>Bub is still early. But the architecture is in place for:</p>
+<ul>
+<li>LLM-driven code editing and refactoring</li>
+<li>Automated type and lint fixes</li>
+<li>CLI-driven, user-friendly agent workflows</li>
+</ul>
+<p>The journey from "fixing a mypy annotation" to "full agent self-improvement" is long, but every bootstrap starts with a single, type-safe step.</p>
+<hr />
+<ul>
+<li><a href="https://github.com/psiace/bub">Project on GitHub</a></li>
+<li>Inspired by <a href="https://ampcode.com/how-to-build-an-agent">ampcode.com/how-to-build-an-agent</a> and <a href="https://huggingface.co/blog/tiny-agents">huggingface.co/blog/tiny-agents</a></li>
+<li>See also: Claude Code, SWE-agent, and the broader self-bootstrapping movement</li>
+</ul>
+</section>
+
+<section id="mkdocs-terminal-after-content">
+    
+</section>
+
+            </main>
+        </div>
+        <hr><footer>
+    <div class="terminal-mkdocs-footer-grid">
+        <div id="terminal-mkdocs-footer-copyright-info">
+            
+            <p class="text-center text-muted">Maintained by <a href="https://psiace.me">Chojan Shang</a>.</p>
+             Site built with <a href="http://www.mkdocs.org">MkDocs</a> and <a href="https://github.com/ntno/mkdocs-terminal">Terminal for MkDocs</a>.
+        </div>
+    </div>
+</footer>
+    </div>
+
+    
+    <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="alertdialog" aria-modal="true" aria-labelledby="searchModalLabel">
+    <div class="modal-dialog modal-lg" role="search">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="searchModalLabel">Search</h5>
+                <button type="button" class="close btn btn-default btn-ghost" data-dismiss="modal"><span aria-hidden="true">x</span><span class="sr-only">Close</span></button>
+            </div>
+            <div class="modal-body">
+                <p id="searchInputLabel">Type to start searching</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" aria-labelledby="searchInputLabel" placeholder="" id="mkdocs-search-query" title="Please enter search terms here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No document matches found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+    
+    
+</body>
+
+</html>
