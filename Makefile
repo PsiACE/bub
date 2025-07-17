@@ -13,6 +13,11 @@ check: ## Run code quality tools.
 	@echo "🚀 Static type checking: Running mypy"
 	@uv run mypy
 
+.PHONY: vulture
+vulture: ## Run vulture to check for unused code.
+	@echo "🚀 Checking for unused code with vulture"
+	@uv run pre-commit run vulture --hook-stage manual --all-files
+
 .PHONY: test
 test: ## Test the code with pytest
 	@echo "🚀 Testing code: Running pytest"
