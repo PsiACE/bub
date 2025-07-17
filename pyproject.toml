@@ -52,6 +52,10 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/bub"]
 
+[tool.vulture]
+ignore_names = ["test_*", "Test*"]
+paths = ["src"]
+
 [tool.mypy]
 files = ["src"]
 disallow_untyped_defs = true

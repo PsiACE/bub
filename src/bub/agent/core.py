@@ -73,9 +73,14 @@ class Agent:
         # Store custom system prompt if provided
         self.custom_system_prompt = system_prompt
 
-        # Use ReAct principles as the main system prompt
         self.prompt_formatter = ReActPromptFormatter()
-        self.system_prompt = self.prompt_formatter.REACT_PRINCIPLES
+        # Use format_prompt to generate the full system prompt
+        if self.custom_system_prompt:
+            self.system_prompt = self.prompt_formatter.format_prompt(self.custom_system_prompt)
+        else:
+            # Use config default if not provided
+            config_prompt = self.context.get_system_prompt()
+            self.system_prompt = self.prompt_formatter.format_prompt(config_prompt)
 
     def reset_conversation(self) -> None:
         """Reset the conversation history."""
@@ -87,11 +92,6 @@ class Agent:
 
         while True:
             context_msg = self.context.build_context_message()
-
-            # Add system prompt to context if available
-            system_prompt = self.custom_system_prompt or self.context.get_system_prompt()
-            if system_prompt:
-                context_msg += f"\n\n[System Instructions]\n{system_prompt}"
 
             messages = [
                 {"role": "system", "content": self.system_prompt},

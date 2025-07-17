@@ -20,6 +20,7 @@ class RunCommandTool(Tool):
     Parameters:
         command: The shell command to execute (e.g., 'ls', 'cat file.txt').
         cwd: Optional. The working directory to run the command in. Defaults to workspace root.
+        timeout: Optional. The timeout in seconds for the command to run. Defaults to 30 seconds.
     """
 
     name: str = Field(default="run_command", description="The internal name of the tool")
@@ -31,6 +32,9 @@ class RunCommandTool(Tool):
     command: str = Field(..., description="The shell command to execute, e.g., 'ls', 'cat file.txt'.")
     cwd: Optional[str] = Field(
         default=None, description="Optional. The working directory to run the command in. Defaults to workspace root."
+    )
+    timeout: int = Field(
+        default=30, description="The timeout in seconds for the command to run. Defaults to 30 seconds."
     )
 
     # List of dangerous commands that should be blocked
@@ -104,7 +108,7 @@ class RunCommandTool(Tool):
                 cwd=working_dir,
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=self.timeout,
             )
             return ToolResult(
                 success=(result.returncode == 0),
