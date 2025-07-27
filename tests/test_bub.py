@@ -2,7 +2,7 @@
 
 from unittest.mock import Mock, patch
 
-from bub.agent import Agent, Context, Message, ToolExecutor, ToolRegistry, ToolResult
+from bub.agent import Agent, Context, ToolExecutor, ToolRegistry, ToolResult
 from bub.config import get_settings
 from bub.tools import FileEditTool, FileReadTool, FileWriteTool, RunCommandTool
 
@@ -15,16 +15,6 @@ class TestSettings:
         monkeypatch.setenv("BUB_API_KEY", "test-key")
         settings = get_settings()
         assert settings.api_key == "test-key"
-
-
-class TestMessage:
-    """Test Message model."""
-
-    def test_message_creation(self):
-        """Test creating a message."""
-        message = Message(role="user", content="Hello")
-        assert message.role == "user"
-        assert message.content == "Hello"
 
 
 class TestToolResult:
@@ -233,19 +223,19 @@ class TestAgent:
 
     def test_agent_creation(self, tmp_path):
         """Test creating an agent."""
-        agent = Agent(api_key="test-key", model="test-model", workspace_path=tmp_path)
+        agent = Agent(provider="openai", model_name="test-model", api_key="test-key", workspace_path=tmp_path)
         assert agent.api_key == "test-key"
-        assert agent.model == "test-model"
+        assert agent.model == "openai/test-model"
 
     def test_agent_reset_conversation(self, tmp_path):
         """Test resetting conversation."""
-        agent = Agent(api_key="test-key", workspace_path=tmp_path)
-        agent.conversation_history.append(Message(role="user", content="test"))
+        agent = Agent(provider="openai", model_name="gpt-3.5-turbo", api_key="test-key", workspace_path=tmp_path)
+        agent.conversation_history.append({"role": "user", "content": "test"})
 
         agent.reset_conversation()
         assert len(agent.conversation_history) == 0
 
-    @patch("litellm.completion")
+    @patch("bub.agent.core.completion")
     def test_agent_chat_no_tools(self, mock_completion, tmp_path):
         """Test agent chat without tool calls."""
         # Mock the completion response
@@ -254,13 +244,13 @@ class TestAgent:
         mock_response.choices[0].message.content = "Hello, I'm Bub!"
         mock_completion.return_value = mock_response
 
-        agent = Agent(api_key="test-key", workspace_path=tmp_path)
+        agent = Agent(provider="openai", model_name="gpt-3.5-turbo", api_key="test-key", workspace_path=tmp_path)
         response = agent.chat("Hello")
 
         assert response == "Hello, I'm Bub!"
         assert len(agent.conversation_history) == 2  # user + assistant
 
-    @patch("litellm.completion")
+    @patch("bub.agent.core.completion")
     def test_agent_chat_with_tools(self, mock_completion, tmp_path):
         """Test agent chat with tool calls."""
         # Mock responses: first with tool call, then final response
@@ -278,7 +268,7 @@ class TestAgent:
 
         mock_completion.side_effect = [mock_response1, mock_response2]
 
-        agent = Agent(api_key="test-key", workspace_path=tmp_path)
+        agent = Agent(provider="openai", model_name="gpt-3.5-turbo", api_key="test-key", workspace_path=tmp_path)
         response = agent.chat("Create a test file")
 
         assert "File created successfully!" in response
@@ -286,7 +276,7 @@ class TestAgent:
 
     def test_agent_extract_tool_calls(self, tmp_path):
         """Test extracting tool calls from response."""
-        agent = Agent(api_key="test-key", workspace_path=tmp_path)
+        agent = Agent(provider="openai", model_name="gpt-3.5-turbo", api_key="test-key", workspace_path=tmp_path)
         response = 'Here\'s the result: ```tool\n{"tool": "read_file", "parameters": {"path": "test.txt"}}\n```'
 
         tool_calls = agent.tool_executor.extract_tool_calls(response)
@@ -296,7 +286,7 @@ class TestAgent:
 
     def test_agent_extract_tool_calls_invalid_json(self, tmp_path):
         """Test extracting tool calls with invalid JSON."""
-        agent = Agent(api_key="test-key", workspace_path=tmp_path)
+        agent = Agent(provider="openai", model_name="gpt-3.5-turbo", api_key="test-key", workspace_path=tmp_path)
         response = "Here's the result: ```tool\ninvalid json\n```"
 
         tool_calls = agent.tool_executor.extract_tool_calls(response)
@@ -304,7 +294,7 @@ class TestAgent:
 
     def test_agent_execute_tool_calls(self, tmp_path):
         """Test executing tool calls."""
-        agent = Agent(api_key="test-key", workspace_path=tmp_path)
+        agent = Agent(provider="openai", model_name="gpt-3.5-turbo", api_key="test-key", workspace_path=tmp_path)
         tool_calls = [{"tool": "write_file", "parameters": {"path": "test.txt", "content": "test"}}]
 
         result = agent.tool_executor.execute_tool_calls(tool_calls)

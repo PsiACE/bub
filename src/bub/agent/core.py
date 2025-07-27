@@ -3,9 +3,10 @@
 from pathlib import Path
 from typing import Callable, Optional
 
-import litellm
+from any_llm import completion  # type: ignore[import-untyped]
+from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 
-from .context import Context, Message
+from .context import Context
 from .tools import ToolExecutor, ToolRegistry
 
 
@@ -49,18 +50,20 @@ class Agent:
 
     def __init__(
         self,
+        provider: str,
+        model_name: str,
         api_key: str,
         api_base: Optional[str] = None,
-        model: Optional[str] = None,
         max_tokens: Optional[int] = None,
         workspace_path: Optional[Path] = None,
         system_prompt: Optional[str] = None,
     ):
+        self.provider = provider
+        self.model_name = model_name
         self.api_key = api_key
         self.api_base = api_base
-        self.model = model
         self.max_tokens = max_tokens
-        self.conversation_history: list[Message] = []
+        self.conversation_history: list[ChatCompletionMessageParam] = []
 
         # Initialize context and tool registry
         self.context: Context = Context(workspace_path=workspace_path)
@@ -82,33 +85,38 @@ class Agent:
             config_prompt = self.context.get_system_prompt()
             self.system_prompt = self.prompt_formatter.format_prompt(config_prompt)
 
+    @property
+    def model(self) -> str:
+        """Get the full model string in provider/model format."""
+        return f"{self.provider}/{self.model_name}"
+
     def reset_conversation(self) -> None:
         """Reset the conversation history."""
         self.conversation_history = []
 
     def chat(self, message: str, on_step: Optional[Callable[[str, str], None]] = None) -> str:
         """Chat with the agent. If on_step is provided, call it with each intermediate message/observation."""
-        self.conversation_history.append(Message(role="user", content=message))
+        self.conversation_history.append({"role": "user", "content": message})
 
         while True:
             context_msg = self.context.build_context_message()
 
-            messages = [
+            messages: list[ChatCompletionMessageParam] = [
                 {"role": "system", "content": self.system_prompt},
                 {"role": "system", "content": context_msg},
             ]
-            messages.extend([{"role": msg.role, "content": msg.content} for msg in self.conversation_history])
+            messages.extend(self.conversation_history)
 
             try:
-                response = litellm.completion(
+                response: ChatCompletion = completion(
                     model=self.model,
                     messages=messages,
                     max_tokens=self.max_tokens,
                     api_key=self.api_key,
-                    base_url=self.api_base,
+                    api_base=self.api_base,
                 )
                 assistant_message = str(response.choices[0].message.content)
-                self.conversation_history.append(Message(role="assistant", content=assistant_message))
+                self.conversation_history.append({"role": "assistant", "content": assistant_message})
                 if on_step:
                     on_step("assistant", assistant_message)
 
@@ -122,7 +130,7 @@ class Agent:
                             continue
                         result = self.tool_executor.execute_tool(tool_name, **parameters)
                         observation = f"Observation: {result.format_result()}"
-                        self.conversation_history.append(Message(role="user", content=observation))
+                        self.conversation_history.append({"role": "user", "content": observation})
                         if on_step:
                             on_step("observation", observation)
                     continue
@@ -131,7 +139,7 @@ class Agent:
 
             except Exception as e:
                 error_message = f"Error communicating with AI: {e!s}"
-                self.conversation_history.append(Message(role="assistant", content=error_message))
+                self.conversation_history.append({"role": "assistant", "content": error_message})
                 if on_step:
                     on_step("error", error_message)
                 return error_message

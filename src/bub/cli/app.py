@@ -1,12 +1,12 @@
 """CLI main module for Bub."""
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 import typer
 
 from ..agent import Agent
-from ..config import get_settings
+from ..config import Settings, get_settings
 from .render import create_cli_renderer
 
 app = typer.Typer(
@@ -39,19 +39,41 @@ def _validate_workspace(workspace_path: Path) -> None:
         _exit_with_error(f"Workspace directory does not exist: {workspace_path}")
 
 
-def _validate_api_key(settings: Any) -> None:
+def _validate_api_key(settings: Settings) -> None:
     """Validate API key is present."""
     if not settings.api_key:
         renderer.api_key_error()
         raise typer.Exit(1)
 
 
-def _create_agent(settings: Any, workspace_path: Path, model: Optional[str], max_tokens: Optional[int]) -> Agent:
+def _validate_model_config(settings: Settings) -> None:
+    """Validate provider and model configuration."""
+    if not settings.provider:
+        _exit_with_error("Provider not configured. Set BUB_PROVIDER (e.g., 'openai', 'anthropic', 'ollama')")
+    if not settings.model_name:
+        _exit_with_error("Model name not configured. Set BUB_MODEL_NAME (e.g., 'gpt-4', 'claude-3', 'llama2')")
+
+
+def _create_agent(
+    settings: Settings, workspace_path: Path, model_override: Optional[str], max_tokens: Optional[int]
+) -> Agent:
     """Create and return an Agent instance."""
+    # Parse model override if provided (format: provider/model or just model)
+    if model_override:
+        if "/" in model_override:
+            provider, model_name = model_override.split("/", 1)
+        else:
+            provider = settings.provider or "openai"
+            model_name = model_override
+    else:
+        provider = settings.provider or "openai"
+        model_name = settings.model_name or "gpt-3.5-turbo"
+
     return Agent(
-        api_key=settings.api_key,
+        provider=provider,
+        model_name=model_name,
+        api_key=settings.api_key or "",
         api_base=settings.api_base,
-        model=model or settings.model,
         max_tokens=max_tokens or settings.max_tokens,
         workspace_path=workspace_path,
         system_prompt=settings.system_prompt,
@@ -113,6 +135,7 @@ def chat(
     try:
         settings = get_settings()
         _validate_api_key(settings)
+        _validate_model_config(settings)
 
         workspace_path = workspace or Path.cwd()
         _validate_workspace(workspace_path)
@@ -148,6 +171,7 @@ def run(
     try:
         settings = get_settings()
         _validate_api_key(settings)
+        _validate_model_config(settings)
 
         workspace_path = workspace or Path.cwd()
         _validate_workspace(workspace_path)
