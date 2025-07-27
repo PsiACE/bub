@@ -1,18 +1,9 @@
-"""Context and message types for the agent package."""
+"""Context for the agent package."""
 
 from pathlib import Path
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
-
 from ..config import get_settings
-
-
-class Message(BaseModel):
-    """A message in the conversation."""
-
-    role: str = Field(..., description="Message role (user/assistant)")
-    content: str = Field(..., description="Message content")
 
 
 class Context:

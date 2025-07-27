@@ -17,8 +17,9 @@ class Settings(BaseSettings):
         extra="ignore",  # Ignore extra fields from old config
     )
 
-    # LiteLLM settings
-    model: Optional[str] = Field(default=None, description="Model to use (supports various providers)")
+    # Any-LLM settings
+    provider: Optional[str] = Field(default=None, description="LLM provider (e.g., openai, anthropic, ollama)")
+    model_name: Optional[str] = Field(default=None, description="Model name from the provider")
     api_key: Optional[str] = Field(default=None, description="API key for the model provider")
     api_base: Optional[str] = Field(default=None, description="Custom API base URL")
     max_tokens: Optional[int] = Field(default=None, description="Maximum tokens for AI responses")
