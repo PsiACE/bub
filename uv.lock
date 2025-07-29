@@ -207,7 +207,7 @@ wheels = [
 
 [[package]]
 name = "bub"
-version = "0.1.0a1"
+version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "any-llm-sdk", extra = ["anthropic", "aws", "azure", "google"] },

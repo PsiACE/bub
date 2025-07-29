@@ -1,6 +1,6 @@
 """Bub - Bub it. Build it."""
 
-__version__ = "0.1.0-alpha.1"
+__version__ = "0.1.0"
 
 from .agent import Agent, ToolRegistry
 
