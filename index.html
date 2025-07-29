@@ -198,35 +198,185 @@
 </nav><hr>
 <nav>
     <ul>
-        <li><a href="#bub-bub-it-build-it">bub - Bub it. Build it.</a></li>
-        <li><a href="#quick-start">Quick Start</a></li>
+        <li><a href="#bub-bub-it-build-it">Bub - Bub it. Build it.</a></li>
+        <li><a href="#quick-start">Quick Start</a></li><li><a href="#examples">Examples</a></li><li><a href="#configuration">Configuration</a></li><li><a href="#commands">Commands</a></li><li><a href="#links">Links</a></li>
     </ul>
 </nav>
 </aside>
             <main id="terminal-mkdocs-main-content">
 <section id="mkdocs-terminal-content">
-    <h1 id="bub-bub-it-build-it">bub - Bub it. Build it.<a class="headerlink" href="#bub-bub-it-build-it" title="Permanent link">&para;</a></h1>
-<p><a href="https://img.shields.io/github/v/release/psiace/bub"><img alt="Release" src="https://img.shields.io/github/v/release/psiace/bub" /></a>
+    <h1 id="bub-bub-it-build-it">Bub - Bub it. Build it.<a class="headerlink" href="#bub-bub-it-build-it" title="Permanent link">&para;</a></h1>
+<p><a href="https://github.com/psiace/bub/releases"><img alt="Release" src="https://img.shields.io/github/v/release/psiace/bub" /></a>
 <a href="https://github.com/psiace/bub/actions/workflows/main.yml?query=branch%3Amain"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/psiace/bub/main.yml?branch=main" /></a>
-<a href="https://img.shields.io/github/commit-activity/m/psiace/bub"><img alt="Commit activity" src="https://img.shields.io/github/commit-activity/m/psiace/bub" /></a>
-<a href="https://img.shields.io/github/license/psiace/bub"><img alt="License" src="https://img.shields.io/github/license/psiace/bub" /></a></p>
-<p>Bub is a CLI tool that helps you build things, with AI.</p>
+<a href="https://github.com/psiace/bub/graphs/commit-activity"><img alt="Commit activity" src="https://img.shields.io/github/commit-activity/m/psiace/bub" /></a>
+<a href="https://github.com/psiace/bub/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/psiace/bub" /></a></p>
+<p>Bub is an AI-powered CLI tool that helps you build, develop, and manage projects using natural language commands. With access to file operations, command execution, and intelligent reasoning, Bub acts as your coding assistant.</p>
 <h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Set up your API key</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BUB_API_KEY</span><span class="o">=</span><span class="s2">&quot;your-api-key-here&quot;</span>
+<h3 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Install from PyPI (when available)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>pip<span class="w"> </span>install<span class="w"> </span>bub
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Start interactive chat</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>bub<span class="w"> </span>chat
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Run a single command</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>bub<span class="w"> </span>run<span class="w"> </span><span class="s2">&quot;Create a hello world script&quot;</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># Get help</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>bub<span class="w"> </span>--help
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Or install from source</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/psiace/bub.git
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nb">cd</span><span class="w"> </span>bub
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>uv<span class="w"> </span>sync
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>uv<span class="w"> </span>run<span class="w"> </span>bub<span class="w"> </span>--help
 </code></pre></div>
+<h3 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h3>
+<p>Configure your AI provider and model:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># For OpenAI</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BUB_PROVIDER</span><span class="o">=</span><span class="s2">&quot;openai&quot;</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BUB_MODEL_NAME</span><span class="o">=</span><span class="s2">&quot;gpt-4&quot;</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BUB_API_KEY</span><span class="o">=</span><span class="s2">&quot;sk-...&quot;</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1"># For Anthropic</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BUB_PROVIDER</span><span class="o">=</span><span class="s2">&quot;anthropic&quot;</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BUB_MODEL_NAME</span><span class="o">=</span><span class="s2">&quot;claude-3-5-sonnet-20241022&quot;</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BUB_API_KEY</span><span class="o">=</span><span class="s2">&quot;your-anthropic-key&quot;</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="c1"># For local models with Ollama</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BUB_PROVIDER</span><span class="o">=</span><span class="s2">&quot;ollama&quot;</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BUB_MODEL_NAME</span><span class="o">=</span><span class="s2">&quot;llama3&quot;</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="c1"># No API key needed for local models</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="c1"># For Groq (fast inference)</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BUB_PROVIDER</span><span class="o">=</span><span class="s2">&quot;groq&quot;</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BUB_MODEL_NAME</span><span class="o">=</span><span class="s2">&quot;llama3-8b-8192&quot;</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="nb">export</span><span class="w"> </span><span class="nv">BUB_API_KEY</span><span class="o">=</span><span class="s2">&quot;gsk_...&quot;</span>
+</code></pre></div>
+<h3 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Interactive chat mode</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>bub<span class="w"> </span>chat
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Run a single command</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>bub<span class="w"> </span>run<span class="w"> </span><span class="s2">&quot;Create a Python script that prints &#39;Hello, World!&#39;&quot;</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Specify workspace and model (provider/model format)</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>bub<span class="w"> </span>chat<span class="w"> </span>--workspace<span class="w"> </span>/path/to/project<span class="w"> </span>--model<span class="w"> </span>openai/gpt-4
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># Get help</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>bub<span class="w"> </span>--help
+</code></pre></div>
+<h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
+<p>Here are some ways you can use Bub:</p>
+<p><strong>File Creation</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>bub<span class="w"> </span>run<span class="w"> </span><span class="s2">&quot;Create a README.md for a Python project&quot;</span>
+</code></pre></div></p>
+<p><strong>Code Assistance</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>bub<span class="w"> </span>run<span class="w"> </span><span class="s2">&quot;Add error handling to my main.py file&quot;</span>
+</code></pre></div></p>
+<p><strong>Project Setup</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>bub<span class="w"> </span>run<span class="w"> </span><span class="s2">&quot;Initialize a new FastAPI project with basic structure&quot;</span>
+</code></pre></div></p>
+<p><strong>Code Review</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>bub<span class="w"> </span>run<span class="w"> </span><span class="s2">&quot;Review my code and suggest improvements&quot;</span>
+</code></pre></div></p>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
+<p>Configure Bub via environment variables or a <code>.env</code> file:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BUB_PROVIDER</code></td>
+<td>AI provider name (required)</td>
+<td><code>openai</code>, <code>anthropic</code>, <code>ollama</code></td>
+</tr>
+<tr>
+<td><code>BUB_MODEL_NAME</code></td>
+<td>Model name from provider (required)</td>
+<td><code>gpt-4</code>, <code>claude-3-5-sonnet-20241022</code></td>
+</tr>
+<tr>
+<td><code>BUB_API_KEY</code></td>
+<td>API key for provider (not needed for local models)</td>
+<td><code>sk-...</code></td>
+</tr>
+<tr>
+<td><code>BUB_API_BASE</code></td>
+<td>Custom API endpoint (optional)</td>
+<td><code>https://api.custom.ai</code></td>
+</tr>
+<tr>
+<td><code>BUB_MAX_TOKENS</code></td>
+<td>Maximum response tokens (optional)</td>
+<td><code>4000</code></td>
+</tr>
+<tr>
+<td><code>BUB_WORKSPACE_PATH</code></td>
+<td>Default workspace directory (optional)</td>
+<td><code>/path/to/work</code></td>
+</tr>
+<tr>
+<td><code>BUB_SYSTEM_PROMPT</code></td>
+<td>Custom system prompt (optional)</td>
+<td><code>"You are a helpful assistant..."</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="custom-system-prompt-with-bubmd">Custom System Prompt with BUB.md<a class="headerlink" href="#custom-system-prompt-with-bubmd" title="Permanent link">&para;</a></h3>
+<p>You can customize Bub's behavior by creating a <code>BUB.md</code> file in your workspace. This file will be automatically read and used as the system prompt, allowing you to define project-specific instructions, coding standards, and behavior guidelines.</p>
+<p><strong>Example BUB.md:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="gh"># Project Assistant</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>You are a Python development assistant for this specific project.
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="gu">## Guidelines</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="k">-</span><span class="w"> </span>Follow PEP 8 style guidelines
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="k">-</span><span class="w"> </span>Use type hints for all functions
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="k">-</span><span class="w"> </span>Write comprehensive tests with pytest
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="k">-</span><span class="w"> </span>Focus on security and performance
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="gu">## Project Structure</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="k">-</span><span class="w"> </span><span class="sb">`/src`</span> - Main source code
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="k">-</span><span class="w"> </span><span class="sb">`/tests`</span> - Test files
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="k">-</span><span class="w"> </span><span class="sb">`/docs`</span> - Documentation
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>When making changes, always run tests first.
+</code></pre></div>
+<p>The BUB.md file takes precedence over the <code>BUB_SYSTEM_PROMPT</code> environment variable, making it easy to share consistent AI behavior across your development team.</p>
+<h3 id="supported-providers">Supported Providers<a class="headerlink" href="#supported-providers" title="Permanent link">&para;</a></h3>
+<p>Bub supports all providers available through <a href="https://mozilla-ai.github.io/any-llm/">Any-LLM</a>:</p>
 <ul>
-<li><strong>Github repository</strong>: <a href="https://github.com/psiace/bub/">https://github.com/psiace/bub/</a></li>
-<li><strong>Documentation</strong> <a href="https://bub.build/">https://bub.build/</a></li>
+<li><strong>OpenAI</strong>: <code>openai</code> - GPT-4, GPT-3.5-turbo, etc.</li>
+<li><strong>Anthropic</strong>: <code>anthropic</code> - Claude models</li>
+<li><strong>Ollama</strong>: <code>ollama</code> - Local models (Llama, CodeLlama, etc.)</li>
+<li><strong>Groq</strong>: <code>groq</code> - Fast inference for open models</li>
+<li><strong>Mistral</strong>: <code>mistral</code> - Mistral AI models</li>
+<li><strong>Cohere</strong>: <code>cohere</code> - Cohere models</li>
+<li><strong>Google</strong>: <code>google</code> - Gemini models</li>
+<li><strong>And many more...</strong></li>
+</ul>
+<h2 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h2>
+<h3 id="bub-chat"><code>bub chat</code><a class="headerlink" href="#bub-chat" title="Permanent link">&para;</a></h3>
+<p>Start an interactive chat session with Bub.</p>
+<p><strong>Options:</strong>
+- <code>--workspace PATH</code>: Set the workspace directory
+- <code>--model MODEL</code>: Specify the AI model to use
+- <code>--max-tokens INT</code>: Set maximum response tokens</p>
+<p><strong>Interactive Commands:</strong>
+- <code>quit</code>, <code>exit</code>, <code>q</code>: End the session
+- <code>reset</code>: Clear conversation history
+- <code>debug</code>: Toggle debug mode to see AI reasoning process</p>
+<h3 id="bub-run"><code>bub run</code><a class="headerlink" href="#bub-run" title="Permanent link">&para;</a></h3>
+<p>Execute a single command with Bub.</p>
+<p><strong>Usage:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>bub<span class="w"> </span>run<span class="w"> </span><span class="s2">&quot;COMMAND&quot;</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</code></pre></div></p>
+<p><strong>Options:</strong>
+- <code>--workspace PATH</code>: Set the workspace directory
+- <code>--model MODEL</code>: Specify the AI model to use
+- <code>--max-tokens INT</code>: Set maximum response tokens</p>
+<h2 id="links">Links<a class="headerlink" href="#links" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>GitHub Repository</strong>: <a href="https://github.com/psiace/bub/">https://github.com/psiace/bub/</a></li>
+<li><strong>Issues &amp; Bug Reports</strong>: <a href="https://github.com/psiace/bub/issues">https://github.com/psiace/bub/issues</a></li>
+<li><strong>Contributing</strong>: <a href="https://github.com/psiace/bub/blob/main/CONTRIBUTING.md">https://github.com/psiace/bub/blob/main/CONTRIBUTING.md</a></li>
 </ul>
 </section>
 
