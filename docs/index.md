@@ -102,6 +102,33 @@ Configure Bub via environment variables or a `.env` file:
 | `BUB_WORKSPACE_PATH` | Default workspace directory (optional) | `/path/to/work` |
 | `BUB_SYSTEM_PROMPT` | Custom system prompt (optional) | `"You are a helpful assistant..."` |
 
+### Custom System Prompt with BUB.md
+
+You can customize Bub's behavior by creating a `BUB.md` file in your workspace. This file will be automatically read and used as the system prompt, allowing you to define project-specific instructions, coding standards, and behavior guidelines.
+
+**Example BUB.md:**
+
+```markdown
+# Project Assistant
+
+You are a Python development assistant for this specific project.
+
+## Guidelines
+- Follow PEP 8 style guidelines
+- Use type hints for all functions
+- Write comprehensive tests with pytest
+- Focus on security and performance
+
+## Project Structure
+- `/src` - Main source code
+- `/tests` - Test files
+- `/docs` - Documentation
+
+When making changes, always run tests first.
+```
+
+The BUB.md file takes precedence over the `BUB_SYSTEM_PROMPT` environment variable, making it easy to share consistent AI behavior across your development team.
+
 ### Supported Providers
 
 Bub supports all providers available through [Any-LLM](https://mozilla-ai.github.io/any-llm/):

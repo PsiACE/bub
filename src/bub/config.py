@@ -1,5 +1,6 @@
 """Configuration management for Bub."""
 
+from pathlib import Path
 from typing import Optional
 
 from pydantic import Field
@@ -41,6 +42,28 @@ Always be helpful, accurate, and follow best practices.""",
     workspace_path: Optional[str] = Field(default=None, description="Workspace path for file operations")
 
 
-def get_settings() -> Settings:
-    """Get application settings."""
-    return Settings()
+def read_bub_md(workspace_path: Optional[Path] = None) -> Optional[str]:
+    """Read BUB.md file from workspace if it exists."""
+    if workspace_path is None:
+        workspace_path = Path.cwd()
+
+    bub_md_path = workspace_path / "BUB.md"
+    if bub_md_path.exists() and bub_md_path.is_file():
+        try:
+            return bub_md_path.read_text(encoding="utf-8")
+        except Exception:
+            # If we can't read the file, return None
+            return None
+    return None
+
+
+def get_settings(workspace_path: Optional[Path] = None) -> Settings:
+    """Get application settings, with optional BUB.md system prompt override."""
+    settings = Settings()
+
+    # Check for BUB.md file and use it as system prompt if available
+    bub_md_content = read_bub_md(workspace_path)
+    if bub_md_content:
+        settings.system_prompt = bub_md_content.strip()
+
+    return settings

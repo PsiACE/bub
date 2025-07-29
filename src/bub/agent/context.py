@@ -11,7 +11,7 @@ class Context:
 
     def __init__(self, workspace_path: Optional[Path] = None, config: Optional[Any] = None):
         self.workspace_path = workspace_path or Path.cwd()
-        self.config = config or get_settings()
+        self.config = config or get_settings(self.workspace_path)
         self.tool_registry = None  # Will be set by Agent
 
     def get_system_prompt(self) -> str:

@@ -133,12 +133,12 @@ def chat(
 ) -> None:
     """Start interactive chat with Bub."""
     try:
-        settings = get_settings()
-        _validate_api_key(settings)
-        _validate_model_config(settings)
-
         workspace_path = workspace or Path.cwd()
         _validate_workspace(workspace_path)
+
+        settings = get_settings(workspace_path)
+        _validate_api_key(settings)
+        _validate_model_config(settings)
 
         agent = _create_agent(settings, workspace_path, model, max_tokens)
 
@@ -169,12 +169,12 @@ def run(
 ) -> None:
     """Run a single command with Bub."""
     try:
-        settings = get_settings()
-        _validate_api_key(settings)
-        _validate_model_config(settings)
-
         workspace_path = workspace or Path.cwd()
         _validate_workspace(workspace_path)
+
+        settings = get_settings(workspace_path)
+        _validate_api_key(settings)
+        _validate_model_config(settings)
 
         agent = _create_agent(settings, workspace_path, model, max_tokens)
 

@@ -1,4 +1,4 @@
-# AGENT.md - Bub Development Guide
+# BUB.md - Bub Development Guide
 
 ## Commands
 - **Test**: `uv run pytest --doctest-modules` or `make test`
@@ -14,7 +14,7 @@
 - **Add dependency**: `uv add package-name` or `uv add --dev package-name`
 - **Update lock**: `uv lock`
 
-## Python Style Guidelines (from .cursor/rules)
+## Python Style Guidelines
 
 ### Naming Conventions
 - **Variables, functions, methods, packages, modules**: `snake_case_with_underscores`

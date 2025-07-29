@@ -85,7 +85,35 @@ BUB_MODEL=gpt-4                    # AI model to use
 BUB_API_BASE=https://api.custom.ai # Custom API endpoint
 BUB_MAX_TOKENS=4000               # Maximum response tokens
 BUB_WORKSPACE_PATH=/path/to/work  # Default workspace
+BUB_SYSTEM_PROMPT="custom prompt" # Custom system prompt
 ```
+
+### Custom System Prompt with BUB.md
+
+You can customize Bub's behavior by creating a `BUB.md` file in your workspace. This file will be automatically read and used as the system prompt, allowing you to define project-specific instructions, coding standards, and behavior guidelines.
+
+**Example BUB.md:**
+
+```markdown
+# Project Assistant
+
+You are a Python development assistant for this specific project.
+
+## Guidelines
+- Follow PEP 8 style guidelines
+- Use type hints for all functions
+- Write comprehensive tests with pytest
+- Focus on security and performance
+
+## Project Structure
+- `/src` - Main source code
+- `/tests` - Test files
+- `/docs` - Documentation
+
+When making changes, always run tests first.
+```
+
+The BUB.md file takes precedence over the `BUB_SYSTEM_PROMPT` environment variable, making it easy to share consistent AI behavior across your development team.
 
 ## Development
 
