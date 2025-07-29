@@ -87,13 +87,13 @@ Now you can make your changes locally.
 7. When you're done making changes, check that your changes pass the formatting tests.
 
 ```bash
-make check
+just check
 ```
 
 Now, validate that all unit tests are passing:
 
 ```bash
-make test
+just test
 ```
 
 9. Before raising a pull request you should also run tox.

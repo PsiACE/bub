@@ -42,6 +42,7 @@ dev = [
     "mkdocs>=1.4.2",
     "mkdocs-terminal>=4.7.0",
     "mkdocstrings[python]>=0.26.1",
+    "rust-just>=1.42.0",
 ]
 
 [build-system]

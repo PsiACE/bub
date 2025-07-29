@@ -123,17 +123,19 @@ git clone https://github.com/psiace/bub.git
 cd bub
 
 # Install dependencies
-uv sync
+uv sync --dev
 
 # Run tests
-make test
+just test
 
 # Run linting and type checking
-make check
+just check
 
 # Build documentation
-make docs
+just docs
 ```
+
+> If you don't have `just` installed, you can use `uv run just` instead of `just`.
 
 ## Contributing
 

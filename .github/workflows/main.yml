@@ -23,7 +23,7 @@ jobs:
         uses: ./.github/actions/setup-python-env
 
       - name: Run checks
-        run: make check
+        run: uv run just check
 
   tests-and-type-check:
     runs-on: ubuntu-latest

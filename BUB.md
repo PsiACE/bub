@@ -1,15 +1,15 @@
 # BUB.md - Bub Development Guide
 
 ## Commands
-- **Test**: `uv run pytest --doctest-modules` or `make test`
+- **Test**: `uv run pytest --doctest-modules` or `just test`
 - **Test single**: `uv run pytest tests/test_specific.py::test_function`
 - **Test with coverage**: `uv run pytest --cov=src/bub`
-- **Lint/Check**: `make check` (runs pre-commit, mypy, lock check)
+- **Lint/Check**: `just check` (runs pre-commit, mypy, lock check)
 - **Type check**: `uv run mypy` (targets `src/` only)
 - **Format**: `uv run ruff format .` and `uv run ruff check --fix .`
-- **Build**: `make build` (creates wheel with uvx pyproject-build)
-- **Docs**: `make docs` (serve) or `make docs-test` (build only)
-- **Install dev**: `make install` (uv sync + pre-commit install)
+- **Build**: `just build` (creates wheel with uvx pyproject-build)
+- **Docs**: `just docs` (serve) or `just docs-test` (build only)
+- **Install dev**: `just install` (uv sync + pre-commit install)
 - **Sync dependencies**: `uv sync`
 - **Add dependency**: `uv add package-name` or `uv add --dev package-name`
 - **Update lock**: `uv lock`
@@ -135,10 +135,10 @@ uv sync
 - **Ignore `.pytest_cache/`**: Test cache directories
 
 ## Development Workflow
-1. **Setup**: `make install` or `uv sync && pre-commit install`
+1. **Setup**: `just install` or `uv sync && pre-commit install`
 2. **Add feature**: Create feature branch
 3. **Code**: Follow style guidelines, add tests
-4. **Check**: Run `make check` before committing
+4. **Check**: Run `just check` before committing
 5. **Test**: Run `uv run pytest --cov=src/bub`
 6. **Commit**: Pre-commit hooks will run automatically
 7. **PR**: Submit pull request with tests and documentation
