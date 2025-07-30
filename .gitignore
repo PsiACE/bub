@@ -141,3 +141,6 @@ cython_debug/
 
 # Reference directory - ignore all reference projects
 reference/
+
+# Others
+.pdm-python

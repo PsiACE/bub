@@ -40,7 +40,9 @@ class Renderer:
         """Render welcome message."""
         self.console.print(message)
 
-    def usage_info(self, workspace_path: Optional[str] = None, model: str = "", tools: Optional[list] = None) -> None:
+    def usage_info(
+        self, workspace_path: Optional[str] = None, model: str = "", tools: Optional[list[str]] = None
+    ) -> None:
         """Render usage information."""
         if workspace_path:
             from ..tools.utils import sanitize_path

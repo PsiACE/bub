@@ -5,12 +5,11 @@ description = "Bub it. Build it."
 authors = [{ name = "Chojan Shang", email = "psiace@apache.org" }]
 readme = "README.md"
 keywords = ['python']
-requires-python = ">=3.11,<4.0"
+requires-python = ">=3.12,<4.0"
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -22,6 +21,7 @@ dependencies = [
     "typer>=0.9.0",
     "any-llm-sdk[openai,anthropic,google,azure,aws]>=0.1.0",
     "rich>=13.0.0",
+    "eventure>=0.4.4",
 ]
 
 [project.urls]
@@ -58,6 +58,7 @@ paths = ["src"]
 
 [tool.mypy]
 files = ["src"]
+mypy_path = ["stubs"]
 disallow_untyped_defs = true
 disallow_any_unimported = true
 no_implicit_optional = true
