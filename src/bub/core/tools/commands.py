@@ -6,8 +6,8 @@ from typing import Any, ClassVar, Optional
 
 from pydantic import Field
 
-from ..context import Context
-from .core import Tool, ToolResult
+from ...core.context import AgentContext
+from .base import Tool, ToolResult
 
 
 class RunCommandTool(Tool):
@@ -90,7 +90,7 @@ class RunCommandTool(Tool):
 
         return None
 
-    def execute(self, context: Context) -> ToolResult:
+    def execute(self, context: AgentContext) -> ToolResult:
         """Execute the command."""
         try:
             # Validate command first

@@ -2,8 +2,9 @@
 
 from unittest.mock import Mock, patch
 
-from bub.agent import Agent, Context
-from bub.agent.tools import (
+from bub.config import get_settings
+from bub.core.agent import Agent
+from bub.core.tools import (
     FileEditTool,
     FileReadTool,
     FileWriteTool,
@@ -12,7 +13,7 @@ from bub.agent.tools import (
     ToolRegistry,
     ToolResult,
 )
-from bub.config import get_settings
+from bub.core.tools.base import AgentContext
 
 
 class TestSettings:
@@ -68,7 +69,7 @@ class TestTools:
 
     def test_file_write_tool(self, tmp_path):
         """Test file write tool."""
-        context = Context(workspace_path=tmp_path)
+        context = AgentContext(provider="test", model_name="test-model", api_key="test-key", workspace_path=tmp_path)
         tool = FileWriteTool(path="test.txt", content="Hello, World!")
         result = tool.execute(context)
 
@@ -82,7 +83,7 @@ class TestTools:
         test_file = tmp_path / "test.txt"
         test_file.write_text("Hello, World!")
 
-        context = Context(workspace_path=tmp_path)
+        context = AgentContext(provider="test", model_name="test-model", api_key="test-key", workspace_path=tmp_path)
         tool = FileReadTool(path="test.txt")
         result = tool.execute(context)
 
@@ -91,7 +92,7 @@ class TestTools:
 
     def test_file_read_tool_not_found(self, tmp_path):
         """Test file read tool with non-existent file."""
-        context = Context(workspace_path=tmp_path)
+        context = AgentContext(provider="test", model_name="test-model", api_key="test-key", workspace_path=tmp_path)
         tool = FileReadTool(path="nonexistent.txt")
         result = tool.execute(context)
 
@@ -104,7 +105,7 @@ class TestTools:
         test_file = tmp_path / "test.txt"
         test_file.write_text("Hello, World!")
 
-        context = Context(workspace_path=tmp_path)
+        context = AgentContext(provider="test", model_name="test-model", api_key="test-key", workspace_path=tmp_path)
         tool = FileEditTool(path="test.txt", operation="replace_lines", start_line=1, end_line=1, content="Hello, Bub!")
         result = tool.execute(context)
 
@@ -117,7 +118,7 @@ class TestTools:
         test_file = tmp_path / "test.txt"
         test_file.write_text("Hello, World!")
 
-        context = Context(workspace_path=tmp_path)
+        context = AgentContext(provider="test", model_name="test-model", api_key="test-key", workspace_path=tmp_path)
         tool = FileEditTool(path="test.txt", operation="replace_lines", start_line=1, end_line=1, content="Hello, Bub!")
         result = tool.execute(context)
 
@@ -127,7 +128,7 @@ class TestTools:
 
     def test_command_tool_success(self, tmp_path):
         """Test command tool with successful command."""
-        context = Context(workspace_path=tmp_path)
+        context = AgentContext(provider="test", model_name="test-model", api_key="test-key", workspace_path=tmp_path)
         tool = RunCommandTool(command="echo 'Hello, World!'")
         result = tool.execute(context)
 
@@ -137,7 +138,7 @@ class TestTools:
 
     def test_command_tool_failure(self, tmp_path):
         """Test command tool with failing command."""
-        context = Context(workspace_path=tmp_path)
+        context = AgentContext(provider="test", model_name="test-model", api_key="test-key", workspace_path=tmp_path)
         tool = RunCommandTool(command="nonexistent_command")
         result = tool.execute(context)
 
@@ -147,7 +148,7 @@ class TestTools:
 
     def test_command_tool_dangerous_command(self, tmp_path):
         """Test command tool blocks dangerous commands."""
-        context = Context(workspace_path=tmp_path)
+        context = AgentContext(provider="test", model_name="test-model", api_key="test-key", workspace_path=tmp_path)
         tool = RunCommandTool(command="rm -rf /")
         result = tool.execute(context)
 
@@ -156,7 +157,7 @@ class TestTools:
 
     def test_command_tool_shell_injection(self, tmp_path):
         """Test command tool blocks shell injection."""
-        context = Context(workspace_path=tmp_path)
+        context = AgentContext(provider="test", model_name="test-model", api_key="test-key", workspace_path=tmp_path)
         tool = RunCommandTool(command="echo 'test'; rm -rf /")
         result = tool.execute(context)
 
@@ -167,18 +168,18 @@ class TestTools:
 class TestToolRegistry:
     """Test tool registry."""
 
-    def test_tool_registry_list_tools(self):
+    def test_tool_registry_list_tools(self, tmp_path):
         """Test listing available tools."""
-        registry = ToolRegistry()
+        registry = ToolRegistry(workspace_path=tmp_path)
         registry.register_default_tools()
         tools = registry.list_tools()
 
         expected_tools = ["read_file", "write_file", "edit_file", "run_command"]
         assert set(tools) == set(expected_tools)
 
-    def test_tool_registry_get_tool(self):
+    def test_tool_registry_get_tool(self, tmp_path):
         """Test getting tool classes."""
-        registry = ToolRegistry()
+        registry = ToolRegistry(workspace_path=tmp_path)
         registry.register_default_tools()
 
         assert registry.get_tool("read_file") == FileReadTool
@@ -187,9 +188,9 @@ class TestToolRegistry:
         assert registry.get_tool("run_command") == RunCommandTool
         assert registry.get_tool("nonexistent") is None
 
-    def test_tool_registry_get_schema_nonexistent(self):
+    def test_tool_registry_get_schema_nonexistent(self, tmp_path):
         """Test getting schema for non-existent tool."""
-        registry = ToolRegistry()
+        registry = ToolRegistry(workspace_path=tmp_path)
         assert registry.get_tool_schema("nonexistent") is None
 
 
@@ -198,16 +199,16 @@ class TestToolExecutor:
 
     def test_tool_executor_creation(self, tmp_path):
         """Test creating tool executor."""
-        context = Context(workspace_path=tmp_path)
-        context.tool_registry = ToolRegistry()
+        context = AgentContext(provider="test", model_name="test-model", api_key="test-key", workspace_path=tmp_path)
+        context.tool_registry = ToolRegistry(workspace_path=tmp_path)
         executor = ToolExecutor(context)
         assert executor.context == context
         assert executor.tool_registry is not None
 
     def test_tool_executor_execute_tool_success(self, tmp_path):
         """Test successful tool execution."""
-        context = Context(workspace_path=tmp_path)
-        context.tool_registry = ToolRegistry()
+        context = AgentContext(provider="test", model_name="test-model", api_key="test-key", workspace_path=tmp_path)
+        context.tool_registry = ToolRegistry(workspace_path=tmp_path)
         context.tool_registry.register_default_tools()
         executor = ToolExecutor(context)
         result = executor.execute_tool("write_file", path="test.txt", content="test")
@@ -217,8 +218,8 @@ class TestToolExecutor:
 
     def test_tool_executor_execute_tool_not_found(self, tmp_path):
         """Test tool execution with non-existent tool."""
-        context = Context(workspace_path=tmp_path)
-        context.tool_registry = ToolRegistry()
+        context = AgentContext(provider="test", model_name="test-model", api_key="test-key", workspace_path=tmp_path)
+        context.tool_registry = ToolRegistry(workspace_path=tmp_path)
         executor = ToolExecutor(context)
         result = executor.execute_tool("nonexistent_tool")
 
@@ -233,7 +234,7 @@ class TestAgent:
         """Test creating an agent."""
         agent = Agent(provider="openai", model_name="test-model", api_key="test-key", workspace_path=tmp_path)
         assert agent.api_key == "test-key"
-        assert agent.model == "openai/test-model"
+        assert agent.model == "test-model"  # Fixed: model doesn't include provider prefix
 
     def test_agent_reset_conversation(self, tmp_path):
         """Test resetting conversation."""
@@ -243,7 +244,7 @@ class TestAgent:
         agent.reset_conversation()
         assert len(agent.conversation_history) == 0
 
-    @patch("bub.agent.core.completion")
+    @patch("bub.core.agent.completion")
     def test_agent_chat_no_tools(self, mock_completion, tmp_path):
         """Test agent chat without tool calls."""
         # Mock the completion response
@@ -258,21 +259,21 @@ class TestAgent:
         assert response == "Hello, I'm Bub!"
         assert len(agent.conversation_history) == 2  # user + assistant
 
-    @patch("bub.agent.core.completion")
+    @patch("bub.core.agent.completion")
     def test_agent_chat_with_tools(self, mock_completion, tmp_path):
         """Test agent chat with tool calls."""
         # Mock responses: first with tool call, then final response
         mock_response1 = Mock()
         mock_response1.choices = [Mock()]
-        mock_response1.choices[
-            0
-        ].message.content = (
-            '```tool\n{"tool": "write_file", "parameters": {"path": "test.txt", "content": "test"}}\n```'
+        mock_response1.choices[0].message.content = (
+            "Thought: I need to create a test file. Yes, I should use the write_file tool.\n"
+            "Action: write_file\n"
+            'Action Input: {"path": "test.txt", "content": "test"}'
         )
 
         mock_response2 = Mock()
         mock_response2.choices = [Mock()]
-        mock_response2.choices[0].message.content = "File created successfully!"
+        mock_response2.choices[0].message.content = "Final Answer: File created successfully!"
 
         mock_completion.side_effect = [mock_response1, mock_response2]
 
@@ -287,7 +288,7 @@ class TestAgent:
         agent = Agent(provider="openai", model_name="gpt-3.5-turbo", api_key="test-key", workspace_path=tmp_path)
         response = 'Here\'s the result: ```tool\n{"tool": "read_file", "parameters": {"path": "test.txt"}}\n```'
 
-        tool_calls = agent.tool_executor.extract_tool_calls(response)
+        tool_calls = ToolExecutor(agent.context).extract_tool_calls(response)
         assert len(tool_calls) == 1
         assert tool_calls[0]["tool"] == "read_file"
         assert tool_calls[0]["parameters"]["path"] == "test.txt"
@@ -297,7 +298,7 @@ class TestAgent:
         agent = Agent(provider="openai", model_name="gpt-3.5-turbo", api_key="test-key", workspace_path=tmp_path)
         response = "Here's the result: ```tool\ninvalid json\n```"
 
-        tool_calls = agent.tool_executor.extract_tool_calls(response)
+        tool_calls = ToolExecutor(agent.context).extract_tool_calls(response)
         assert len(tool_calls) == 0
 
     def test_agent_execute_tool_calls(self, tmp_path):
@@ -305,6 +306,9 @@ class TestAgent:
         agent = Agent(provider="openai", model_name="gpt-3.5-turbo", api_key="test-key", workspace_path=tmp_path)
         tool_calls = [{"tool": "write_file", "parameters": {"path": "test.txt", "content": "test"}}]
 
-        result = agent.tool_executor.execute_tool_calls(tool_calls)
+        # Ensure the tool registry is properly set up in the context
+        agent.context.tool_registry = agent.tool_registry
+
+        result = ToolExecutor(agent.context).execute_tool_calls(tool_calls)
         assert "Observation:" in result
         assert (tmp_path / "test.txt").exists()

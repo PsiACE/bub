@@ -1,7 +1,8 @@
 """Bub - Bub it. Build it."""
 
+from .core import Agent, AgentContext
+from .core.tools import ToolRegistry
+
 __version__ = "0.1.0"
 
-from .agent import Agent, ToolRegistry
-
-__all__ = ["Agent", "ToolRegistry"]
+__all__ = ["Agent", "AgentContext", "ToolRegistry"]

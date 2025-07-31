@@ -84,6 +84,8 @@ BUB_API_KEY=your-api-key-here
 BUB_MODEL=gpt-4                    # AI model to use
 BUB_API_BASE=https://api.custom.ai # Custom API endpoint
 BUB_MAX_TOKENS=4000               # Maximum response tokens
+BUB_TIMEOUT_SECONDS=30            # Timeout for AI responses (seconds)
+BUB_MAX_ITERATIONS=10             # Maximum tool execution cycles
 BUB_WORKSPACE_PATH=/path/to/work  # Default workspace
 BUB_SYSTEM_PROMPT="custom prompt" # Custom system prompt
 ```

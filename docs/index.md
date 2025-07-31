@@ -36,16 +36,6 @@ export BUB_API_KEY="sk-..."
 export BUB_PROVIDER="anthropic"
 export BUB_MODEL_NAME="claude-3-5-sonnet-20241022"
 export BUB_API_KEY="your-anthropic-key"
-
-# For local models with Ollama
-export BUB_PROVIDER="ollama"
-export BUB_MODEL_NAME="llama3"
-# No API key needed for local models
-
-# For Groq (fast inference)
-export BUB_PROVIDER="groq"
-export BUB_MODEL_NAME="llama3-8b-8192"
-export BUB_API_KEY="gsk_..."
 ```
 
 ### Usage
@@ -101,6 +91,8 @@ Configure Bub via environment variables or a `.env` file:
 | `BUB_MAX_TOKENS` | Maximum response tokens (optional) | `4000` |
 | `BUB_WORKSPACE_PATH` | Default workspace directory (optional) | `/path/to/work` |
 | `BUB_SYSTEM_PROMPT` | Custom system prompt (optional) | `"You are a helpful assistant..."` |
+| `BUB_TIMEOUT_SECONDS` | Timeout for AI responses (seconds) | `30` |
+| `BUB_MAX_ITERATIONS` | Maximum number of tool execution cycles | `10` |
 
 ### Custom System Prompt with BUB.md
 

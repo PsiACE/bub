@@ -22,6 +22,7 @@ dependencies = [
     "any-llm-sdk[openai,anthropic,google,azure,aws]>=0.1.0",
     "rich>=13.0.0",
     "eventure>=0.4.4",
+    "logfire>=4.0.0",
 ]
 
 [project.urls]

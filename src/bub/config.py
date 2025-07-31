@@ -4,66 +4,63 @@ from pathlib import Path
 from typing import Optional
 
 from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
+
+from .utils.logging import configure_logfire
 
 
 class Settings(BaseSettings):
-    """Bub application settings."""
+    """Application settings."""
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        env_prefix="BUB_",
-        extra="ignore",  # Ignore extra fields from old config
-    )
+    # API Configuration
+    api_key: Optional[str] = Field(None, description="API key for the LLM provider")
+    provider: Optional[str] = Field(None, description="LLM provider (e.g., 'openai', 'anthropic')")
+    model_name: Optional[str] = Field(None, description="Model name (e.g., 'gpt-4', 'claude-3')")
+    api_base: Optional[str] = Field(None, description="Optional API base URL")
+    max_tokens: int = Field(default=4000, description="Maximum tokens for responses")
 
-    # Any-LLM settings
-    provider: Optional[str] = Field(default=None, description="LLM provider (e.g., openai, anthropic, ollama)")
-    model_name: Optional[str] = Field(default=None, description="Model name from the provider")
-    api_key: Optional[str] = Field(default=None, description="API key for the model provider")
-    api_base: Optional[str] = Field(default=None, description="Custom API base URL")
-    max_tokens: Optional[int] = Field(default=None, description="Maximum tokens for AI responses")
+    # Agent Configuration
+    timeout_seconds: int = Field(default=30, description="Timeout for AI responses in seconds")
+    max_iterations: int = Field(default=10, description="Maximum number of tool execution cycles")
 
-    # Agent settings
-    system_prompt: Optional[str] = Field(
-        default="""You are Bub, a helpful AI assistant. You can:
-- Read and edit files
-- Run terminal commands
-- Help with code development
+    # System Configuration
+    system_prompt: Optional[str] = Field(None, description="System prompt for the agent")
+    workspace_path: Optional[Path] = Field(None, description="Workspace directory path")
 
-You have access to various tools to help with coding tasks. Use them when needed to accomplish the user's requests.
+    # Logging Configuration
+    log_level: str = Field(default="INFO", description="Log level")
+    log_format: str = Field(default="text", description="Log format")
 
-Always be helpful, accurate, and follow best practices.""",
-        description="System prompt for the AI agent",
-    )
+    class Config:
+        """Pydantic configuration."""
 
-    # Tool settings
-    workspace_path: Optional[str] = Field(default=None, description="Workspace path for file operations")
+        env_prefix = "BUB_"
+        case_sensitive = False
+        env_file = ".env"
+        env_file_encoding = "utf-8"
 
 
-def read_bub_md(workspace_path: Optional[Path] = None) -> Optional[str]:
-    """Read BUB.md file from workspace if it exists."""
-    if workspace_path is None:
-        workspace_path = Path.cwd()
-
-    bub_md_path = workspace_path / "BUB.md"
-    if bub_md_path.exists() and bub_md_path.is_file():
-        try:
-            return bub_md_path.read_text(encoding="utf-8")
-        except Exception:
-            # If we can't read the file, return None
-            return None
-    return None
+def read_bubmd(workspace_path: Path) -> str:
+    """Read the bubmd file from the workspace path."""
+    bubmd_path = workspace_path / "bub.md"
+    if not bubmd_path.exists():
+        return ""
+    with open(bubmd_path, encoding="utf-8") as file:
+        return file.read()
 
 
 def get_settings(workspace_path: Optional[Path] = None) -> Settings:
-    """Get application settings, with optional BUB.md system prompt override."""
-    settings = Settings()
+    """Get application settings.
 
-    # Check for BUB.md file and use it as system prompt if available
-    bub_md_content = read_bub_md(workspace_path)
-    if bub_md_content:
-        settings.system_prompt = bub_md_content.strip()
+    Args:
+        workspace_path: Optional workspace path override
+
+    Returns:
+        Settings instance
+    """
+    # Create settings instance - pydantic-settings will automatically load from .env file
+    settings = Settings(workspace_path=workspace_path)
+
+    configure_logfire(settings.log_level, settings.log_format)
 
     return settings

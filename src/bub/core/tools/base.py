@@ -7,7 +7,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field, ValidationError
 
-from ..context import Context
+from ...core.context import AgentContext
 
 
 class ToolResult(BaseModel):
@@ -75,7 +75,7 @@ class Tool(ABC, BaseModel):
         return f"Executing {self.display_name} with parameters: {json.dumps(params, indent=2)}"
 
     @abstractmethod
-    def execute(self, context: Context) -> ToolResult:
+    def execute(self, context: AgentContext) -> ToolResult:
         """Execute the tool with the given context."""
         pass
 
@@ -83,7 +83,7 @@ class Tool(ABC, BaseModel):
 class ToolExecutor:
     """Executes tools based on agent requests."""
 
-    def __init__(self, context: Context) -> None:
+    def __init__(self, context: AgentContext) -> None:
         self.context = context
         self.tool_registry: Optional[Any] = getattr(context, "tool_registry", None)
 
@@ -161,10 +161,8 @@ class ToolRegistry:
     def register_default_tools(self) -> None:
         """Register the default set of tools."""
         try:
-            from .file_edit import FileEditTool
-            from .file_read import FileReadTool
-            from .file_write import FileWriteTool
-            from .run_command import RunCommandTool
+            from .commands import RunCommandTool
+            from .file_ops import FileEditTool, FileReadTool, FileWriteTool
 
             self.register_tool(RunCommandTool)
             self.register_tool(FileReadTool)
