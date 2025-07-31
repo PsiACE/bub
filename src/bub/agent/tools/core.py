@@ -7,7 +7,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field, ValidationError
 
-from .context import Context
+from ..context import Context
 
 
 class ToolResult(BaseModel):
@@ -161,10 +161,10 @@ class ToolRegistry:
     def register_default_tools(self) -> None:
         """Register the default set of tools."""
         try:
-            from ..tools.file_edit import FileEditTool
-            from ..tools.file_read import FileReadTool
-            from ..tools.file_write import FileWriteTool
-            from ..tools.run_command import RunCommandTool
+            from .file_edit import FileEditTool
+            from .file_read import FileReadTool
+            from .file_write import FileWriteTool
+            from .run_command import RunCommandTool
 
             self.register_tool(RunCommandTool)
             self.register_tool(FileReadTool)

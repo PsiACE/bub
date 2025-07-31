@@ -3,20 +3,20 @@
 from pathlib import Path
 from typing import Any, Optional
 
-from ..config import get_settings
-
 
 class Context:
     """Agent environment context: workspace, config, tool registry, etc."""
 
     def __init__(self, workspace_path: Optional[Path] = None, config: Optional[Any] = None):
         self.workspace_path = workspace_path or Path.cwd()
-        self.config = config or get_settings(self.workspace_path)
+        self.config = config
         self.tool_registry = None  # Will be set by Agent
 
     def get_system_prompt(self) -> str:
         """Get the system prompt from config."""
-        return self.config.system_prompt or ""
+        if self.config and hasattr(self.config, "system_prompt") and isinstance(self.config.system_prompt, str):
+            return self.config.system_prompt
+        return ""
 
     def build_context_message(self) -> str:
         """Build a clean context message with essential information."""

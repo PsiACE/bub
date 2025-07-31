@@ -6,8 +6,8 @@ from typing import Any, ClassVar, Optional
 
 from pydantic import Field
 
-from ..agent.context import Context
-from ..agent.tools import Tool, ToolResult
+from ..context import Context
+from .core import Tool, ToolResult
 
 
 class RunCommandTool(Tool):

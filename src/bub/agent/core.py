@@ -1,7 +1,7 @@
 """Core agent implementation for Bub."""
 
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from any_llm import completion  # type: ignore[import-untyped]
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
@@ -57,6 +57,7 @@ class Agent:
         max_tokens: Optional[int] = None,
         workspace_path: Optional[Path] = None,
         system_prompt: Optional[str] = None,
+        config: Optional[Any] = None,
     ):
         self.provider = provider
         self.model_name = model_name
@@ -66,7 +67,7 @@ class Agent:
         self.conversation_history: list[ChatCompletionMessageParam] = []
 
         # Initialize context and tool registry
-        self.context: Context = Context(workspace_path=workspace_path)
+        self.context: Context = Context(workspace_path=workspace_path, config=config)
         self.tool_registry: ToolRegistry = ToolRegistry()
         self.tool_registry.register_default_tools()
         self.context.tool_registry = self.tool_registry  # type: ignore[assignment]

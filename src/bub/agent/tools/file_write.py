@@ -4,8 +4,8 @@ from typing import Any
 
 from pydantic import Field
 
-from ..agent.context import Context
-from ..agent.tools import Tool, ToolResult
+from ..context import Context
+from .core import Tool, ToolResult
 
 
 class FileWriteTool(Tool):

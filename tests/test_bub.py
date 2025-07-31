@@ -2,9 +2,17 @@
 
 from unittest.mock import Mock, patch
 
-from bub.agent import Agent, Context, ToolExecutor, ToolRegistry, ToolResult
+from bub.agent import Agent, Context
+from bub.agent.tools import (
+    FileEditTool,
+    FileReadTool,
+    FileWriteTool,
+    RunCommandTool,
+    ToolExecutor,
+    ToolRegistry,
+    ToolResult,
+)
 from bub.config import get_settings
-from bub.tools import FileEditTool, FileReadTool, FileWriteTool, RunCommandTool
 
 
 class TestSettings:

@@ -5,8 +5,9 @@ from typing import Optional
 
 import typer
 
-from ..agent import Agent
-from ..config import Settings, get_settings
+from bub.agent import Agent
+from bub.config import Settings, get_settings
+
 from .render import create_cli_renderer
 
 app = typer.Typer(
@@ -77,6 +78,7 @@ def _create_agent(
         max_tokens=max_tokens or settings.max_tokens,
         workspace_path=workspace_path,
         system_prompt=settings.system_prompt,
+        config=get_settings(workspace_path),
     )
 
 

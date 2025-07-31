@@ -45,7 +45,7 @@ class Renderer:
     ) -> None:
         """Render usage information."""
         if workspace_path:
-            from ..tools.utils import sanitize_path
+            from bub.agent.tools.utils import sanitize_path
 
             display_path = sanitize_path(workspace_path)
             self.console.print(f"[bold]Working directory:[/bold] [cyan]{display_path}[/cyan]")
