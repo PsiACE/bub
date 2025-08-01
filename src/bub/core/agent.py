@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from any_llm import completion
+from any_llm import completion  # type: ignore[import-untyped]
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 
 from .context import AgentContext
@@ -222,7 +222,7 @@ class Agent:
         # Add timeout protection with graceful handling
         timeout_occurred = False
 
-        def timeout_handler(signum, frame):
+        def timeout_handler(signum: int, frame: Any) -> None:
             nonlocal timeout_occurred
             timeout_occurred = True
 

@@ -59,7 +59,7 @@ def get_settings(workspace_path: Optional[Path] = None) -> Settings:
         Settings instance
     """
     # Create settings instance - pydantic-settings will automatically load from .env file
-    settings = Settings(workspace_path=workspace_path)
+    settings = Settings(workspace_path=workspace_path)  # type: ignore[call-arg]
 
     configure_logfire(settings.log_level, settings.log_format)
 

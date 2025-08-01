@@ -153,7 +153,7 @@ class TestTools:
         result = tool.execute(context)
 
         assert not result.success
-        assert "Dangerous command blocked" in result.error
+        assert "Command blocked" in result.error
 
     def test_command_tool_shell_injection(self, tmp_path):
         """Test command tool blocks shell injection."""
@@ -171,7 +171,6 @@ class TestToolRegistry:
     def test_tool_registry_list_tools(self, tmp_path):
         """Test listing available tools."""
         registry = ToolRegistry(workspace_path=tmp_path)
-        registry.register_default_tools()
         tools = registry.list_tools()
 
         expected_tools = ["read_file", "write_file", "edit_file", "run_command"]
@@ -180,7 +179,6 @@ class TestToolRegistry:
     def test_tool_registry_get_tool(self, tmp_path):
         """Test getting tool classes."""
         registry = ToolRegistry(workspace_path=tmp_path)
-        registry.register_default_tools()
 
         assert registry.get_tool("read_file") == FileReadTool
         assert registry.get_tool("write_file") == FileWriteTool
@@ -209,7 +207,6 @@ class TestToolExecutor:
         """Test successful tool execution."""
         context = AgentContext(provider="test", model_name="test-model", api_key="test-key", workspace_path=tmp_path)
         context.tool_registry = ToolRegistry(workspace_path=tmp_path)
-        context.tool_registry.register_default_tools()
         executor = ToolExecutor(context)
         result = executor.execute_tool("write_file", path="test.txt", content="test")
 

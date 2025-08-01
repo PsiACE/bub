@@ -1,7 +1,7 @@
 """CLI main module for Bub using domain-driven event architecture."""
 
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import typer
 
@@ -98,7 +98,7 @@ def _handle_special_commands(user_input: str, agent: Agent, cli_domain: CLIDomai
     return None  # not a special command
 
 
-def _create_step_handler(cli_domain: CLIDomain) -> callable:
+def _create_step_handler(cli_domain: CLIDomain) -> Callable[[str, str], None]:
     """Create a step handler function for the agent."""
 
     def on_step(kind: str, content: str) -> None:

@@ -1,16 +1,14 @@
 """Tools package for Bub."""
 
-import contextlib
 from pathlib import Path
 from typing import Any
 
 from .base import Tool, ToolExecutor, ToolResult
-from .base import ToolRegistry as BaseToolRegistry
 from .commands import RunCommandTool
 from .file_ops import FileEditTool, FileReadTool, FileWriteTool
 
 
-class ToolRegistry(BaseToolRegistry):
+class ToolRegistry:
     """Simple tool registry for the agent."""
 
     def __init__(self, workspace_path: Path) -> None:
@@ -19,10 +17,9 @@ class ToolRegistry(BaseToolRegistry):
         Args:
             workspace_path: Path to the workspace
         """
-        super().__init__()
         self.workspace_path = workspace_path
         self._tools: dict[str, type[Tool]] = {}
-        self._tool_instances: dict[str, Tool] = {}
+        self._tool_instances: dict[str, Any] = {}
 
         # Auto-register available tools
         self._register_default_tools()
@@ -37,7 +34,7 @@ class ToolRegistry(BaseToolRegistry):
         ]
 
         for tool_class in default_tools:
-            self.register_tool(tool_class)
+            self.register_tool(tool_class)  # type: ignore[arg-type]
 
     def register_tool(self, tool: Tool | type[Tool]) -> None:
         """Register a tool.
@@ -46,15 +43,13 @@ class ToolRegistry(BaseToolRegistry):
             tool: Tool class or instance to register
         """
         if isinstance(tool, type):
-            # Register tool class - we need to create an instance to get the name
-            # This is a bit tricky since Tool is abstract, so we'll handle it differently
-            if hasattr(tool, "get_tool_info"):
-                tool_info = tool.get_tool_info()
-                self._tools[tool_info["name"]] = tool
-                # Create a minimal instance for schema access
-                with contextlib.suppress(Exception):
-                    tool_instance = tool()
-                    self._tool_instances[tool_info["name"]] = tool_instance
+            # Register tool class
+            tool_info = tool.get_tool_info()
+            self._tools[tool_info["name"]] = tool
+
+            # Create a minimal instance for schema access
+            # Use the class itself for schema generation instead of creating an instance
+            self._tool_instances[tool_info["name"]] = tool
         else:
             # Register tool instance
             self._tools[tool.name] = type(tool)
@@ -74,7 +69,15 @@ class ToolRegistry(BaseToolRegistry):
         Returns:
             Dictionary of tool schemas
         """
-        return {name: tool.schema for name, tool in self._tool_instances.items()}
+        schemas = {}
+        for name, tool in self._tool_instances.items():
+            if hasattr(tool, "model_json_schema"):
+                schemas[name] = tool.model_json_schema()
+            elif hasattr(tool, "schema"):
+                schemas[name] = tool.schema
+            else:
+                schemas[name] = {}
+        return schemas
 
     def _format_schemas_for_context(self) -> str:
         """Format schemas for context.
@@ -84,8 +87,39 @@ class ToolRegistry(BaseToolRegistry):
         """
         schemas = []
         for name, tool in self._tool_instances.items():
-            schemas.append(f"{name}: {tool.description}")
-        return "; ".join(schemas)
+            # Get detailed tool information
+            tool_info = tool.get_tool_info() if hasattr(tool, "get_tool_info") else {}
+            description = tool_info.get("description", "No description")
+
+            # Get schema for parameters
+            schema = tool.model_json_schema() if hasattr(tool, "model_json_schema") else {}
+            properties = schema.get("properties", {})
+
+            # Format parameters
+            param_list = []
+            for param_name, param_info in properties.items():
+                # Skip internal tool fields
+                if param_name in ["name", "display_name", "description"]:
+                    continue
+
+                param_type = param_info.get("type", "any")
+                param_desc = param_info.get("description", "")
+                required = param_name in schema.get("required", [])
+                param_str = f"{param_name} ({param_type})"
+                if param_desc:
+                    param_str += f": {param_desc}"
+                if required:
+                    param_str += " [required]"
+                param_list.append(param_str)
+
+            # Build tool description
+            tool_desc = f"{name}: {description}"
+            if param_list:
+                tool_desc += f" | Parameters: {', '.join(param_list)}"
+
+            schemas.append(tool_desc)
+
+        return "\n".join(schemas)
 
     def get_tool(self, tool_name: str) -> Any:
         """Get a tool class by name.

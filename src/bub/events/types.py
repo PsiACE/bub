@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Callable, TypeVar, Union
+from typing import TYPE_CHECKING, Callable, TypeVar, Union
 
-from eventure import Event
+if TYPE_CHECKING:
+    from .models import BaseEvent
 
 # Type aliases for better readability and consistency
 EventType = Union[str, Enum]
-EventHandler = Callable[[Event], None]
+EventHandler = Callable[["BaseEvent"], None]  # Use forward reference to avoid circular import
 Subscription = Callable[[], None]  # Eventure returns unsubscribe function
 
 # Type variable for event classes
-EventT = TypeVar("EventT")  # Will be bound to BaseEvent when imported
+EventT = TypeVar("EventT", bound="BaseEvent")  # Use forward reference
 
 
 class DomainEventType(str, Enum):

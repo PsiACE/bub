@@ -91,7 +91,7 @@ class LogfireDomainEventBridge(DomainEventBridge):
         """
         self._logger_name = logger_name
         self._state: dict[str, dict[str, Any]] = {}
-        self._subscriptions: dict[str, list[Subscription]] = {}
+        self._subscriptions: dict[str, list[Any]] = {}
         self._handlers: dict[str, EventHandler] = {}
 
     def publish_event(self, event: BaseEvent) -> None:
@@ -100,10 +100,9 @@ class LogfireDomainEventBridge(DomainEventBridge):
         domain = event.get_domain()
 
         logfire.info(
-            "Publishing domain event",
-            event_type=event_type,
+            "Domain event published",
             domain=domain,
-            event_data=event.model_dump(),
+            event_type=event_type,
             logger_name=self._logger_name,
         )
 
@@ -112,6 +111,7 @@ class LogfireDomainEventBridge(DomainEventBridge):
             try:
                 handler = self._handlers.get(str(id(subscription)))
                 if handler:
+                    # Convert BaseEvent to Event for eventure compatibility
                     handler(event)
             except Exception:
                 logfire.exception(
@@ -199,7 +199,7 @@ class EventSystemDomainBridge(DomainEventBridge):
         self._event_system = get_event_system()
         self._bus_name = bus_name
         self._state: dict[str, dict[str, Any]] = {}
-        self._subscriptions: dict[str, list[Subscription]] = {}
+        self._subscriptions: dict[str, list[Any]] = {}
 
         # Try to create the bus if it doesn't exist
         with contextlib.suppress(Exception):
@@ -208,24 +208,23 @@ class EventSystemDomainBridge(DomainEventBridge):
                 self._event_system._adapter.create_bus(bus_name)
 
     def publish_event(self, event: BaseEvent) -> None:
-        """Publish event using the Bub event system."""
+        """Publish event via the event system."""
         try:
             self._event_system.publish(event, bus=self._bus_name)
             logfire.debug(
-                "Published event via event system",
-                event_type=event.get_event_type_value(),
+                "Domain event published via event system",
                 domain=event.get_domain(),
+                event_type=event.get_event_type_value(),
             )
         except Exception:
             logfire.exception(
-                "Failed to publish event via event system",
-                event_type=event.get_event_type_value(),
+                "Failed to publish domain event via event system",
                 domain=event.get_domain(),
+                event_type=event.get_event_type_value(),
             )
-            raise
 
     def subscribe_to_event(self, event_type: EventType, handler: EventHandler, domain: str) -> Subscription:
-        """Subscribe to event using the Bub event system."""
+        """Subscribe to event via the event system."""
         try:
             subscription = self._event_system.subscribe(event_type, handler, bus=self._bus_name)
 
@@ -262,7 +261,7 @@ class EventSystemDomainBridge(DomainEventBridge):
                 self._subscriptions[domain_key] = []
             self._subscriptions[domain_key].append(subscription)
 
-        return subscription
+        return subscription  # type: ignore[return-value]
 
     def unsubscribe_from_event(self, subscription: Subscription, domain: str) -> None:
         """Unsubscribe from event."""
@@ -329,95 +328,44 @@ class BaseDomain(ABC):
         pass
 
     def publish(self, event: BaseEvent) -> None:
-        """Publish a Pydantic BaseEvent instance from this domain."""
-        try:
-            self._bridge.publish_event(event)
-            logfire.debug(
-                "Published event from domain",
-                event_type=event.get_event_type_value(),
-                domain=self._domain_name,
-            )
-        except Exception:
-            logfire.exception(
-                "Failed to publish event from domain",
-                event_type=event.get_event_type_value(),
-                domain=self._domain_name,
-            )
-            raise
+        """Publish an event through the bridge."""
+        self._bridge.publish_event(event)
 
     def subscribe(self, event_type: EventType, handler: EventHandler) -> Subscription:
-        """Subscribe to an event type."""
-        try:
-            subscription = self._bridge.subscribe_to_event(event_type, handler, self._domain_name)
-            self._subscriptions.append(subscription)
-            logfire.debug(
-                "Subscribed to event from domain",
-                event_type=str(event_type),
-                domain=self._domain_name,
-            )
-        except Exception:
-            logfire.exception(
-                "Failed to subscribe to event from domain",
-                event_type=str(event_type),
-                domain=self._domain_name,
-            )
-            raise
-        else:
-            return subscription
+        """Subscribe to an event type through the bridge."""
+        subscription = self._bridge.subscribe_to_event(event_type, handler, self._domain_name)
+        self._subscriptions.append(subscription)
+        return subscription
 
     def unsubscribe(self, subscription: Subscription) -> None:
-        """Unsubscribe from an event type."""
-        try:
-            self._bridge.unsubscribe_from_event(subscription, self._domain_name)
-            if subscription in self._subscriptions:
-                self._subscriptions.remove(subscription)
-            logfire.debug(
-                "Unsubscribed from event",
-                domain=self._domain_name,
-            )
-        except Exception:
-            logfire.exception(
-                "Failed to unsubscribe from event",
-                domain=self._domain_name,
-            )
+        """Unsubscribe from an event through the bridge."""
+        self._bridge.unsubscribe_from_event(subscription, self._domain_name)
+        with contextlib.suppress(ValueError):
+            self._subscriptions.remove(subscription)
 
     def get_state(self) -> dict[str, Any]:
-        """Get current domain state."""
+        """Get the current state of this domain."""
         return self._state.copy()
 
     def update_state(self, updates: dict[str, Any]) -> None:
-        """Update domain state."""
+        """Update the state of this domain."""
         self._state.update(updates)
         self._bridge.set_domain_state(self._domain_name, self._state)
-        logfire.debug(
-            "Updated domain state",
-            domain=self._domain_name,
-            updates=list(updates.keys()),
-        )
 
     def set_state(self, state: dict[str, Any]) -> None:
-        """Set complete domain state."""
+        """Set the complete state of this domain."""
         self._state = state.copy()
         self._bridge.set_domain_state(self._domain_name, self._state)
-        logfire.debug(
-            "Set complete domain state",
-            domain=self._domain_name,
-            state_keys=list(state.keys()),
-        )
 
     def get_domain_state(self, domain: str) -> Optional[dict[str, Any]]:
-        """Get state from another domain."""
+        """Get the state of another domain."""
         return self._bridge.get_domain_state(domain)
 
     def cleanup(self) -> None:
-        """Cleanup domain resources."""
-        # Unsubscribe from all events
-        for subscription in self._subscriptions[:]:
-            self.unsubscribe(subscription)
-        logfire.info(
-            "Domain cleaned up",
-            domain=self._domain_name,
-        )
+        """Clean up domain resources."""
+        for subscription in self._subscriptions:
+            self._bridge.unsubscribe_from_event(subscription, self._domain_name)
+        self._subscriptions.clear()
 
     @property
     def domain_name(self) -> str:

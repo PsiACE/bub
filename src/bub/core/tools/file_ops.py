@@ -3,14 +3,167 @@
 from pathlib import Path
 from typing import Any, Literal, Optional
 
+import logfire
 from pydantic import Field
 
 from ...core.context import AgentContext
 from .base import Tool, ToolResult
 
+# Common ignore patterns inspired by crush's CommonIgnorePatterns
+COMMON_IGNORE_PATTERNS = {
+    # Version control
+    ".git",
+    ".svn",
+    ".hg",
+    ".bzr",
+    # IDE and editor files
+    ".vscode",
+    ".idea",
+    "*.swp",
+    "*.swo",
+    "*~",
+    ".DS_Store",
+    "Thumbs.db",
+    # Build artifacts and dependencies
+    "node_modules",
+    "target",
+    "build",
+    "dist",
+    "out",
+    "bin",
+    "obj",
+    "*.o",
+    "*.so",
+    "*.dylib",
+    "*.dll",
+    "*.exe",
+    # Logs and temporary files
+    "*.log",
+    "*.tmp",
+    "*.temp",
+    ".cache",
+    ".tmp",
+    # Language-specific
+    "__pycache__",
+    "*.pyc",
+    "*.pyo",
+    ".pytest_cache",
+    "vendor",
+    "Cargo.lock",
+    "package-lock.json",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    # OS generated files
+    ".Trash",
+    ".Spotlight-V100",
+    ".fseventsd",
+    # Bub specific
+    ".bub",
+}
+
+
+def _check_common_patterns(path: Path) -> bool:
+    """Check if path matches common ignore patterns."""
+    for pattern in COMMON_IGNORE_PATTERNS:
+        if pattern.startswith("*"):
+            # Wildcard pattern
+            if path.name.endswith(pattern[1:]):
+                return True
+        else:
+            # Exact match
+            if path.name == pattern or any(part == pattern for part in path.parts):
+                return True
+    return False
+
+
+def _check_gitignore_patterns(rel_path: Path, workspace_path: Path) -> bool:
+    """Check if path matches gitignore patterns."""
+    gitignore_path = workspace_path / ".gitignore"
+    if not gitignore_path.exists():
+        return False
+
+    try:
+        with open(gitignore_path, encoding="utf-8") as f:
+            gitignore_patterns = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+
+        for pattern in gitignore_patterns:
+            if pattern.startswith("/"):
+                # Absolute pattern from workspace root
+                if str(rel_path) == pattern[1:] or str(rel_path).startswith(pattern[1:] + "/"):
+                    return True
+            elif pattern.endswith("/"):
+                # Directory pattern
+                if str(rel_path).startswith(pattern[:-1]):
+                    return True
+            else:
+                # File pattern
+                if str(rel_path) == pattern or str(rel_path).endswith("/" + pattern):
+                    return True
+    except Exception:
+        logfire.exception("Error checking gitignore patterns")
+
+    return False
+
+
+def should_ignore_path(path: Path, workspace_path: Path) -> bool:
+    """Check if a path should be ignored based on common patterns and gitignore."""
+    try:
+        rel_path = path.relative_to(workspace_path)
+    except ValueError:
+        # Path is outside workspace, check if it's hidden
+        return path.name.startswith(".")
+
+    # Check for hidden files/directories
+    if path.name.startswith("."):
+        return True
+
+    # Check common ignore patterns
+    if _check_common_patterns(path):
+        return True
+
+    # Check gitignore patterns
+    return _check_gitignore_patterns(rel_path, workspace_path)
+
+
+def is_binary_file(file_path: Path, sample_size: int = 1024) -> bool:
+    """Detect if a file is binary by checking for null bytes in the first sample_size bytes."""
+    try:
+        with open(file_path, "rb") as f:
+            sample = f.read(sample_size)
+            return b"\x00" in sample
+    except Exception:
+        return False
+
+
+def validate_file_path(file_path: Path, workspace_path: Path) -> tuple[bool, Optional[str]]:
+    """Validate file path for security and accessibility."""
+    try:
+        # Resolve to absolute path
+        abs_path = file_path.resolve()
+        workspace_abs = workspace_path.resolve()
+
+        # Check if path is within workspace
+        try:
+            abs_path.relative_to(workspace_abs)
+        except ValueError:
+            return False, "Path is outside workspace"
+
+        # Check for path traversal attempts
+        if ".." in str(file_path):
+            return False, "Path traversal not allowed"
+
+    except Exception as e:
+        return False, f"Invalid path: {e}"
+
+    return True, None
+
 
 class FileReadTool(Tool):
-    """Tool for reading file contents in the workspace.
+    """Read the contents of a file in the workspace.
+
+    This tool reads text files and returns their content. It automatically filters out
+    binary files, hidden files, and files that should be ignored based on .gitignore
+    and common ignore patterns.
 
     Usage example:
         Action: read_file
@@ -22,7 +175,7 @@ class FileReadTool(Tool):
 
     name: str = Field(default="read_file", description="The internal name of the tool")
     display_name: str = Field(default="Read File", description="The user-friendly display name")
-    description: str = Field(default="Read the contents of a file", description="Description of what the tool does")
+    description: str = Field(default=__doc__, description="Description of what the tool does")
 
     path: str = Field(..., description="The relative or absolute path to the file to read.")
 
@@ -32,7 +185,7 @@ class FileReadTool(Tool):
         return {
             "name": "read_file",
             "display_name": "Read File",
-            "description": "Read the contents of a file",
+            "description": cls.__doc__,
         }
 
     def execute(self, context: AgentContext) -> ToolResult:
@@ -44,6 +197,11 @@ class FileReadTool(Tool):
             if not file_path.is_absolute():
                 file_path = context.workspace_path / file_path
 
+            # Validate path
+            is_valid, error_msg = validate_file_path(file_path, context.workspace_path)
+            if not is_valid:
+                return ToolResult(success=False, data=None, error=error_msg)
+
             if not file_path.exists():
                 safe_path = sanitize_path(file_path)
                 return ToolResult(success=False, data=None, error=f"File not found: {safe_path}")
@@ -51,6 +209,16 @@ class FileReadTool(Tool):
             if not file_path.is_file():
                 safe_path = sanitize_path(file_path)
                 return ToolResult(success=False, data=None, error=f"Path is not a file: {safe_path}")
+
+            # Check if file should be ignored
+            if should_ignore_path(file_path, context.workspace_path):
+                safe_path = sanitize_path(file_path)
+                return ToolResult(success=False, data=None, error=f"File is ignored: {safe_path}")
+
+            # Check if file is binary
+            if is_binary_file(file_path):
+                safe_path = sanitize_path(file_path)
+                return ToolResult(success=False, data=None, error=f"File is binary: {safe_path}")
 
             try:
                 content = file_path.read_text(encoding="utf-8")
@@ -64,11 +232,15 @@ class FileReadTool(Tool):
 
 
 class FileWriteTool(Tool):
-    """Tool for writing content to files in the workspace.
+    """Write content to a file in the workspace.
+
+    This tool creates or overwrites files with the specified content. It automatically
+    creates parent directories if they don't exist and supports both overwrite and
+    append modes.
 
     Usage example:
         Action: write_file
-        Action Input: {"path": "output.txt", "content": "Hello, world!"}
+        Action Input: {"path": "output.txt", "content": "Hello, world!", "mode": "overwrite"}
 
     Parameters:
         path: The relative or absolute path to the file to write.
@@ -78,7 +250,7 @@ class FileWriteTool(Tool):
 
     name: str = Field(default="write_file", description="The internal name of the tool")
     display_name: str = Field(default="Write File", description="The user-friendly display name")
-    description: str = Field(default="Write content to a file", description="Description of what the tool does")
+    description: str = Field(default=__doc__, description="Description of what the tool does")
 
     path: str = Field(..., description="The relative or absolute path to the file to write.")
     content: str = Field(..., description="The content to write to the file.")
@@ -90,7 +262,7 @@ class FileWriteTool(Tool):
         return {
             "name": "write_file",
             "display_name": "Write File",
-            "description": "Write content to a file",
+            "description": cls.__doc__,
         }
 
     def execute(self, context: AgentContext) -> ToolResult:
@@ -101,6 +273,11 @@ class FileWriteTool(Tool):
             file_path = Path(self.path)
             if not file_path.is_absolute():
                 file_path = context.workspace_path / file_path
+
+            # Validate path
+            is_valid, error_msg = validate_file_path(file_path, context.workspace_path)
+            if not is_valid:
+                return ToolResult(success=False, data=None, error=error_msg)
 
             # Ensure parent directory exists
             file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -121,7 +298,11 @@ class FileWriteTool(Tool):
 
 
 class FileEditTool(Tool):
-    """Tool for fine-grained editing of file contents in the workspace.
+    """Edit file content with fine-grained operations.
+
+    This tool provides precise editing capabilities for text files, including line-based
+    operations, text replacement, and content insertion. It automatically validates paths
+    and filters out binary or ignored files.
 
     Usage example:
         Action: edit_file
@@ -149,9 +330,7 @@ class FileEditTool(Tool):
 
     name: str = Field(default="edit_file", description="The internal name of the tool")
     display_name: str = Field(default="Edit File", description="The user-friendly display name")
-    description: str = Field(
-        default="Edit file content with fine-grained operations", description="Description of what the tool does"
-    )
+    description: str = Field(default=__doc__, description="Description of what the tool does")
 
     path: str = Field(..., description="The relative or absolute path to the file to edit.")
     operation: Literal[
@@ -169,7 +348,7 @@ class FileEditTool(Tool):
         return {
             "name": "edit_file",
             "display_name": "Edit File",
-            "description": "Edit file content with fine-grained operations",
+            "description": cls.__doc__,
         }
 
     def execute(self, context: AgentContext) -> ToolResult:
@@ -179,9 +358,25 @@ class FileEditTool(Tool):
             file_path = Path(self.path)
             if not file_path.is_absolute():
                 file_path = context.workspace_path / file_path
+
+            # Validate path
+            is_valid, error_msg = validate_file_path(file_path, context.workspace_path)
+            if not is_valid:
+                return ToolResult(success=False, data=None, error=error_msg)
+
             if not file_path.exists():
                 safe_path = sanitize_path(file_path)
                 return ToolResult(success=False, data=None, error=f"File not found: {safe_path}")
+
+            # Check if file should be ignored
+            if should_ignore_path(file_path, context.workspace_path):
+                safe_path = sanitize_path(file_path)
+                return ToolResult(success=False, data=None, error=f"File is ignored: {safe_path}")
+
+            # Check if file is binary
+            if is_binary_file(file_path):
+                safe_path = sanitize_path(file_path)
+                return ToolResult(success=False, data=None, error=f"File is binary: {safe_path}")
 
             lines = file_path.read_text(encoding="utf-8").splitlines(keepends=True)
             dispatch = {
@@ -200,7 +395,7 @@ class FileEditTool(Tool):
         except Exception as e:
             return ToolResult(success=False, data=None, error=f"Error editing file: {e!s}")
 
-    def _replace_lines(self, lines: list[str], file_path: Any) -> ToolResult:
+    def _replace_lines(self, lines: list[str], file_path: Path) -> ToolResult:
         from .utils import sanitize_path
 
         if self.start_line is None or self.end_line is None or self.content is None:
@@ -215,7 +410,7 @@ class FileEditTool(Tool):
         safe_path = sanitize_path(file_path)
         return ToolResult(success=True, data=f"File edited successfully: {safe_path}", error=None)
 
-    def _replace_text(self, lines: list[str], file_path: Any) -> ToolResult:
+    def _replace_text(self, lines: list[str], file_path: Path) -> ToolResult:
         from .utils import sanitize_path
 
         if self.match_text is None or self.replace_text is None:
@@ -229,7 +424,7 @@ class FileEditTool(Tool):
         safe_path = sanitize_path(file_path)
         return ToolResult(success=True, data=f"File edited successfully: {safe_path}", error=None)
 
-    def _insert_after(self, lines: list[str], file_path: Any) -> ToolResult:
+    def _insert_after(self, lines: list[str], file_path: Path) -> ToolResult:
         from .utils import sanitize_path
 
         if self.line_number is None or self.content is None:
@@ -242,7 +437,7 @@ class FileEditTool(Tool):
         safe_path = sanitize_path(file_path)
         return ToolResult(success=True, data=f"File edited successfully: {safe_path}", error=None)
 
-    def _insert_before(self, lines: list[str], file_path: Any) -> ToolResult:
+    def _insert_before(self, lines: list[str], file_path: Path) -> ToolResult:
         from .utils import sanitize_path
 
         if self.line_number is None or self.content is None:
@@ -255,7 +450,7 @@ class FileEditTool(Tool):
         safe_path = sanitize_path(file_path)
         return ToolResult(success=True, data=f"File edited successfully: {safe_path}", error=None)
 
-    def _delete_lines(self, lines: list[str], file_path: Any) -> ToolResult:
+    def _delete_lines(self, lines: list[str], file_path: Path) -> ToolResult:
         from .utils import sanitize_path
 
         if self.start_line is None or self.end_line is None:
@@ -267,7 +462,7 @@ class FileEditTool(Tool):
         safe_path = sanitize_path(file_path)
         return ToolResult(success=True, data=f"File edited successfully: {safe_path}", error=None)
 
-    def _append(self, lines: list[str], file_path: Any) -> ToolResult:
+    def _append(self, lines: list[str], file_path: Path) -> ToolResult:
         from .utils import sanitize_path
 
         if self.content is None:
@@ -278,7 +473,7 @@ class FileEditTool(Tool):
         safe_path = sanitize_path(file_path)
         return ToolResult(success=True, data=f"File edited successfully: {safe_path}", error=None)
 
-    def _prepend(self, lines: list[str], file_path: Any) -> ToolResult:
+    def _prepend(self, lines: list[str], file_path: Path) -> ToolResult:
         from .utils import sanitize_path
 
         if self.content is None:

@@ -122,7 +122,7 @@ class EventureAdapter:
         # Normalize event type to string
         normalized_type = normalize_event_type(event_type)
 
-        return event_bus.subscribe(normalized_type, handler)
+        return event_bus.subscribe(normalized_type, handler)  # type: ignore[arg-type]
 
     def subscribe_to_all(
         self,
@@ -148,7 +148,7 @@ class EventureAdapter:
 
         # Eventure doesn't have subscribe_to_all, so we use a wildcard pattern
         # Subscribe to all domains by using "*" pattern
-        return event_bus.subscribe("*", handler)
+        return event_bus.subscribe("*", handler)  # type: ignore[arg-type]
 
     def get_bus(self, bus_name: str | None = None) -> EventBus:
         """Get a bus instance.

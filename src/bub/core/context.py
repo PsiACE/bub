@@ -3,6 +3,8 @@
 from pathlib import Path
 from typing import Any, Optional
 
+from openai.types.chat import ChatCompletionMessageParam
+
 
 class AgentContext:
     """Agent environment context: workspace, config, tool registry, etc."""
@@ -16,7 +18,6 @@ class AgentContext:
         max_tokens: Optional[int] = None,
         system_prompt: Optional[str] = None,
         workspace_path: Optional[Path] = None,
-        config: Optional[Any] = None,
     ) -> None:
         """Initialize the agent context.
 
@@ -28,7 +29,6 @@ class AgentContext:
             max_tokens: Maximum tokens for responses
             system_prompt: System prompt for the agent
             workspace_path: Path to workspace
-            config: Configuration object
         """
         self.provider = provider
         self.model_name = model_name
@@ -37,15 +37,13 @@ class AgentContext:
         self.max_tokens = max_tokens
         self.system_prompt = system_prompt
         self.workspace_path = workspace_path or Path.cwd()
-        self.config = config
-        self.tool_registry = None  # Will be set by Agent
+        self.tool_registry: Optional[Any] = None  # Will be set by Agent
+        self._conversation_history: list[ChatCompletionMessageParam] = []
 
     def get_system_prompt(self) -> str:
-        """Get the system prompt from config or default."""
+        """Get the system prompt or default."""
         if self.system_prompt:
             return self.system_prompt
-        if self.config and hasattr(self.config, "system_prompt") and isinstance(self.config.system_prompt, str):
-            return self.config.system_prompt
         return "You are a helpful AI assistant."
 
     def build_context_message(self) -> str:
@@ -54,15 +52,67 @@ class AgentContext:
             return f"[Environment Context]\nWorkspace: {self.workspace_path}\nNo tools available"
 
         tool_schemas = self.tool_registry.get_tool_schemas()
+        available_tools = list(tool_schemas.keys())
+        tool_details = self.tool_registry._format_schemas_for_context()
+
         msg = [
             "[Environment Context]",
             f"Workspace: {self.workspace_path}",
-            f"Available tools: {', '.join(tool_schemas.keys())}",
-            f"Tool schemas: {self.tool_registry._format_schemas_for_context()}",
+            f"Available tools ({len(available_tools)}): {', '.join(available_tools)}",
+            "",
+            "[Tool Definitions]",
+            tool_details,
+            "",
+            "[Usage Instructions]",
+            "To use a tool, provide the tool name and parameters in JSON format.",
+            'Example: {"command": "ls -la"} for run_command tool',
         ]
         return "\n".join(msg)
 
     def reset(self) -> None:
         """Reset the context state."""
-        # Reset any conversation history or state
-        pass
+        self.reset_conversation()
+
+    def compress(self, max_messages: int = 10) -> None:
+        """Compress the conversation history."""
+        self.compress_conversation(max_messages)
+
+    def set_conversation_history(self, history: list[ChatCompletionMessageParam]) -> None:
+        """Set the conversation history.
+
+        Args:
+            history: List of conversation messages
+        """
+        self._conversation_history = history
+
+    def get_conversation_history(self) -> list[ChatCompletionMessageParam]:
+        """Get the conversation history.
+
+        Returns:
+            List of conversation messages
+        """
+        return self._conversation_history
+
+    def add_to_conversation_history(self, message: ChatCompletionMessageParam) -> None:
+        """Add a message to the conversation history.
+
+        Args:
+            message: Message to add
+        """
+        self._conversation_history.append(message)
+
+    def reset_conversation(self) -> None:
+        """Reset the conversation history."""
+        self._conversation_history = []
+
+    def compress_conversation(self, max_messages: int = 10) -> None:
+        """Compress conversation history to keep only recent messages.
+
+        Args:
+            max_messages: Maximum number of messages to keep
+        """
+        if len(self._conversation_history) > max_messages:
+            # Keep recent messages, prioritize keeping system message if any
+
+            recent_messages = self._conversation_history[-max_messages:]
+            self._conversation_history = recent_messages
