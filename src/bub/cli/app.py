@@ -5,11 +5,11 @@ from typing import Callable, Optional
 
 import typer
 
-from bub.bridges.base import EventSystemDomainBridge
-from bub.cli.domain import CLIDomain
-from bub.cli.ui import UIDomain
+from bub.cli.controller import CLIDomain
+from bub.cli.render import UIDomain
 from bub.config import Settings, get_settings, read_bubmd
 from bub.core.agent import Agent
+from bub.events.bridges import EventSystemDomainBridge
 
 _settings = get_settings()
 

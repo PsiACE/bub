@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Any, Optional
 
-from bub.bridges.base import BaseDomain, DomainEventBridge
+from bub.events.bridges import BaseDomain, DomainEventBridge
 
 from .events import (
     ChatEndedEvent,

@@ -9,7 +9,7 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 
-from bub.bridges.base import BaseDomain, DomainEventBridge
+from bub.events.bridges import BaseDomain, DomainEventBridge
 
 from .events import (
     CLIEventType,

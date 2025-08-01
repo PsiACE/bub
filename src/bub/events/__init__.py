@@ -31,6 +31,13 @@ from typing import Callable
 from eventure import Event, EventBus, EventLog, EventQuery
 
 from .adapters import EventBusAdapter, NullEventBusAdapter
+from .bridges import (
+    BaseDomain,
+    DomainEventBridge,
+    EventSystemDomainBridge,
+    LogfireDomainEventBridge,
+    NullDomainEventBridge,
+)
 from .exceptions import (
     BusNotFoundError,
     EventAdapterError,
@@ -166,6 +173,12 @@ __all__ = [  # noqa: RUF022
     "EventSystem",
     "BaseEvent",
     "DomainEventType",
+    # Bridges
+    "BaseDomain",
+    "DomainEventBridge",
+    "EventSystemDomainBridge",
+    "LogfireDomainEventBridge",
+    "NullDomainEventBridge",
     # Registration
     "register_event",
     "get_event_schema",
