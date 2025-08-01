@@ -126,17 +126,10 @@ class Agent:
         # Set the tool registry in the context so it's available for context building
         self.context.tool_registry = self.tool_registry
 
-        # Store custom system prompt if provided
-        self.custom_system_prompt = system_prompt
-
         self.prompt_formatter = ReActPromptFormatter()
-        # Use format_prompt to generate the full system prompt
-        if self.custom_system_prompt:
-            self.system_prompt = self.prompt_formatter.format_prompt(self.custom_system_prompt)
-        else:
-            # Use config default if not provided
-            config_prompt = self.context.get_system_prompt()
-            self.system_prompt = self.prompt_formatter.format_prompt(config_prompt)
+
+        full_system_prompt = self.context.get_system_prompt()
+        self.system_prompt = self.prompt_formatter.format_prompt(full_system_prompt)
 
     def chat(self, message: str, on_step: Optional[Callable[[str, str], None]] = None, debug_mode: bool = False) -> str:
         """Chat with the agent using ReAct pattern.

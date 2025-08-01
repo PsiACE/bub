@@ -5,6 +5,8 @@ from typing import Any, Optional
 
 from openai.types.chat import ChatCompletionMessageParam
 
+from .prompt import DEFAULT_SYSTEM_PROMPT
+
 
 class AgentContext:
     """Agent environment context: workspace, config, tool registry, etc."""
@@ -35,7 +37,7 @@ class AgentContext:
         self.api_key = api_key
         self.api_base = api_base
         self.max_tokens = max_tokens
-        self.system_prompt = system_prompt
+        self.system_prompt = DEFAULT_SYSTEM_PROMPT + "\n" + (system_prompt or "")
         self.workspace_path = workspace_path or Path.cwd()
         self.tool_registry: Optional[Any] = None  # Will be set by Agent
         self._conversation_history: list[ChatCompletionMessageParam] = []
@@ -44,7 +46,7 @@ class AgentContext:
         """Get the system prompt or default."""
         if self.system_prompt:
             return self.system_prompt
-        return "You are a helpful AI assistant."
+        return DEFAULT_SYSTEM_PROMPT
 
     def build_context_message(self) -> str:
         """Build a clean context message with essential information."""
