@@ -36,16 +36,6 @@ export BUB_API_KEY="sk-..."
 export BUB_PROVIDER="anthropic"
 export BUB_MODEL_NAME="claude-3-5-sonnet-20241022"
 export BUB_API_KEY="your-anthropic-key"
-
-# For local models with Ollama
-export BUB_PROVIDER="ollama"
-export BUB_MODEL_NAME="llama3"
-# No API key needed for local models
-
-# For Groq (fast inference)
-export BUB_PROVIDER="groq"
-export BUB_MODEL_NAME="llama3-8b-8192"
-export BUB_API_KEY="gsk_..."
 ```
 
 ### Usage

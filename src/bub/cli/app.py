@@ -1,11 +1,12 @@
 """CLI main module for Bub."""
 
+from contextlib import suppress
 from pathlib import Path
 from typing import Optional
 
 import typer
 
-from ..agent import Agent
+from ..agent import Agent, ToolActionSubscriber, build_event_runtime
 from ..config import Settings, get_settings
 from .render import create_cli_renderer
 
@@ -69,6 +70,11 @@ def _create_agent(
         provider = settings.provider or "openai"
         model_name = settings.model_name or "gpt-3.5-turbo"
 
+    # Build evented runtime
+    event_log, bus, ctx, huey, context, registry, executor = build_event_runtime(str(workspace_path))
+    # Attach subscriber to execute tools via Huey
+    ToolActionSubscriber(bus, executor, huey, ctx)
+
     return Agent(
         provider=provider,
         model_name=model_name,
@@ -77,6 +83,8 @@ def _create_agent(
         max_tokens=max_tokens or settings.max_tokens,
         workspace_path=workspace_path,
         system_prompt=settings.system_prompt,
+        bus=bus,
+        event_log=event_log,
     )
 
 
@@ -99,6 +107,7 @@ def _handle_chat_loop(agent: Agent) -> None:
     """Handle the interactive chat loop."""
     while True:
         try:
+            # Do not pre-echo; rely solely on user.input event for display
             user_input = renderer.get_user_input()
             if not user_input.strip():
                 continue
@@ -108,16 +117,12 @@ def _handle_chat_loop(agent: Agent) -> None:
             if special is False:
                 continue
 
-            def on_step(kind: str, content: str) -> None:
-                if kind == "assistant":
-                    renderer.assistant_message(content)
-                elif kind == "observation":
-                    # Pass observation through assistant_message to apply TAAO filtering
-                    renderer.assistant_message(content)
-                elif kind == "error":
-                    renderer.error(content)
+            # Align view mode with debug toggle for consistency
+            # View mode follows debug toggle; initial announcement only
+            renderer.set_view_mode("process" if renderer._show_debug else "conversation")
 
-            agent.chat(user_input, on_step=on_step)
+            # Let event bus drive rendering; no on_step mirroring
+            agent.chat(user_input)
             renderer.info("")
 
         except (KeyboardInterrupt, EOFError):
@@ -142,6 +147,14 @@ def chat(
 
         agent = _create_agent(settings, workspace_path, model, max_tokens)
 
+        # Subscribe to all events for rendering
+        unsubscribe = None
+        if getattr(agent, "bus", None):
+            try:
+                unsubscribe = agent.bus.subscribe("*", renderer.render_event)  # type: ignore[attr-defined]
+            except Exception:
+                unsubscribe = None
+
         renderer.welcome()
         renderer.usage_info(
             workspace_path=str(workspace_path),
@@ -154,6 +167,10 @@ def chat(
         renderer.info("")
 
         _handle_chat_loop(agent)
+
+        if unsubscribe:
+            with suppress(Exception):
+                unsubscribe()
 
     except Exception as e:
         renderer.error(f"Failed to start chat: {e!s}")
@@ -178,18 +195,21 @@ def run(
 
         agent = _create_agent(settings, workspace_path, model, max_tokens)
 
+        # Subscribe to all events for rendering
+        unsubscribe = None
+        if getattr(agent, "bus", None):
+            try:
+                unsubscribe = agent.bus.subscribe("*", renderer.render_event)  # type: ignore[attr-defined]
+            except Exception:
+                unsubscribe = None
+
         renderer.info(f"Executing: {command}")
 
-        def on_step(kind: str, content: str) -> None:
-            if kind == "assistant":
-                renderer.assistant_message(content)
-            elif kind == "observation":
-                # Pass observation through assistant_message to apply TAAO filtering
-                renderer.assistant_message(content)
-            elif kind == "error":
-                renderer.error(content)
+        agent.chat(command)
 
-        agent.chat(command, on_step=on_step)
+        if unsubscribe:
+            with suppress(Exception):
+                unsubscribe()
 
     except Exception as e:
         renderer.error(f"Failed to execute command: {e!s}")
