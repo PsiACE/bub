@@ -186,7 +186,7 @@ wheels = [
 
 [[package]]
 name = "bub"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "any-llm-sdk", extra = ["anthropic", "aws", "azure", "google"] },
@@ -214,7 +214,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "any-llm-sdk", extras = ["openai", "anthropic", "google", "azure", "aws"], specifier = ">=0.1.0" },
+    { name = "any-llm-sdk", extras = ["openai", "anthropic", "google", "azure", "aws"], specifier = ">=0.1.1" },
     { name = "eventure", specifier = ">=0.4.0" },
     { name = "huey", specifier = ">=2.5.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
