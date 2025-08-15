@@ -151,7 +151,7 @@ def chat(
         unsubscribe = None
         if getattr(agent, "bus", None):
             try:
-                unsubscribe = agent.bus.subscribe("*", renderer.render_event)  # type: ignore[attr-defined]
+                unsubscribe = agent.bus.subscribe("*", renderer.render_event)
             except Exception:
                 unsubscribe = None
 
@@ -199,7 +199,7 @@ def run(
         unsubscribe = None
         if getattr(agent, "bus", None):
             try:
-                unsubscribe = agent.bus.subscribe("*", renderer.render_event)  # type: ignore[attr-defined]
+                unsubscribe = agent.bus.subscribe("*", renderer.render_event)
             except Exception:
                 unsubscribe = None
 

@@ -12,7 +12,7 @@ import threading
 from pathlib import Path
 from typing import Callable, Optional
 
-from any_llm import completion  # type: ignore[import-untyped]
+from any_llm import completion
 from eventure import EventBus, EventLog
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 from uuid_extension import uuid7
@@ -276,4 +276,4 @@ class Agent:
                     on_step("error", error_message)
                 return error_message
             else:
-                return assistant_message
+                return final

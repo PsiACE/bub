@@ -202,7 +202,7 @@ class ToolActionSubscriber:
         self._ctx.set_parent(event)
         try:
             # Execute task inline to ensure timely observation without a worker
-            self._run_tool.call_local(action_id, tool, params)  # type: ignore[attr-defined]
+            self._run_tool.call_local(action_id, tool, params)
         finally:
             self._ctx.clear()
 
