@@ -36,11 +36,6 @@ export BUB_API_KEY="sk-..."
 export BUB_PROVIDER="anthropic"
 export BUB_MODEL_NAME="claude-3-sonnet-20240229"
 export BUB_API_KEY="your-anthropic-key"
-
-# For local models with Ollama
-export BUB_PROVIDER="ollama"
-export BUB_MODEL_NAME="llama2"
-# No API key needed for local models
 ```
 
 ### 2. Start using Bub
