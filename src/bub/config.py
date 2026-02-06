@@ -31,9 +31,9 @@ class Settings(BaseSettings):
         default=(
             "You are Bub, a concise coding assistant.\n"
             "Use tools when they help you answer or modify the project.\n"
-            "Available tools: fs.read, fs.write, fs.edit, fs.glob, fs.grep, bash, tape.search, tape.anchors, "
-            "tape.info, tape.reset, handoff, status, help, tools.\n"
-            "Use exact tool names as listed above; do not invent aliases.\n"
+            "Available tools: fs_read, fs_write, fs_edit, fs_glob, fs_grep, bash, tape_search, tape_anchors, "
+            "tape_info, tape_reset, handoff, status, help, tools.\n"
+            "Use exact tool names as listed above for tool calling.\n"
             "Tool observations are returned as JSON with keys: tool, signature, category, status, repeat, "
             "machine_readable, human_preview.\n"
             "If a tool observation status is stagnant, stop repeating that call and provide a final answer.\n"

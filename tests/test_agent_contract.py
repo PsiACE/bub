@@ -81,13 +81,13 @@ def test_tool_result_payload_is_structured_json(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("BUB_MODEL", "openai:gpt-4o-mini")
     monkeypatch.setattr("bub.agent.core.LLM", _FakeLLM)
     _FakeLLM.queued_responses = [
-        _tool_call_response(name="fs.read", arguments='{"path":"calc.py"}'),
+        _tool_call_response(name="fs_read", arguments='{"path":"calc.py"}'),
         _text_response("done"),
     ]
     _FakeLLM.queued_outputs = ["file-content"]
     _FakeLLM.forced_text_when_no_tools = "forced final answer"
 
-    agent = Agent(context=Context(tmp_path), tools=[SimpleNamespace(name="fs.read")])
+    agent = Agent(context=Context(tmp_path), tools=[SimpleNamespace(name="fs_read")])
     events: list[ToolEvent] = []
 
     result = agent.respond([{"role": "user", "content": "check file"}], on_event=_capture_events(events))
@@ -98,7 +98,7 @@ def test_tool_result_payload_is_structured_json(tmp_path, monkeypatch) -> None:
 
     payload_text = tool_result_events[0].payload["result"][0]["content"]
     payload = json.loads(payload_text)
-    assert payload["tool"] == "fs.read"
+    assert payload["tool"] == "fs_read"
     assert payload["category"] == "verification"
     assert payload["status"] == "ok"
     assert payload["repeat"] is False
@@ -106,20 +106,20 @@ def test_tool_result_payload_is_structured_json(tmp_path, monkeypatch) -> None:
     assert machine["format"] == "text"
     assert machine["value"] == "file-content"
     assert payload["human_preview"] == "file-content"
-    assert payload["signature"] == 'fs.read:{"path":"calc.py"}'
+    assert payload["signature"] == 'fs_read:{"path":"calc.py"}'
 
 
 def test_agent_recovers_when_observations_are_stagnant(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("BUB_MODEL", "openai:gpt-4o-mini")
     monkeypatch.setattr("bub.agent.core.LLM", _FakeLLM)
     _FakeLLM.queued_responses = [
-        _tool_call_response(name="fs.read", arguments='{"path":"calc.py"}'),
-        _tool_call_response(name="fs.read", arguments='{"path":"calc.py"}'),
+        _tool_call_response(name="fs_read", arguments='{"path":"calc.py"}'),
+        _tool_call_response(name="fs_read", arguments='{"path":"calc.py"}'),
     ]
     _FakeLLM.queued_outputs = ["same-output", "same-output"]
     _FakeLLM.forced_text_when_no_tools = "final answer without more tools"
 
-    agent = Agent(context=Context(tmp_path), tools=[SimpleNamespace(name="fs.read")])
+    agent = Agent(context=Context(tmp_path), tools=[SimpleNamespace(name="fs_read")])
     events: list[ToolEvent] = []
 
     result = agent.respond([{"role": "user", "content": "fix and verify"}], on_event=_capture_events(events))
@@ -141,7 +141,7 @@ def test_agent_does_not_hard_block_completion_without_verification_evidence(tmp_
     _FakeLLM.queued_outputs = []
     _FakeLLM.forced_text_when_no_tools = "forced final answer"
 
-    agent = Agent(context=Context(tmp_path), tools=[SimpleNamespace(name="fs.read")])
+    agent = Agent(context=Context(tmp_path), tools=[SimpleNamespace(name="fs_read")])
 
     result = agent.respond([{"role": "user", "content": "请验证完成结果后再回复完成"}])
 
@@ -152,13 +152,13 @@ def test_agent_allows_completion_with_verification_evidence(tmp_path, monkeypatc
     monkeypatch.setenv("BUB_MODEL", "openai:gpt-4o-mini")
     monkeypatch.setattr("bub.agent.core.LLM", _FakeLLM)
     _FakeLLM.queued_responses = [
-        _tool_call_response(name="fs.read", arguments='{"path":"out.txt"}'),
+        _tool_call_response(name="fs_read", arguments='{"path":"out.txt"}'),
         _text_response("verified completion"),
     ]
     _FakeLLM.queued_outputs = ["ok-content"]
     _FakeLLM.forced_text_when_no_tools = "forced final answer"
 
-    agent = Agent(context=Context(tmp_path), tools=[SimpleNamespace(name="fs.read")])
+    agent = Agent(context=Context(tmp_path), tools=[SimpleNamespace(name="fs_read")])
 
     result = agent.respond([{"role": "user", "content": "please verify completion and then conclude"}])
 

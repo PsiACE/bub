@@ -38,45 +38,45 @@ class TestTools:
         tool_map = self._tool_map(tmp_path, monkeypatch)
         assert set(tool_map.keys()) == {
             "bash",
-            "fs.edit",
-            "fs.glob",
-            "fs.grep",
-            "fs.read",
-            "fs.write",
+            "fs_edit",
+            "fs_glob",
+            "fs_grep",
+            "fs_read",
+            "fs_write",
             "handoff",
             "help",
             "status",
-            "tape.anchors",
-            "tape.info",
-            "tape.reset",
-            "tape.search",
+            "tape_anchors",
+            "tape_info",
+            "tape_reset",
+            "tape_search",
             "tools",
         }
 
     def test_write_and_read(self, tmp_path, monkeypatch):
         """Test write then read tool."""
         tool_map = self._tool_map(tmp_path, monkeypatch)
-        result = tool_map["fs.write"].run(path="test.txt", content="line1\nline2\nline3\n")
+        result = tool_map["fs_write"].run(path="test.txt", content="line1\nline2\nline3\n")
         assert result == "ok"
 
-        read_result = tool_map["fs.read"].run(path="test.txt", offset=1, limit=1)
+        read_result = tool_map["fs_read"].run(path="test.txt", offset=1, limit=1)
         assert "2| line2" in read_result
 
     def test_edit_tool(self, tmp_path, monkeypatch):
         """Test edit tool replacement."""
         tool_map = self._tool_map(tmp_path, monkeypatch)
-        tool_map["fs.write"].run(path="edit.txt", content="hello world")
+        tool_map["fs_write"].run(path="edit.txt", content="hello world")
 
-        result = tool_map["fs.edit"].run(path="edit.txt", old="world", new="bub")
+        result = tool_map["fs_edit"].run(path="edit.txt", old="world", new="bub")
         assert result == "ok"
         assert (tmp_path / "edit.txt").read_text() == "hello bub"
 
     def test_edit_requires_unique(self, tmp_path, monkeypatch):
         """Test edit tool requires unique match unless all=true."""
         tool_map = self._tool_map(tmp_path, monkeypatch)
-        tool_map["fs.write"].run(path="dup.txt", content="a a a")
+        tool_map["fs_write"].run(path="dup.txt", content="a a a")
 
-        result = tool_map["fs.edit"].run(path="dup.txt", old="a", new="b")
+        result = tool_map["fs_edit"].run(path="dup.txt", old="a", new="b")
         assert result.startswith("error: old_string appears")
 
     def test_glob_tool(self, tmp_path, monkeypatch):
@@ -85,7 +85,7 @@ class TestTools:
         (tmp_path / "a.txt").write_text("one")
         (tmp_path / "b.md").write_text("two")
 
-        result = tool_map["fs.glob"].run(path=".", pattern="*.txt")
+        result = tool_map["fs_glob"].run(path=".", pattern="*.txt")
         assert "a.txt" in result
 
     def test_grep_tool(self, tmp_path, monkeypatch):
@@ -93,7 +93,7 @@ class TestTools:
         tool_map = self._tool_map(tmp_path, monkeypatch)
         (tmp_path / "hello.txt").write_text("hello\nworld\n")
 
-        result = tool_map["fs.grep"].run(pattern="hello", path=".")
+        result = tool_map["fs_grep"].run(pattern="hello", path=".")
         assert "hello.txt:1:hello" in result
 
     def test_bash_tool(self, tmp_path, monkeypatch):
