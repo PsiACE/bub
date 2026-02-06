@@ -78,11 +78,28 @@ def run(
     model: str | None = None,
     max_tokens: int | None = None,
 ) -> None:
-    """Run a single command with Bub."""
-    # Keep signature for CLI compatibility while run mode is intentionally disabled.
-    _ = (command, workspace, model, max_tokens)
-    renderer.error("bub run is not supported in async mode. Use bub chat.")
-    raise typer.Exit(1)
+    """Run a single request-response turn with Bub."""
+    try:
+        workspace_path = workspace or Path.cwd()
+        runtime = _build_runtime(workspace_path, model, max_tokens)
+        _run_once(runtime, command)
+    except Exception as exc:
+        renderer.error(f"Failed to run command: {exc!s}")
+        raise typer.Exit(1) from exc
+
+
+def _run_once(runtime: Runtime, command: str) -> None:
+    route = runtime.session.handle_input(command, origin="human")
+    if route.exit_requested or route.done_requested or not route.enter_agent:
+        return
+
+    response = runtime.session.agent_respond(
+        on_event=lambda event: runtime.tape.record_tool_event(event.kind, event.payload)
+    )
+    assistant_result = runtime.session.interpret_assistant(response)
+    if assistant_result.visible_text:
+        runtime.tape.record_assistant_message(assistant_result.visible_text)
+        renderer.info(assistant_result.visible_text)
 
 
 if __name__ == "__main__":

@@ -108,10 +108,11 @@ class ToolCatalog:
         return "\n".join(lines).strip()
 
     def render_tools(self) -> str:
-        specs = sorted(self.agent_specs(), key=lambda spec: spec.name)
+        specs = self.agent_specs()
         if not specs:
             return "(no tools)"
-        return "\n".join(spec.name for spec in specs)
+        tool_names = sorted(spec.name.replace(".", "_") for spec in specs)
+        return "\n".join(tool_names)
 
     def render_bub_notice(self, args: list[str]) -> str:
         if args and args[0] == "chat":

@@ -20,12 +20,12 @@ STAGNATION_RECOVERY_PROMPT = (
 HUMAN_PREVIEW_MAX_LEN = 240
 HUMAN_PREVIEW_TRUNCATE_LEN = 237
 VERIFICATION_TOOL_NAMES = {
-    "fs.read",
-    "fs.grep",
-    "fs.glob",
-    "tape.search",
-    "tape.info",
-    "tape.anchors",
+    "fs_read",
+    "fs_grep",
+    "fs_glob",
+    "tape_search",
+    "tape_info",
+    "tape_anchors",
     "status",
 }
 BASH_VERIFICATION_TOKENS = (
