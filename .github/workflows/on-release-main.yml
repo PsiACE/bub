@@ -9,7 +9,7 @@ jobs:
   set-version:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Export tag
         id: vars
@@ -24,7 +24,7 @@ jobs:
         if: ${{ github.event_name == 'release' }}
 
       - name: Upload updated pyproject.toml
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: pyproject-toml
           path: pyproject.toml
@@ -34,13 +34,13 @@ jobs:
     needs: [set-version]
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up the environment
         uses: ./.github/actions/setup-python-env
 
       - name: Download updated pyproject.toml
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: pyproject-toml
 
@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up the environment
         uses: ./.github/actions/setup-python-env

@@ -7,15 +7,15 @@ install:
     #!/usr/bin/env bash
     echo "🚀 Creating virtual environment using uv"
     uv sync
-    uv run pre-commit install
+    uv run prek install
 
 # Run code quality tools
 check:
     #!/usr/bin/env bash
     echo "🚀 Checking lock file consistency with 'pyproject.toml'"
     uv lock --locked
-    echo "🚀 Linting code: Running pre-commit"
-    uv run pre-commit run -a
+    echo "🚀 Linting code: Running prek"
+    uv run prek run -a
     echo "🚀 Static type checking: Running mypy"
     uv run mypy src
 
@@ -23,7 +23,7 @@ check:
 vulture:
     #!/usr/bin/env bash
     echo "🚀 Checking for unused code with vulture"
-    uv run pre-commit run vulture --hook-stage manual --all-files
+    uv run prek run vulture --hook-stage manual --all-files
 
 # Test the code with pytest
 test:

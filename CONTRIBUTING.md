@@ -68,10 +68,10 @@ Then, install and activate the environment with:
 uv sync
 ```
 
-4. Install pre-commit to run linters/formatters at commit time:
+1. Install prek to run linters/formatters at commit time:
 
 ```bash
-uv run pre-commit install
+uv run prek install
 ```
 
 5. Create a branch for local development:

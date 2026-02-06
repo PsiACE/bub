@@ -12,18 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - uses: actions/cache@v4
-        with:
-          path: ~/.cache/pre-commit
-          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
-
-      - name: Set up the environment
-        uses: ./.github/actions/setup-python-env
-
-      - name: Run checks
-        run: uv run just check
+      - uses: j178/prek-action@v1
 
   tests-and-type-check:
     runs-on: ubuntu-latest
@@ -36,7 +27,7 @@ jobs:
         shell: bash
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up the environment
         uses: ./.github/actions/setup-python-env
@@ -55,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up the environment
         uses: ./.github/actions/setup-python-env
