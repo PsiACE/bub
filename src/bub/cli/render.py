@@ -1,7 +1,10 @@
 """CLI renderer for Bub."""
 
+import threading
+
+from prompt_toolkit import PromptSession
+from prompt_toolkit.patch_stdout import patch_stdout
 from rich.console import Console
-from rich.prompt import Prompt
 
 
 class Renderer:
@@ -10,12 +13,14 @@ class Renderer:
     def __init__(self) -> None:
         self.console: Console = Console()
         self._show_debug: bool = False
+        self._prompt_session: PromptSession[str] = PromptSession()
+        self._print_lock = threading.Lock()
 
     def toggle_debug(self) -> None:
         """Toggle debug mode to show/hide tool traces."""
         self._show_debug = not self._show_debug
         status = "enabled" if self._show_debug else "disabled"
-        self.console.print(f"[dim]Debug mode {status}[/dim]")
+        self._print(f"[dim]Debug mode {status}[/dim]")
 
     @property
     def show_debug(self) -> bool:
@@ -24,15 +29,15 @@ class Renderer:
 
     def info(self, message: str) -> None:
         """Render an info message."""
-        self.console.print(message)
+        self._print(message)
 
     def error(self, message: str) -> None:
         """Render an error message."""
-        self.console.print(f"[bold red]Error:[/bold red] {message}")
+        self._print(f"[bold red]Error:[/bold red] {message}")
 
     def welcome(self, message: str = "[bold blue]Bub[/bold blue] - Bub it. Build it.") -> None:
         """Render welcome message."""
-        self.console.print(message)
+        self._print(message)
 
     def usage_info(
         self,
@@ -42,46 +47,51 @@ class Renderer:
     ) -> None:
         """Render usage information."""
         if workspace_path:
-            self.console.print(f"[bold]Working directory:[/bold] [cyan]{workspace_path}[/cyan]")
+            self._print(f"[bold]Working directory:[/bold] [cyan]{workspace_path}[/cyan]")
         if model:
-            self.console.print(f"[bold]Model:[/bold] [magenta]{model}[/magenta]")
+            self._print(f"[bold]Model:[/bold] [magenta]{model}[/magenta]")
         if tools:
-            self.console.print(f"[bold]Available tools:[/bold] [green]{', '.join(tools)}[/green]")
+            self._print(f"[bold]Available tools:[/bold] [green]{', '.join(tools)}[/green]")
 
     def user_message(self, message: str) -> None:
         """Render user message."""
-        self.console.print(f"[bold cyan]You:[/bold cyan] {message}")
+        self._print(f"[bold cyan]You:[/bold cyan] {message}")
 
     def assistant_message(self, message: str) -> None:
         """Render assistant message."""
-        self.console.print(f"[bold yellow]Bub:[/bold yellow] {message}")
+        self._print(f"[bold yellow]Bub:[/bold yellow] {message}")
 
     def action_result(self, title: str, status: str, stdout: str, stderr: str) -> None:
         """Render an action execution result."""
         header = title
-        self.console.print(f"[dim]{header}[/dim]")
+        self._print(f"[dim]{header}[/dim]")
         if status == "ok":
             if stdout.strip():
-                self.console.print(stdout.rstrip())
+                self._print(stdout.rstrip())
             else:
-                self.console.print("[dim](no output)[/dim]")
+                self._print("[dim](no output)[/dim]")
             return
         if stderr.strip():
-            self.console.print(f"[red]{stderr.rstrip()}[/red]")
+            self._print(f"[red]{stderr.rstrip()}[/red]")
         else:
-            self.console.print("[red]command failed[/red]")
+            self._print("[red]command failed[/red]")
 
     def debug_message(self, message: str) -> None:
         """Render a debug message."""
-        self.console.print(f"[dim]{message}[/dim]")
+        self._print(f"[dim]{message}[/dim]")
 
     def get_user_input(self) -> str:
         """Prompt user for input."""
-        return Prompt.ask("[bold cyan]$[/bold cyan]")
+        with patch_stdout(raw=True):
+            return self._prompt_session.prompt("$ ")
 
     def api_key_error(self) -> None:
         """Display API key error message."""
         self.error("API key not configured. Set BUB_API_KEY in your environment or .env file.")
+
+    def _print(self, message: str) -> None:
+        with self._print_lock:
+            self.console.print(message)
 
 
 def create_cli_renderer() -> Renderer:

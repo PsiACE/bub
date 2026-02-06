@@ -179,7 +179,7 @@ def _render_message(entry: TapeEntry, renderer: Renderer) -> None:
     content = payload.get("content")
     text = content if isinstance(content, str) else str(content)
     if role == "user":
-        renderer.user_message(text)
+        # The prompt already shows local user input; suppress duplicate timeline echo.
         return
     if role == "assistant":
         cleaned = _strip_control_lines(text)
