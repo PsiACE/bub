@@ -2,6 +2,6 @@
 
 __version__ = "0.1.1"
 
-from .agent import Agent, ToolRegistry
+from .runtime import AgentLoop, Runtime, Session
 
-__all__ = ["Agent", "ToolRegistry"]
+__all__ = ["AgentLoop", "Runtime", "Session"]

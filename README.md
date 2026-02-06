@@ -24,17 +24,15 @@ uv run bub --help
 
 ### 1. Set up your API key
 
-Bub supports multiple AI providers through Any-LLM. Configure provider and model:
+Bub supports multiple AI providers through Republic. Configure your model (provider:model):
 
 ```bash
 # For OpenAI
-export BUB_PROVIDER="openai"
-export BUB_MODEL_NAME="gpt-4"
+export BUB_MODEL="openai:gpt-4"
 export BUB_API_KEY="sk-..."
 
 # For Anthropic
-export BUB_PROVIDER="anthropic"
-export BUB_MODEL_NAME="claude-3-sonnet-20240229"
+export BUB_MODEL="anthropic:claude-3-sonnet-20240229"
 export BUB_API_KEY="your-anthropic-key"
 ```
 
@@ -44,11 +42,8 @@ export BUB_API_KEY="your-anthropic-key"
 # Interactive chat mode
 bub chat
 
-# Run a single command
-bub run "Create a Python script that prints 'Hello, World!'"
-
 # Specify workspace and model
-bub chat --workspace /path/to/project --model gpt-4
+bub chat --workspace /path/to/project --model openai:gpt-4
 
 # Get help
 bub --help
@@ -57,18 +52,38 @@ bub --help
 ## Usage Examples
 
 ```bash
-# Create files
-bub run "Create a README.md for a Python project"
+# Start a session
+bub chat
 
-# Code assistance
-bub run "Add error handling to my main.py file"
-
-# Project setup
-bub run "Initialize a new FastAPI project with basic structure"
-
-# Code review
-bub run "Review my code and suggest improvements"
+# Then, inside the session:
+$tape.info
+summarize $tape.search query=TODO
+$handoff summary="Pause work" next_steps="Resume tests"
 ```
+
+## Unified Input
+
+Bub treats `$` as a command intent marker. Commands and natural language share the same input line.
+
+```bash
+# Internal commands
+$tape.info
+$tape.search query=handoff
+$handoff name=handoff/2026-02-05 summary="Reset scope"
+
+# Shell commands
+$git status
+$ rg "TODO" src
+
+# Mixed input (command output feeds the model)
+summarize $tape.anchors --limit 3
+```
+
+Notes:
+- `$` is only an intent marker. If a command is ambiguous or fails, Bub falls back to the agent when there is other text.
+- When a line contains only a command, Bub executes it and returns the result without invoking the agent.
+- Tapes are persisted in `~/.bub/tapes/<workspace_hash>.jsonl` (override with `BUB_HOME`).
+- File tools use the `fs.*` prefix to avoid shell conflicts. Tool names still take precedence; use `$bash <command>` for explicit shell behavior.
 
 ## Configuration
 
@@ -76,18 +91,19 @@ Bub can be configured via environment variables or a `.env` file:
 
 ```bash
 BUB_API_KEY=your-api-key-here
-BUB_MODEL=gpt-4                    # AI model to use
+BUB_MODEL=openai:gpt-4             # AI model to use (provider:model)
 BUB_API_BASE=https://api.custom.ai # Custom API endpoint
 BUB_MAX_TOKENS=4000               # Maximum response tokens
 BUB_WORKSPACE_PATH=/path/to/work  # Default workspace
 BUB_SYSTEM_PROMPT="custom prompt" # Custom system prompt
+BUB_HOME=/path/to/bub/home        # Bub home (default: ~/.bub)
 ```
 
-### Custom System Prompt with BUB.md
+### Custom System Prompt with AGENTS.md
 
-You can customize Bub's behavior by creating a `BUB.md` file in your workspace. This file will be automatically read and used as the system prompt, allowing you to define project-specific instructions, coding standards, and behavior guidelines.
+You can customize Bub's behavior by creating an `AGENTS.md` file in your workspace. This file will be automatically read and used as the system prompt, allowing you to define project-specific instructions, coding standards, and behavior guidelines.
 
-**Example BUB.md:**
+**Example AGENTS.md:**
 
 ```markdown
 # Project Assistant
@@ -108,7 +124,7 @@ You are a Python development assistant for this specific project.
 When making changes, always run tests first.
 ```
 
-The BUB.md file takes precedence over the `BUB_SYSTEM_PROMPT` environment variable, making it easy to share consistent AI behavior across your development team.
+The AGENTS.md file takes precedence over the `BUB_SYSTEM_PROMPT` environment variable, making it easy to share consistent AI behavior across your development team.
 
 ## Development
 

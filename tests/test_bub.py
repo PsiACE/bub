@@ -1,302 +1,109 @@
 """Tests for Bub."""
 
-from unittest.mock import Mock, patch
+from pathlib import Path
 
-from bub.agent import Agent, Context, ToolExecutor, ToolRegistry, ToolResult
+from bub.agent import Context
 from bub.config import get_settings
-from bub.tools import FileEditTool, FileReadTool, FileWriteTool, RunCommandTool
+from bub.tools import build_agent_tools
 
 
 class TestSettings:
     """Test settings configuration."""
 
-    def test_settings_with_api_key(self, monkeypatch):
-        """Test settings with API key."""
-        monkeypatch.setenv("BUB_API_KEY", "test-key")
+    def test_settings_with_model(self, monkeypatch):
+        """Test settings with model configuration."""
+        monkeypatch.setenv("BUB_MODEL", "openai:gpt-4o-mini")
         settings = get_settings()
-        assert settings.api_key == "test-key"
+        assert settings.model == "openai:gpt-4o-mini"
 
-
-class TestToolResult:
-    """Test ToolResult model."""
-
-    def test_tool_result_success(self):
-        """Test successful tool result."""
-        result = ToolResult(success=True, data="test data", error=None)
-        assert result.success
-        assert result.data == "test data"
-        assert result.error is None
-
-    def test_tool_result_failure(self):
-        """Test failed tool result."""
-        result = ToolResult(success=False, data=None, error="test error")
-        assert not result.success
-        assert result.data is None
-        assert result.error == "test error"
-
-    def test_format_result_success(self):
-        """Test formatting successful result."""
-        result = ToolResult(success=True, data="test data", error=None)
-        formatted = result.format_result()
-        assert "test data" in formatted
-
-    def test_format_result_failure(self):
-        """Test formatting failed result."""
-        result = ToolResult(success=False, data=None, error="test error")
-        formatted = result.format_result()
-        assert formatted == "Error: test error"
-
-    def test_format_result_command_output(self):
-        """Test formatting command output."""
-        data = {"stdout": "output", "stderr": "error", "returncode": 0}
-        result = ToolResult(success=True, data=data, error=None)
-        formatted = result.format_result()
-        assert "Output:" in formatted
-        assert "Errors:" in formatted
+    def test_settings_with_agents_md(self, tmp_path):
+        """Test settings with AGENTS.md override."""
+        agents_md = tmp_path / "AGENTS.md"
+        agents_md.write_text("System prompt from AGENTS.md")
+        settings = get_settings(tmp_path)
+        assert settings.system_prompt == "System prompt from AGENTS.md"
 
 
 class TestTools:
     """Test tool implementations."""
 
-    def test_file_write_tool(self, tmp_path):
-        """Test file write tool."""
+    def _tool_map(self, tmp_path: Path, monkeypatch):
+        monkeypatch.setenv("BUB_HOME", str(tmp_path / "bubhome"))
         context = Context(workspace_path=tmp_path)
-        tool = FileWriteTool(path="test.txt", content="Hello, World!")
-        result = tool.execute(context)
+        tools = build_agent_tools(context)
+        return {tool.name: tool for tool in tools}
 
-        assert result.success
-        assert (tmp_path / "test.txt").exists()
-        assert (tmp_path / "test.txt").read_text() == "Hello, World!"
+    def test_default_tool_names(self, tmp_path, monkeypatch):
+        """Test default tool names."""
+        tool_map = self._tool_map(tmp_path, monkeypatch)
+        assert set(tool_map.keys()) == {
+            "bash",
+            "fs.edit",
+            "fs.glob",
+            "fs.grep",
+            "fs.read",
+            "fs.write",
+            "handoff",
+            "help",
+            "status",
+            "tape.anchors",
+            "tape.info",
+            "tape.reset",
+            "tape.search",
+            "tools",
+        }
 
-    def test_file_read_tool(self, tmp_path):
-        """Test file read tool."""
-        # Create a test file
-        test_file = tmp_path / "test.txt"
-        test_file.write_text("Hello, World!")
+    def test_write_and_read(self, tmp_path, monkeypatch):
+        """Test write then read tool."""
+        tool_map = self._tool_map(tmp_path, monkeypatch)
+        result = tool_map["fs.write"].run(path="test.txt", content="line1\nline2\nline3\n")
+        assert result == "ok"
 
-        context = Context(workspace_path=tmp_path)
-        tool = FileReadTool(path="test.txt")
-        result = tool.execute(context)
+        read_result = tool_map["fs.read"].run(path="test.txt", offset=1, limit=1)
+        assert "2| line2" in read_result
 
-        assert result.success
-        assert result.data == "Hello, World!"
+    def test_edit_tool(self, tmp_path, monkeypatch):
+        """Test edit tool replacement."""
+        tool_map = self._tool_map(tmp_path, monkeypatch)
+        tool_map["fs.write"].run(path="edit.txt", content="hello world")
 
-    def test_file_read_tool_not_found(self, tmp_path):
-        """Test file read tool with non-existent file."""
-        context = Context(workspace_path=tmp_path)
-        tool = FileReadTool(path="nonexistent.txt")
-        result = tool.execute(context)
+        result = tool_map["fs.edit"].run(path="edit.txt", old="world", new="bub")
+        assert result == "ok"
+        assert (tmp_path / "edit.txt").read_text() == "hello bub"
 
-        assert not result.success
-        assert "File not found" in result.error
+    def test_edit_requires_unique(self, tmp_path, monkeypatch):
+        """Test edit tool requires unique match unless all=true."""
+        tool_map = self._tool_map(tmp_path, monkeypatch)
+        tool_map["fs.write"].run(path="dup.txt", content="a a a")
 
-    def test_file_edit_tool(self, tmp_path):
-        """Test file edit tool."""
-        # Create a test file
-        test_file = tmp_path / "test.txt"
-        test_file.write_text("Hello, World!")
+        result = tool_map["fs.edit"].run(path="dup.txt", old="a", new="b")
+        assert result.startswith("error: old_string appears")
 
-        context = Context(workspace_path=tmp_path)
-        tool = FileEditTool(path="test.txt", operation="replace_lines", start_line=1, end_line=1, content="Hello, Bub!")
-        result = tool.execute(context)
+    def test_glob_tool(self, tmp_path, monkeypatch):
+        """Test glob tool."""
+        tool_map = self._tool_map(tmp_path, monkeypatch)
+        (tmp_path / "a.txt").write_text("one")
+        (tmp_path / "b.md").write_text("two")
 
-        assert result.success
-        assert test_file.read_text() == "Hello, Bub!"
+        result = tool_map["fs.glob"].run(path=".", pattern="*.txt")
+        assert "a.txt" in result
 
-    def test_file_edit_tool_text_not_found(self, tmp_path):
-        """Test file edit tool with text not found."""
-        # Create a test file
-        test_file = tmp_path / "test.txt"
-        test_file.write_text("Hello, World!")
+    def test_grep_tool(self, tmp_path, monkeypatch):
+        """Test grep tool."""
+        tool_map = self._tool_map(tmp_path, monkeypatch)
+        (tmp_path / "hello.txt").write_text("hello\nworld\n")
 
-        context = Context(workspace_path=tmp_path)
-        tool = FileEditTool(path="test.txt", operation="replace_lines", start_line=1, end_line=1, content="Hello, Bub!")
-        result = tool.execute(context)
+        result = tool_map["fs.grep"].run(pattern="hello", path=".")
+        assert "hello.txt:1:hello" in result
 
-        assert result.success
-        # The tool replaces the entire content, so it should succeed
-        assert test_file.read_text() == "Hello, Bub!"
+    def test_bash_tool(self, tmp_path, monkeypatch):
+        """Test bash tool."""
+        tool_map = self._tool_map(tmp_path, monkeypatch)
+        result = tool_map["bash"].run(cmd="echo 'Hello, World!'")
+        assert "Hello, World!" in result
 
-    def test_command_tool_success(self, tmp_path):
-        """Test command tool with successful command."""
-        context = Context(workspace_path=tmp_path)
-        tool = RunCommandTool(command="echo 'Hello, World!'")
-        result = tool.execute(context)
-
-        assert result.success
-        assert result.data["stdout"].strip() == "Hello, World!"
-        assert result.data["returncode"] == 0
-
-    def test_command_tool_failure(self, tmp_path):
-        """Test command tool with failing command."""
-        context = Context(workspace_path=tmp_path)
-        tool = RunCommandTool(command="nonexistent_command")
-        result = tool.execute(context)
-
-        assert not result.success
-        # Check that we have error data, but don't assume specific structure
-        assert result.error is not None
-
-    def test_command_tool_dangerous_command(self, tmp_path):
-        """Test command tool blocks dangerous commands."""
-        context = Context(workspace_path=tmp_path)
-        tool = RunCommandTool(command="rm -rf /")
-        result = tool.execute(context)
-
-        assert not result.success
-        assert "Dangerous command blocked" in result.error
-
-    def test_command_tool_shell_injection(self, tmp_path):
-        """Test command tool blocks shell injection."""
-        context = Context(workspace_path=tmp_path)
-        tool = RunCommandTool(command="echo 'test'; rm -rf /")
-        result = tool.execute(context)
-
-        assert not result.success
-        assert "dangerous command pattern" in result.error
-
-
-class TestToolRegistry:
-    """Test tool registry."""
-
-    def test_tool_registry_list_tools(self):
-        """Test listing available tools."""
-        registry = ToolRegistry()
-        registry.register_default_tools()
-        tools = registry.list_tools()
-
-        expected_tools = ["read_file", "write_file", "edit_file", "run_command"]
-        assert set(tools) == set(expected_tools)
-
-    def test_tool_registry_get_tool(self):
-        """Test getting tool classes."""
-        registry = ToolRegistry()
-        registry.register_default_tools()
-
-        assert registry.get_tool("read_file") == FileReadTool
-        assert registry.get_tool("write_file") == FileWriteTool
-        assert registry.get_tool("edit_file") == FileEditTool
-        assert registry.get_tool("run_command") == RunCommandTool
-        assert registry.get_tool("nonexistent") is None
-
-    def test_tool_registry_get_schema_nonexistent(self):
-        """Test getting schema for non-existent tool."""
-        registry = ToolRegistry()
-        assert registry.get_tool_schema("nonexistent") is None
-
-
-class TestToolExecutor:
-    """Test tool executor."""
-
-    def test_tool_executor_creation(self, tmp_path):
-        """Test creating tool executor."""
-        context = Context(workspace_path=tmp_path)
-        context.tool_registry = ToolRegistry()
-        executor = ToolExecutor(context)
-        assert executor.context == context
-        assert executor.tool_registry is not None
-
-    def test_tool_executor_execute_tool_success(self, tmp_path):
-        """Test successful tool execution."""
-        context = Context(workspace_path=tmp_path)
-        context.tool_registry = ToolRegistry()
-        context.tool_registry.register_default_tools()
-        executor = ToolExecutor(context)
-        result = executor.execute_tool("write_file", path="test.txt", content="test")
-
-        assert result.success
-        assert (tmp_path / "test.txt").exists()
-
-    def test_tool_executor_execute_tool_not_found(self, tmp_path):
-        """Test tool execution with non-existent tool."""
-        context = Context(workspace_path=tmp_path)
-        context.tool_registry = ToolRegistry()
-        executor = ToolExecutor(context)
-        result = executor.execute_tool("nonexistent_tool")
-
-        assert not result.success
-        assert "Tool not found" in result.error
-
-
-class TestAgent:
-    """Test agent functionality."""
-
-    def test_agent_creation(self, tmp_path):
-        """Test creating an agent."""
-        agent = Agent(provider="openai", model_name="test-model", api_key="test-key", workspace_path=tmp_path)
-        assert agent.api_key == "test-key"
-        assert agent.model == "openai/test-model"
-
-    def test_agent_reset_conversation(self, tmp_path):
-        """Test resetting conversation."""
-        agent = Agent(provider="openai", model_name="gpt-3.5-turbo", api_key="test-key", workspace_path=tmp_path)
-        agent.conversation_history.append({"role": "user", "content": "test"})
-
-        agent.reset_conversation()
-        assert len(agent.conversation_history) == 0
-
-    @patch("bub.agent.core.completion")
-    def test_agent_chat_no_tools(self, mock_completion, tmp_path):
-        """Test agent chat without tool calls."""
-        # Mock the completion response
-        mock_response = Mock()
-        mock_response.choices = [Mock()]
-        mock_response.choices[0].message.content = "Hello, I'm Bub!"
-        mock_completion.return_value = mock_response
-
-        agent = Agent(provider="openai", model_name="gpt-3.5-turbo", api_key="test-key", workspace_path=tmp_path)
-        response = agent.chat("Hello")
-
-        assert response == "Hello, I'm Bub!"
-        assert len(agent.conversation_history) == 2  # user + assistant
-
-    @patch("bub.agent.core.completion")
-    def test_agent_chat_with_tools(self, mock_completion, tmp_path):
-        """Test agent chat with tool calls."""
-        # Mock responses: first with tool call, then final response
-        mock_response1 = Mock()
-        mock_response1.choices = [Mock()]
-        mock_response1.choices[
-            0
-        ].message.content = (
-            '```tool\n{"tool": "write_file", "parameters": {"path": "test.txt", "content": "test"}}\n```'
-        )
-
-        mock_response2 = Mock()
-        mock_response2.choices = [Mock()]
-        mock_response2.choices[0].message.content = "File created successfully!"
-
-        mock_completion.side_effect = [mock_response1, mock_response2]
-
-        agent = Agent(provider="openai", model_name="gpt-3.5-turbo", api_key="test-key", workspace_path=tmp_path)
-        response = agent.chat("Create a test file")
-
-        assert "File created successfully!" in response
-        assert len(agent.conversation_history) >= 3  # user + assistant + tool result + final assistant
-
-    def test_agent_extract_tool_calls(self, tmp_path):
-        """Test extracting tool calls from response."""
-        agent = Agent(provider="openai", model_name="gpt-3.5-turbo", api_key="test-key", workspace_path=tmp_path)
-        response = 'Here\'s the result: ```tool\n{"tool": "read_file", "parameters": {"path": "test.txt"}}\n```'
-
-        tool_calls = agent.tool_executor.extract_tool_calls(response)
-        assert len(tool_calls) == 1
-        assert tool_calls[0]["tool"] == "read_file"
-        assert tool_calls[0]["parameters"]["path"] == "test.txt"
-
-    def test_agent_extract_tool_calls_invalid_json(self, tmp_path):
-        """Test extracting tool calls with invalid JSON."""
-        agent = Agent(provider="openai", model_name="gpt-3.5-turbo", api_key="test-key", workspace_path=tmp_path)
-        response = "Here's the result: ```tool\ninvalid json\n```"
-
-        tool_calls = agent.tool_executor.extract_tool_calls(response)
-        assert len(tool_calls) == 0
-
-    def test_agent_execute_tool_calls(self, tmp_path):
-        """Test executing tool calls."""
-        agent = Agent(provider="openai", model_name="gpt-3.5-turbo", api_key="test-key", workspace_path=tmp_path)
-        tool_calls = [{"tool": "write_file", "parameters": {"path": "test.txt", "content": "test"}}]
-
-        result = agent.tool_executor.execute_tool_calls(tool_calls)
-        assert "Observation:" in result
-        assert (tmp_path / "test.txt").exists()
+    def test_bash_tool_error(self, tmp_path, monkeypatch):
+        """Test bash tool non-zero exit handling."""
+        tool_map = self._tool_map(tmp_path, monkeypatch)
+        result = tool_map["bash"].run(cmd="false")
+        assert result.startswith("error: exit=1")

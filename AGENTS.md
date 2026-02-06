@@ -1,4 +1,4 @@
-# BUB.md - Bub Development Guide
+# AGENTS.md - Bub Development Guide
 
 ## Commands
 - **Test**: `uv run pytest --doctest-modules` or `just test`

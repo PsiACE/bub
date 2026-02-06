@@ -1,33 +1,17 @@
 """Context for the agent package."""
 
 from pathlib import Path
-from typing import Any, Optional
 
-from ..config import get_settings
+from ..config import Settings, get_settings
+from ..tape import DEFAULT_TAPE_NAME, FileTapeStore
 
 
 class Context:
-    """Agent environment context: workspace, config, tool registry, etc."""
+    """Agent environment context: workspace and settings."""
 
-    def __init__(self, workspace_path: Optional[Path] = None, config: Optional[Any] = None):
-        self.workspace_path = workspace_path or Path.cwd()
-        self.config = config or get_settings(self.workspace_path)
-        self.tool_registry = None  # Will be set by Agent
-
-    def get_system_prompt(self) -> str:
-        """Get the system prompt from config."""
-        return self.config.system_prompt or ""
-
-    def build_context_message(self) -> str:
-        """Build a clean context message with essential information."""
-        if not self.tool_registry:
-            return f"[Environment Context]\nWorkspace: {self.workspace_path}\nNo tools available"
-
-        tool_schemas = self.tool_registry.get_tool_schemas()
-        msg = [
-            "[Environment Context]",
-            f"Workspace: {self.workspace_path}",
-            f"Available tools: {', '.join(tool_schemas.keys())}",
-            f"Tool schemas: {self.tool_registry._format_schemas_for_context()}",
-        ]
-        return "\n".join(msg)
+    def __init__(self, workspace_path: Path | str | None = None, settings: Settings | None = None) -> None:
+        resolved_path = Path.cwd() if workspace_path is None else Path(workspace_path)
+        self.workspace_path = resolved_path
+        self.settings = settings or get_settings(self.workspace_path)
+        self.tape_name = DEFAULT_TAPE_NAME
+        self.tape_store = FileTapeStore(self.workspace_path, tape_name=self.tape_name)
