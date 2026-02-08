@@ -16,12 +16,31 @@ class TestSettings:
         settings = get_settings()
         assert settings.model == "openai:gpt-4o-mini"
 
-    def test_settings_with_agents_md(self, tmp_path):
+    def test_settings_with_agents_md(self, tmp_path, monkeypatch):
         """Test settings with AGENTS.md override."""
+        monkeypatch.setenv("HOME", str(tmp_path / "home"))
         agents_md = tmp_path / "AGENTS.md"
         agents_md.write_text("System prompt from AGENTS.md")
         settings = get_settings(tmp_path)
-        assert settings.system_prompt == "System prompt from AGENTS.md"
+        assert settings.system_prompt is not None
+        assert settings.system_prompt.startswith("System prompt from AGENTS.md")
+        assert "<available_skills>" in settings.system_prompt
+
+    def test_settings_with_skills_section(self, tmp_path, monkeypatch):
+        """Test settings include available skills metadata."""
+        monkeypatch.setenv("HOME", str(tmp_path / "home"))
+        skill_dir = tmp_path / ".agent" / "skills" / "code_review"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            ("---\nname: code-review\ndescription: Run review checks.\n---\n\nSkill instructions.\n"),
+            encoding="utf-8",
+        )
+
+        settings = get_settings(tmp_path)
+        assert settings.system_prompt is not None
+        assert "<available_skills>" in settings.system_prompt
+        assert "<name>code-review</name>" in settings.system_prompt
+        assert "code_review/SKILL.md" in settings.system_prompt
 
 
 class TestTools:
