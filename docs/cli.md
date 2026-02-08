@@ -17,8 +17,10 @@ uv run bub chat --workspace /path/to/repo --model openrouter:openrouter/auto --m
 - Single interactive mode only.
 - PromptToolkit input with history and bottom status bar.
 - Shared runtime contract with channel adapters.
+- Unified command prefix: `,` at line start.
+- `Ctrl-X` toggles shell mode; in shell mode, plain input is auto-normalized to comma-prefixed shell command.
 
-## Command Examples
+## Command Examples (Internal)
 
 ```text
 ,help
@@ -33,8 +35,8 @@ uv run bub chat --workspace /path/to/repo --model openrouter:openrouter/auto --m
 Shell command examples:
 
 ```text
-git status
-uv run pytest -q
+,git status
+, uv run pytest -q
 ```
 
 ## Status Bar

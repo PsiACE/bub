@@ -50,11 +50,17 @@ Progressive exposure:
 
 Per user turn:
 1. Route user input.
-2. If command success: return.
-3. If command failure or NL input: enter model loop.
-4. Parse assistant output with same router.
-5. If assistant emitted commands: execute and feed command blocks into next model step.
-6. Stop on plain final text, explicit quit, or `max_steps`.
+2. Parse comma-prefixed commands in router:
+   internal command if known name, otherwise shell command.
+3. If command success: return.
+4. If command failure or NL input: enter model loop.
+5. Parse assistant output with same router.
+6. If assistant emitted commands: execute and feed command blocks into next model step.
+7. Stop on plain final text, explicit quit, or `max_steps`.
+
+Routing note:
+- Only line-start `,` is considered command prefix.
+- Non-prefixed text is always treated as natural language.
 
 ## Channel Integration
 

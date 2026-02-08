@@ -9,10 +9,10 @@ Bub is a tape-first coding agent runtime:
 
 ## Core Rules
 
-1. Internal commands use `,` prefix.
-2. Shell commands run through `bash` tool.
-3. Command success returns directly; command failure falls back to model.
-4. `$` is hint-only for potential tool/skill usage.
+1. Commands are recognized only when line starts with `,`.
+2. Known command names map to internal tools (for example: `,help`, `,tools`, `,tape.info`).
+3. Other comma-prefixed lines run as shell through `bash` tool (for example: `,git status`).
+4. Command success returns directly; command failure falls back to model with structured command context.
 5. Tape is append-only; no runtime fork/rollback semantics.
 
 ## Read Next
@@ -20,4 +20,3 @@ Bub is a tape-first coding agent runtime:
 - [Architecture](architecture.md)
 - [Interactive CLI](cli.md)
 - [Telegram Integration](telegram.md)
-- [Rewrite Plan (tracking)](rewrite-plan-2026-02.md)

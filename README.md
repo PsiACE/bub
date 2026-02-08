@@ -12,27 +12,7 @@ Bub is a tape-first coding agent CLI built on `republic`.
 It uses a deterministic session model:
 - one forward-only tape per session,
 - explicit anchors/handoff for phase transitions,
-- command-aware routing shared by both user input and assistant output.
-
-## Key Behavior
-
-### 1) Input routing
-- Internal command: prefix `,` (example: `,help`).
-- Shell command: detected command line, executed via `bash` tool.
-- Natural language: sent to model loop.
-
-### 2) Command execution contract
-- Command success: return directly.
-- Command failure: emit structured command block and continue with model.
-
-### 3) `$` semantics
-- `$` is only a hint token for tool/skill intent.
-- `$` is not a command prefix.
-
-### 4) Tape model
-- Tape is append-only.
-- Handoff creates anchors with structured state for next phase.
-- Runtime uses anchor-based context rebuild instead of history rewrite/fork.
+- command-aware routing shared by both user input and assistant output..
 
 ## Install
 
@@ -47,7 +27,7 @@ uv sync
 Create `.env` (or export environment variables):
 
 ```bash
-BUB_MODEL=openrouter:openrouter/auto
+BUB_MODEL=openrouter:qwen/qwen3-coder-next
 OPENROUTER_API_KEY=your_key_here
 
 # optional
@@ -94,6 +74,13 @@ uv run bub telegram
 ,tape.search query=error
 ,tape.reset archive=true
 ,quit
+```
+
+Shell command examples:
+
+```text
+,git status
+, uv run pytest -q
 ```
 
 ## Tool/Skill View
