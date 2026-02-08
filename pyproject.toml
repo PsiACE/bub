@@ -25,6 +25,7 @@ dependencies = [
     "prompt-toolkit>=3.0.0",
     "blinker>=1.8.2",
     "python-telegram-bot>=21.0",
+    "html2markdown>=0.1.7",
 ]
 
 [project.urls]

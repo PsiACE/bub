@@ -8,15 +8,23 @@ import shutil
 import subprocess
 from pathlib import Path
 from typing import Callable
-from urllib.parse import quote_plus
+from urllib import error as urllib_error
+from urllib import parse as urllib_parse
 from urllib.request import Request, urlopen
 
+import html2markdown
 from pydantic import BaseModel, Field
 from republic import Tool, tool_from_model
 
+from bub.config.settings import Settings
 from bub.skills.loader import SkillMetadata
 from bub.tape.service import TapeService
 from bub.tools.registry import ToolDescriptor, ToolRegistry
+
+DEFAULT_OLLAMA_WEB_API_BASE = "https://ollama.com/api"
+WEB_REQUEST_TIMEOUT_SECONDS = 20
+MAX_FETCH_BYTES = 1_000_000
+WEB_USER_AGENT = "bub-web-tools/1.0"
 
 
 class BashInput(BaseModel):
@@ -58,6 +66,7 @@ class FetchInput(BaseModel):
 
 class SearchInput(BaseModel):
     query: str = Field(..., description="Search query")
+    max_results: int = Field(default=5, ge=1, le=10)
 
 
 class HandoffInput(BaseModel):
@@ -94,6 +103,59 @@ def _resolve_path(workspace: Path, raw: str) -> Path:
     return workspace / path
 
 
+def _normalize_url(raw_url: str) -> str | None:
+    normalized = raw_url.strip()
+    if not normalized:
+        return None
+
+    parsed = urllib_parse.urlparse(normalized)
+    if parsed.scheme and parsed.netloc:
+        if parsed.scheme not in {"http", "https"}:
+            return None
+        return normalized
+
+    if parsed.scheme == "" and parsed.netloc == "" and parsed.path:
+        with_scheme = f"https://{normalized}"
+        parsed = urllib_parse.urlparse(with_scheme)
+        if parsed.netloc:
+            return with_scheme
+
+    return None
+
+
+def _normalize_api_base(raw_api_base: str) -> str | None:
+    normalized = raw_api_base.strip().rstrip("/")
+    if not normalized:
+        return None
+
+    parsed = urllib_parse.urlparse(normalized)
+    if parsed.scheme in {"http", "https"} and parsed.netloc:
+        return normalized
+    return None
+
+
+def _html_to_markdown(content: str) -> str:
+    rendered = html2markdown.convert(content)
+    lines = [line.rstrip() for line in rendered.splitlines()]
+    return "\n".join(line for line in lines if line.strip())
+
+
+def _format_search_results(results: list[object]) -> str:
+    lines: list[str] = []
+    for idx, item in enumerate(results, start=1):
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "(untitled)")
+        url = str(item.get("url") or "")
+        content = str(item.get("content") or "")
+        lines.append(f"{idx}. {title}")
+        if url:
+            lines.append(f"   {url}")
+        if content:
+            lines.append(f"   {content}")
+    return "\n".join(lines) if lines else "none"
+
+
 def register_builtin_tools(
     registry: ToolRegistry,
     *,
@@ -101,6 +163,7 @@ def register_builtin_tools(
     tape: TapeService,
     skills: list[SkillMetadata],
     load_skill_body: Callable[[str], str | None],
+    settings: Settings,
 ) -> None:
     """Register built-in tools and internal commands."""
 
@@ -171,15 +234,98 @@ def register_builtin_tools(
                     rows.append(f"{path}:{idx}:{line}")
         return "\n".join(rows) if rows else "(no matches)"
 
-    def web_fetch(params: FetchInput) -> str:
-        request = Request(params.url, headers={"User-Agent": "bub/0.2"})  # noqa: S310
-        with urlopen(request, timeout=20) as response:  # noqa: S310
-            body: bytes = response.read(80_000)
-            return body.decode("utf-8", errors="replace")
+    def _fetch_markdown_from_url(raw_url: str) -> str:
+        url = _normalize_url(raw_url)
+        if not url:
+            return "error: invalid url"
 
-    def web_search(params: SearchInput) -> str:
-        query = quote_plus(params.query)
+        request = Request(  # noqa: S310
+            url,
+            headers={
+                "User-Agent": WEB_USER_AGENT,
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            },
+        )
+        try:
+            with urlopen(request, timeout=WEB_REQUEST_TIMEOUT_SECONDS) as response:  # noqa: S310
+                body_bytes = response.read(MAX_FETCH_BYTES + 1)
+                truncated = len(body_bytes) > MAX_FETCH_BYTES
+                if truncated:
+                    body_bytes = body_bytes[:MAX_FETCH_BYTES]
+                charset = response.headers.get_content_charset() or "utf-8"
+        except urllib_error.URLError as exc:
+            return f"error: {exc!s}"
+        except OSError as exc:
+            return f"error: {exc!s}"
+
+        content = body_bytes.decode(charset, errors="replace")
+        rendered = _html_to_markdown(content).strip()
+        if not rendered:
+            return "error: empty response body"
+        if truncated:
+            return f"{rendered}\n\n[truncated: response exceeded byte limit]"
+        return rendered
+
+    def web_fetch_default(params: FetchInput) -> str:
+        return _fetch_markdown_from_url(params.url)
+
+    def web_search_default(params: SearchInput) -> str:
+        query = urllib_parse.quote_plus(params.query)
         return f"https://duckduckgo.com/?q={query}"
+
+    def web_fetch_ollama(params: FetchInput) -> str:
+        return _fetch_markdown_from_url(params.url)
+
+    def web_search_ollama(params: SearchInput) -> str:
+        api_key = settings.ollama_api_key
+        if not api_key:
+            return "error: ollama api key is not configured"
+
+        api_base = _normalize_api_base(settings.ollama_api_base or DEFAULT_OLLAMA_WEB_API_BASE)
+        if not api_base:
+            return "error: invalid ollama api base url"
+
+        endpoint = f"{api_base}/web_search"
+        payload = {
+            "query": params.query,
+            "max_results": params.max_results,
+        }
+        request = Request(  # noqa: S310
+            endpoint,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+                "User-Agent": WEB_USER_AGENT,
+            },
+            method="POST",
+        )
+        try:
+            with urlopen(request, timeout=WEB_REQUEST_TIMEOUT_SECONDS) as response:  # noqa: S310
+                response_body = response.read().decode("utf-8", errors="replace")
+        except urllib_error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace").strip()
+            if detail:
+                return f"error: http {exc.code}: {detail}"
+            return f"error: http {exc.code}"
+        except urllib_error.URLError as exc:
+            return f"error: {exc!s}"
+        except OSError as exc:
+            return f"error: {exc!s}"
+
+        try:
+            data = json.loads(response_body)
+        except json.JSONDecodeError as exc:
+            return f"error: invalid json response: {exc!s}"
+
+        results = data.get("results")
+        if not isinstance(results, list) or not results:
+            return "none"
+        return _format_search_results(results)
+
+    use_ollama_web_tools = bool(settings.ollama_api_key)
+    web_fetch_handler = web_fetch_ollama if use_ollama_web_tools else web_fetch_default
+    web_search_handler = web_search_ollama if use_ollama_web_tools else web_search_default
 
     def command_help(_params: EmptyInput) -> str:
         return (
@@ -281,14 +427,28 @@ def register_builtin_tools(
             "Scan files recursively and return matching lines.",
         ),
         (
-            tool_from_model(FetchInput, web_fetch, name="web.fetch", description="Fetch URL content."),
+            tool_from_model(
+                FetchInput,
+                web_fetch_handler,
+                name="web.fetch",
+                description="Fetch URL as markdown.",
+            ),
             "Fetch URL",
-            "Fetch raw response body from URL.",
+            "Fetch URL and convert HTML to markdown-like text.",
         ),
         (
-            tool_from_model(SearchInput, web_search, name="web.search", description="Build web search URL."),
+            tool_from_model(
+                SearchInput,
+                web_search_handler,
+                name="web.search",
+                description="Search web via Ollama API." if use_ollama_web_tools else "Build web search URL.",
+            ),
             "Search web",
-            "Return a DuckDuckGo search URL for the query.",
+            (
+                "Search web via Ollama web search API and return formatted results."
+                if use_ollama_web_tools
+                else "Return a DuckDuckGo search URL for the query."
+            ),
         ),
         (
             tool_from_model(EmptyInput, command_help, name="help", description="Show command help."),

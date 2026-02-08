@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     model: str = Field(default="openrouter:qwen/qwen3-coder-next")
     api_key: str | None = Field(default=None)
     api_base: str | None = Field(default=None)
+    ollama_api_key: str | None = Field(default=None)
+    ollama_api_base: str | None = Field(default=None)
     llm_api_key: str | None = Field(default=None, validation_alias="LLM_API_KEY")
     openrouter_api_key: str | None = Field(default=None, validation_alias="OPENROUTER_API_KEY")
     max_tokens: int = Field(default=1024, ge=1)

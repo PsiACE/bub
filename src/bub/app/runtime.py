@@ -65,6 +65,7 @@ class AppRuntime:
             tape=tape,
             skills=self._skills,
             load_skill_body=self._load_skill_body,
+            settings=self.settings,
         )
         tool_view = ProgressiveToolView(registry)
         router = InputRouter(registry, tool_view, tape, self.workspace)
