@@ -20,7 +20,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    model: str = Field(default="openrouter:openrouter/free")
+    model: str = Field(default="openrouter:qwen/qwen3-coder-next")
     api_key: str | None = Field(default=None)
     api_base: str | None = Field(default=None)
     llm_api_key: str | None = Field(default=None, validation_alias="LLM_API_KEY")
