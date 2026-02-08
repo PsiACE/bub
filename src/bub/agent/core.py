@@ -10,6 +10,7 @@ from typing import Any, Callable
 from republic import LLM, Tool
 
 from ..errors import ModelNotConfiguredError
+from ..skills import build_skills_prompt_section
 from .context import Context
 
 MODEL_NOT_CONFIGURED_ERROR = "Model not configured. Set BUB_MODEL (e.g., 'openai:gpt-4o-mini')."
@@ -105,11 +106,20 @@ class Agent:
         on_event: Callable[[ToolEvent], None] | None = None,
     ) -> str:
         """Run a tool-aware response and return assistant text."""
-        if self._system_prompt:
-            messages = [{"role": "system", "content": self._system_prompt}, *messages]
-
+        inserted_system = False
         observation_fingerprints: dict[str, str] = {}
         while True:
+            system_prompt = self._build_system_prompt()
+            if system_prompt:
+                if inserted_system:
+                    messages[0] = {"role": "system", "content": system_prompt}
+                else:
+                    messages = [{"role": "system", "content": system_prompt}, *messages]
+                    inserted_system = True
+            elif inserted_system:
+                messages = messages[1:]
+                inserted_system = False
+
             response = self._llm.chat.raw(
                 messages=messages,
                 tools=self._tools,
@@ -133,6 +143,13 @@ class Agent:
                 continue
 
             return text or ""
+
+    def _build_system_prompt(self) -> str:
+        base_prompt = self._system_prompt.strip()
+        skills_section = build_skills_prompt_section(self._context.workspace_path)
+        if not skills_section:
+            return base_prompt
+        return f"{base_prompt}\n\n{skills_section}"
 
     def _execute_tools(
         self,

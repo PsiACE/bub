@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, ClassVar
 
@@ -75,6 +76,15 @@ def _capture_events(events: list[ToolEvent]):
         events.append(event)
 
     return _handler
+
+
+def _write_skill(root: Path, folder: str, *, name: str, description: str) -> None:
+    skill_dir = root / folder
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    (skill_dir / "SKILL.md").write_text(
+        (f"---\nname: {name}\ndescription: {description}\n---\n\nSkill instructions.\n"),
+        encoding="utf-8",
+    )
 
 
 def test_tool_result_payload_is_structured_json(tmp_path, monkeypatch) -> None:
@@ -163,3 +173,96 @@ def test_agent_allows_completion_with_verification_evidence(tmp_path, monkeypatc
     result = agent.respond([{"role": "user", "content": "please verify completion and then conclude"}])
 
     assert result == "verified completion"
+
+
+def test_agent_refreshes_skills_per_respond(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("BUB_MODEL", "openai:gpt-4o-mini")
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+
+    captured_system_prompts: list[str] = []
+
+    class _CaptureChat:
+        def raw(self, *, messages: list[dict[str, Any]], tools: list[Any], max_tokens: int | None = None) -> object:
+            _ = (tools, max_tokens)
+            content = messages[0].get("content", "")
+            captured_system_prompts.append(str(content))
+            return _text_response("done")
+
+    class _CaptureLLM:
+        def __init__(self, model: str, api_key: str | None = None, api_base: str | None = None) -> None:
+            _ = (api_key, api_base)
+            provider, model_name = model.split(":", 1)
+            self.provider = provider
+            self.model = model_name
+            self.chat = _CaptureChat()
+            self.tools = _FakeTools(outputs=["ok"])
+
+    monkeypatch.setattr("bub.agent.core.LLM", _CaptureLLM)
+
+    project_skills = tmp_path / ".agent" / "skills"
+    _write_skill(project_skills, "alpha", name="alpha-skill", description="alpha")
+
+    agent = Agent(context=Context(tmp_path), tools=[SimpleNamespace(name="fs_read")])
+    first = agent.respond([{"role": "user", "content": "first"}])
+    assert first == "done"
+
+    _write_skill(project_skills, "beta", name="beta-skill", description="beta")
+    second = agent.respond([{"role": "user", "content": "second"}])
+    assert second == "done"
+
+    assert len(captured_system_prompts) == 2
+    assert "<name>alpha-skill</name>" in captured_system_prompts[0]
+    assert "<name>beta-skill</name>" not in captured_system_prompts[0]
+    assert "<name>beta-skill</name>" in captured_system_prompts[1]
+
+
+def test_agent_refreshes_skills_within_same_respond_loop(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("BUB_MODEL", "openai:gpt-4o-mini")
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    project_skills = tmp_path / ".agent" / "skills"
+    _write_skill(project_skills, "alpha", name="alpha-skill", description="alpha")
+
+    captured_system_prompts: list[str] = []
+
+    class _LoopChat:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def raw(self, *, messages: list[dict[str, Any]], tools: list[Any], max_tokens: int | None = None) -> object:
+            _ = max_tokens
+            content = messages[0].get("content", "")
+            captured_system_prompts.append(str(content))
+            self.calls += 1
+            if tools and self.calls == 1:
+                return _tool_call_response(name="fs_read", arguments='{"path":"foo.txt"}')
+            return _text_response("done")
+
+    class _LoopTools:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def execute(self, call: dict[str, Any], *, tools: list[Any] | None = None) -> str:
+            _ = (call, tools)
+            if self.calls == 0:
+                _write_skill(project_skills, "beta", name="beta-skill", description="beta")
+            self.calls += 1
+            return "ok"
+
+    class _LoopLLM:
+        def __init__(self, model: str, api_key: str | None = None, api_base: str | None = None) -> None:
+            _ = (api_key, api_base)
+            provider, model_name = model.split(":", 1)
+            self.provider = provider
+            self.model = model_name
+            self.chat = _LoopChat()
+            self.tools = _LoopTools()
+
+    monkeypatch.setattr("bub.agent.core.LLM", _LoopLLM)
+
+    agent = Agent(context=Context(tmp_path), tools=[SimpleNamespace(name="fs_read")])
+    result = agent.respond([{"role": "user", "content": "check"}])
+
+    assert result == "done"
+    assert len(captured_system_prompts) >= 2
+    assert "<name>beta-skill</name>" not in captured_system_prompts[0]
+    assert "<name>beta-skill</name>" in captured_system_prompts[1]

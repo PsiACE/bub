@@ -5,8 +5,6 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from .skills import build_skills_prompt_section
-
 
 class Settings(BaseSettings):
     """Bub application settings."""
@@ -87,16 +85,4 @@ def get_settings(workspace_path: Path | None = None) -> Settings:
     if agents_md_content:
         settings.system_prompt = agents_md_content.strip()
 
-    skills_section = build_skills_prompt_section(workspace_path)
-    if skills_section:
-        settings.system_prompt = _append_prompt_section(settings.system_prompt, skills_section)
-
     return settings
-
-
-def _append_prompt_section(base: str | None, section: str) -> str:
-    base_text = (base or "").strip()
-    section_text = section.strip()
-    if not base_text:
-        return section_text
-    return f"{base_text}\n\n{section_text}"
