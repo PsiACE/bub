@@ -18,6 +18,17 @@ class ProgressiveToolView:
         if self.registry.has(name):
             self.expanded.add(name)
 
+    def note_hint(self, hint: str) -> bool:
+        """Expand one tool when hint matches tool name (case-insensitive)."""
+
+        normalized = hint.casefold()
+        for descriptor in self.registry.descriptors():
+            if descriptor.name.casefold() != normalized:
+                continue
+            self.expanded.add(descriptor.name)
+            return True
+        return False
+
     def compact_block(self) -> str:
         lines = ["<tool_view>"]
         for row in self.registry.compact_rows():
@@ -35,7 +46,7 @@ class ProgressiveToolView:
                 detail = self.registry.detail(name)
             except KeyError:
                 continue
-            lines.append(f"  <tool name=\"{name}\">")
+            lines.append(f'  <tool name="{name}">')
             for line in detail.splitlines():
                 lines.append(f"    {line}")
             lines.append("  </tool>")

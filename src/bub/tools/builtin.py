@@ -224,10 +224,7 @@ def register_builtin_tools(
 
     def tape_info(_params: EmptyInput) -> str:
         info = tape.info()
-        return (
-            f"tape={info.name} entries={info.entries} anchors={info.anchors} "
-            f"last_anchor={info.last_anchor or '-'}"
-        )
+        return f"tape={info.name} entries={info.entries} anchors={info.anchors} last_anchor={info.last_anchor or '-'}"
 
     def tape_search(params: TapeSearchInput) -> str:
         entries = tape.search(params.query, limit=params.limit)

@@ -26,11 +26,7 @@ class CommandExecutionResult:
     elapsed_ms: int
 
     def block(self) -> str:
-        return (
-            f"<command name=\"{self.name}\" status=\"{self.status}\">\n"
-            f"{self.output}\n"
-            "</command>"
-        )
+        return f'<command name="{self.name}" status="{self.status}">\n{self.output}\n</command>'
 
 
 @dataclass(frozen=True)
@@ -205,7 +201,9 @@ class InputRouter:
 
         command_text = "\n".join(pending_command_lines).strip()
         words = parse_command_words(command_text)
-        command = DetectedCommand(kind="shell", raw=command_text, name=words[0], args_tokens=words[1:]) if words else None
+        command = (
+            DetectedCommand(kind="shell", raw=command_text, name=words[0], args_tokens=words[1:]) if words else None
+        )
         pending_command_lines.clear()
         source_lines = list(pending_source_lines)
         pending_source_lines.clear()

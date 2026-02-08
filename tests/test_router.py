@@ -89,7 +89,7 @@ def test_user_shell_failure_falls_back_to_model() -> None:
     for text in (",echo hi", ", echo hi", ",   echo hi"):
         result = router.route_user(text)
         assert result.enter_model is True
-        assert "<command name=\"bash\" status=\"error\">" in result.model_prompt
+        assert '<command name="bash" status="error">' in result.model_prompt
 
 
 def test_user_natural_language_starting_with_command_word_goes_to_model() -> None:
@@ -156,14 +156,14 @@ def test_assistant_comma_prefixed_shell_command_is_executed() -> None:
     for line in (",echo hi", ", echo hi", ",   echo hi"):
         result = router.route_assistant(f"create file\n{line}")
         assert result.visible_text == ""
-        assert "<command name=\"bash\" status=\"ok\">" in result.next_prompt
+        assert '<command name="bash" status="ok">' in result.next_prompt
 
 
 def test_assistant_internal_command_with_comma_is_executed() -> None:
     router = _build_router()
     result = router.route_assistant("show help\n,help")
     assert result.visible_text == ""
-    assert "<command name=\"help\" status=\"ok\">" in result.next_prompt
+    assert '<command name="help" status="ok">' in result.next_prompt
 
 
 def test_assistant_fenced_multiline_comma_command_is_executed() -> None:
@@ -171,7 +171,7 @@ def test_assistant_fenced_multiline_comma_command_is_executed() -> None:
     for line in (",echo first", ", echo first", ",   echo first"):
         result = router.route_assistant(f"I will run this:\n```\n{line}\necho second\n```")
         assert result.visible_text == ""
-        assert "<command name=\"bash\" status=\"ok\">" in result.next_prompt
+        assert '<command name="bash" status="ok">' in result.next_prompt
 
 
 def test_assistant_fenced_plain_text_is_not_executed() -> None:

@@ -26,12 +26,51 @@ class SingleStepRouter:
         return AssistantRouteResult(visible_text="done", next_prompt="", exit_requested=False)
 
 
+class AnySingleStepRouter:
+    def route_assistant(self, raw: str) -> AssistantRouteResult:
+        assert raw
+        return AssistantRouteResult(visible_text="done", next_prompt="", exit_requested=False)
+
+
+class FollowupRouter:
+    def __init__(self, *, first: str, second: str) -> None:
+        self._calls = 0
+        self._first = first
+        self._second = second
+
+    def route_assistant(self, raw: str) -> AssistantRouteResult:
+        self._calls += 1
+        if self._calls == 1:
+            assert raw == self._first
+            return AssistantRouteResult(
+                visible_text="", next_prompt="<command>followup</command>", exit_requested=False
+            )
+        assert raw == self._second
+        return AssistantRouteResult(visible_text="done", next_prompt="", exit_requested=False)
+
+
 class FakeToolView:
+    def __init__(self) -> None:
+        self.expanded: set[str] = set()
+
     def compact_block(self) -> str:
         return "<tool_view/>"
 
     def expanded_block(self) -> str:
-        return ""
+        if not self.expanded:
+            return ""
+        lines = ["<tool_details>"]
+        for name in sorted(self.expanded):
+            lines.append(f'  <tool name="{name}"/>')
+        lines.append("</tool_details>")
+        return "\n".join(lines)
+
+    def note_hint(self, hint: str) -> bool:
+        normalized = hint.casefold()
+        if normalized == "fs.read":
+            self.expanded.add("fs.read")
+            return True
+        return False
 
 
 @dataclass
@@ -93,7 +132,7 @@ def test_model_runner_expands_skill_from_hint() -> None:
     )
     runner = ModelRunner(
         tape=tape,  # type: ignore[arg-type]
-        router=SingleStepRouter(),  # type: ignore[arg-type]
+        router=AnySingleStepRouter(),  # type: ignore[arg-type]
         tool_view=FakeToolView(),  # type: ignore[arg-type]
         skills=[skill],
         load_skill_body=lambda name: f"body for {name}",
@@ -109,3 +148,91 @@ def test_model_runner_expands_skill_from_hint() -> None:
     _, system_prompt, _ = tape.tape.calls[0]
     assert "<skill_details>" in system_prompt
     assert "friendly-python" in system_prompt
+
+
+def test_model_runner_expands_skill_from_assistant_hint() -> None:
+    tape = FakeTapeService(
+        FakeTapeImpl(
+            outputs=[
+                StructuredOutput("assistant mentions $friendly-python", error=None),
+                StructuredOutput("assistant-second", error=None),
+            ]
+        )
+    )
+    skill = SkillMetadata(
+        name="friendly-python",
+        description="style",
+        location=__file__,  # type: ignore[arg-type]
+        source="project",
+    )
+    runner = ModelRunner(
+        tape=tape,  # type: ignore[arg-type]
+        router=FollowupRouter(first="assistant mentions $friendly-python", second="assistant-second"),  # type: ignore[arg-type]
+        tool_view=FakeToolView(),  # type: ignore[arg-type]
+        skills=[skill],
+        load_skill_body=lambda name: f"body for {name}",
+        model="openrouter:test",
+        max_steps=2,
+        max_tokens=512,
+        model_timeout_seconds=90,
+        base_system_prompt="base",
+        workspace_system_prompt="",
+    )
+
+    runner.run("no skill hint here")
+    _, second_system_prompt, _ = tape.tape.calls[1]
+    assert "<skill_details>" in second_system_prompt
+    assert "friendly-python" in second_system_prompt
+
+
+def test_model_runner_expands_tool_from_user_hint() -> None:
+    tool_view = FakeToolView()
+    tape = FakeTapeService(FakeTapeImpl(outputs=[StructuredOutput("assistant-only", error=None)]))
+    runner = ModelRunner(
+        tape=tape,  # type: ignore[arg-type]
+        router=AnySingleStepRouter(),  # type: ignore[arg-type]
+        tool_view=tool_view,  # type: ignore[arg-type]
+        skills=[],
+        load_skill_body=lambda name: None,
+        model="openrouter:test",
+        max_steps=1,
+        max_tokens=512,
+        model_timeout_seconds=90,
+        base_system_prompt="base",
+        workspace_system_prompt="",
+    )
+
+    runner.run("use $fs.read")
+    _, first_system_prompt, _ = tape.tape.calls[0]
+    assert "<tool_details>" in first_system_prompt
+    assert '<tool name="fs.read"/>' in first_system_prompt
+
+
+def test_model_runner_expands_tool_from_assistant_hint() -> None:
+    tool_view = FakeToolView()
+    tape = FakeTapeService(
+        FakeTapeImpl(
+            outputs=[
+                StructuredOutput("assistant mentions $fs.read", error=None),
+                StructuredOutput("assistant-second", error=None),
+            ]
+        )
+    )
+    runner = ModelRunner(
+        tape=tape,  # type: ignore[arg-type]
+        router=FollowupRouter(first="assistant mentions $fs.read", second="assistant-second"),  # type: ignore[arg-type]
+        tool_view=tool_view,  # type: ignore[arg-type]
+        skills=[],
+        load_skill_body=lambda name: None,
+        model="openrouter:test",
+        max_steps=2,
+        max_tokens=512,
+        model_timeout_seconds=90,
+        base_system_prompt="base",
+        workspace_system_prompt="",
+    )
+
+    runner.run("no tool hint here")
+    _, second_system_prompt, _ = tape.tape.calls[1]
+    assert "<tool_details>" in second_system_prompt
+    assert '<tool name="fs.read"/>' in second_system_prompt

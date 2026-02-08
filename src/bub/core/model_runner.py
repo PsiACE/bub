@@ -18,7 +18,7 @@ from bub.tape.service import TapeService
 from bub.tools.progressive import ProgressiveToolView
 from bub.tools.view import render_tool_prompt_block
 
-SKILL_HINT_RE = re.compile(r"\$([A-Za-z0-9_.-]+)")
+HINT_RE = re.compile(r"\$([A-Za-z0-9_.-]+)")
 
 
 @dataclass(frozen=True)
@@ -76,7 +76,7 @@ class ModelRunner:
 
     def run(self, prompt: str) -> ModelTurnResult:
         state = _PromptState(prompt=prompt)
-        self._activate_skill_hints(prompt)
+        self._activate_hints(prompt)
 
         while state.step < self._max_steps and not state.exit_requested:
             state.step += 1
@@ -104,7 +104,7 @@ class ModelRunner:
                 self._tape.append_event("loop.step.empty", {"step": state.step})
                 break
 
-            self._activate_skill_hints(assistant_text)
+            self._activate_hints(assistant_text)
             route = self._router.route_assistant(assistant_text)
             self._consume_route(state, route)
             if not route.next_prompt:
@@ -198,10 +198,12 @@ class ModelRunner:
             blocks.append("\n".join(lines))
         return "\n\n".join(block for block in blocks if block.strip())
 
-    def _activate_skill_hints(self, text: str) -> None:
-        for match in SKILL_HINT_RE.finditer(text):
-            hint = match.group(1).casefold()
-            skill = self._skill_index.get(hint)
+    def _activate_hints(self, text: str) -> None:
+        for match in HINT_RE.finditer(text):
+            hint = match.group(1)
+            self._tool_view.note_hint(hint)
+
+            skill = self._skill_index.get(hint.casefold())
             if skill is None:
                 continue
             if skill.name in self._expanded_skills:
@@ -238,5 +240,6 @@ def _runtime_contract() -> str:
         "5) If command output is needed before final answer, emit command lines first, then continue.\n"
         "6) Never emit '<command ...>' blocks yourself; those are runtime-generated.\n"
         "7) When enough evidence is collected, return plain natural language answer without command lines.\n"
+        "8) Use '$name' hints to request detail expansion for tools/skills when needed.\n"
         "</runtime_contract>"
     )
