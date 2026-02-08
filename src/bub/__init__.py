@@ -1,7 +1,6 @@
-"""Bub - Bub it. Build it."""
+"""Bub package."""
 
-__version__ = "0.1.1"
+from bub.cli import app
 
-from .runtime import AgentLoop, Runtime, Session
-
-__all__ = ["AgentLoop", "Runtime", "Session"]
+__all__ = ["app"]
+__version__ = "0.2.0"

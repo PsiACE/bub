@@ -1,5 +1,5 @@
-"""CLI package for Bub."""
+"""CLI package export."""
 
-from .app import app
+from bub.cli.app import app
 
 __all__ = ["app"]

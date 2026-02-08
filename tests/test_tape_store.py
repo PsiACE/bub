@@ -1,51 +1,36 @@
-"""Tests for tape store persistence and concurrency behavior."""
-
-from __future__ import annotations
-
-import threading
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from republic.tape.entries import TapeEntry
+from republic import TapeEntry
 
 from bub.tape.store import FileTapeStore
 
 
-def _append_batch(
-    store: FileTapeStore,
-    *,
-    batch_id: int,
-    count: int,
-    start_barrier: threading.Barrier,
-) -> None:
-    start_barrier.wait()
-    for offset in range(count):
-        payload = {"role": "user", "content": f"{batch_id}:{offset}"}
-        store.append("bub", TapeEntry(0, "message", payload, {}))
+def test_store_isolated_by_tape_name(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    store = FileTapeStore(home, workspace)
+
+    store.append("a", TapeEntry.message({"role": "user", "content": "one"}))
+    store.append("b", TapeEntry.message({"role": "user", "content": "two"}))
+
+    a_entries = store.read("a")
+    b_entries = store.read("b")
+    assert a_entries is not None
+    assert b_entries is not None
+    assert a_entries[0].payload["content"] == "one"
+    assert b_entries[0].payload["content"] == "two"
+    assert sorted(store.list_tapes()) == ["a", "b"]
 
 
-def test_file_tape_store_assigns_unique_ids_under_concurrency(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("BUB_HOME", str(tmp_path / "bubhome"))
-    store = FileTapeStore(tmp_path)
+def test_archive_then_reset(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    store = FileTapeStore(home, workspace)
 
-    workers = 8
-    per_worker = 40
-    barrier = threading.Barrier(workers)
-
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        for batch_id in range(workers):
-            pool.submit(
-                _append_batch,
-                store,
-                batch_id=batch_id,
-                count=per_worker,
-                start_barrier=barrier,
-            )
-
-    entries = store.read("bub")
-    assert entries is not None
-
-    ids = [entry.id for entry in entries]
-    assert len(ids) == workers * per_worker
-    assert len(set(ids)) == len(ids)
-    assert sorted(ids) == list(range(1, len(ids) + 1))
+    store.append("session", TapeEntry.event("command", {"raw": "echo hi"}))
+    archive = store.archive("session")
+    assert archive is not None
+    assert archive.exists()
+    assert store.read("session") is None

@@ -1,94 +1,66 @@
-"""Tests for agent loop stopping behavior."""
-
-from __future__ import annotations
-
 from dataclasses import dataclass
 
-from bub.runtime.loop import AgentLoop
-from bub.runtime.router import AssistantResult, RouteResult
+from bub.core.agent_loop import AgentLoop
+from bub.core.model_runner import ModelTurnResult
+from bub.core.router import UserRouteResult
 
 
 @dataclass
-class _FakeSession:
-    results: list[AssistantResult]
+class FakeRouter:
+    route: UserRouteResult
 
-    def __post_init__(self) -> None:
-        self._idx = 0
-
-    def handle_input(self, raw: str, *, origin: str = "human") -> RouteResult:
-        return RouteResult(agent_input=raw, enter_agent=True, exit_requested=False, done_requested=False)
-
-    def agent_respond(self, on_event=None) -> str:
-        return "assistant"
-
-    def interpret_assistant(self, raw: str) -> AssistantResult:
-        result = self.results[self._idx]
-        self._idx += 1
-        return result
+    def route_user(self, _raw: str) -> UserRouteResult:
+        return self.route
 
 
 @dataclass
-class _FakeTape:
-    loops: list[str]
-    assistant_messages: list[str]
-    context_messages: list[str]
+class FakeRunner:
+    result: ModelTurnResult
 
-    def record_loop(self, loop_id: str, status: str, *, detail: str | None = None) -> None:
-        self.loops.append(status)
-
-    def record_assistant_message(self, content: str) -> None:
-        self.assistant_messages.append(content)
-
-    def record_context_message(self, content: str) -> None:
-        self.context_messages.append(content)
-
-    def record_tool_event(self, kind: str, payload: dict) -> None:
-        pass
+    def run(self, _prompt: str) -> ModelTurnResult:
+        return self.result
 
 
-def test_agent_loop_stops_on_plain_text_without_followup() -> None:
-    session = _FakeSession(
-        results=[
-            AssistantResult(
-                followup_input="",
+class FakeTape:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, dict[str, object]]] = []
+
+    def append_event(self, name: str, data: dict[str, object]) -> None:
+        self.events.append((name, data))
+
+
+def test_loop_short_circuit_without_model() -> None:
+    loop = AgentLoop(
+        router=FakeRouter(
+            UserRouteResult(
+                enter_model=False,
+                model_prompt="",
+                immediate_output="ok",
                 exit_requested=False,
-                done_requested=False,
-                visible_text="final answer",
             )
-        ]
+        ),  # type: ignore[arg-type]
+        model_runner=FakeRunner(ModelTurnResult("", False, 0)),  # type: ignore[arg-type]
+        tape=FakeTape(),  # type: ignore[arg-type]
     )
-    tape = _FakeTape(loops=[], assistant_messages=[], context_messages=[])
-
-    loop = AgentLoop(session, tape)
-    loop._run_loop()
-
-    assert tape.loops == ["start", "idle"]
-    assert tape.assistant_messages == ["final answer"]
-    assert tape.context_messages == []
+    result = loop.handle_input(",help")
+    assert result.immediate_output == "ok"
+    assert result.assistant_output == ""
 
 
-def test_agent_loop_continues_when_followup_exists() -> None:
-    session = _FakeSession(
-        results=[
-            AssistantResult(
-                followup_input='<cmd name="fs.read" status="ok">\n...\n</cmd>',
+def test_loop_runs_model_when_router_requests() -> None:
+    loop = AgentLoop(
+        router=FakeRouter(
+            UserRouteResult(
+                enter_model=True,
+                model_prompt="context",
+                immediate_output="cmd error",
                 exit_requested=False,
-                done_requested=False,
-                visible_text="",
-            ),
-            AssistantResult(
-                followup_input="",
-                exit_requested=False,
-                done_requested=True,
-                visible_text="",
-            ),
-        ]
+            )
+        ),  # type: ignore[arg-type]
+        model_runner=FakeRunner(ModelTurnResult("answer", False, 2)),  # type: ignore[arg-type]
+        tape=FakeTape(),  # type: ignore[arg-type]
     )
-    tape = _FakeTape(loops=[], assistant_messages=[], context_messages=[])
-
-    loop = AgentLoop(session, tape)
-    loop._run_loop()
-
-    assert tape.loops == ["start", "done"]
-    assert len(tape.context_messages) == 1
-    assert '<cmd name="fs.read"' in tape.context_messages[0]
+    result = loop.handle_input("bad cmd")
+    assert result.immediate_output == "cmd error"
+    assert result.assistant_output == "answer"
+    assert result.steps == 2

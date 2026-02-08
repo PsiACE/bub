@@ -1,0 +1,74 @@
+"""Unified tool registry."""
+
+from __future__ import annotations
+
+import builtins
+from dataclasses import dataclass
+from typing import Any
+
+from republic import Tool, ToolContext
+
+
+@dataclass(frozen=True)
+class ToolDescriptor:
+    """Tool metadata and runtime handle."""
+
+    name: str
+    short_description: str
+    detail: str
+    tool: Tool
+    source: str = "builtin"
+
+
+class ToolRegistry:
+    """Registry for built-in tools, internal commands, and skill-backed tools."""
+
+    def __init__(self) -> None:
+        self._tools: dict[str, ToolDescriptor] = {}
+
+    def register(self, descriptor: ToolDescriptor) -> None:
+        self._tools[descriptor.name] = descriptor
+
+    def has(self, name: str) -> bool:
+        return name in self._tools
+
+    def get(self, name: str) -> ToolDescriptor | None:
+        return self._tools.get(name)
+
+    def descriptors(self) -> builtins.list[ToolDescriptor]:
+        return sorted(self._tools.values(), key=lambda item: item.name)
+
+    def compact_rows(self) -> builtins.list[str]:
+        rows: builtins.list[str] = []
+        for descriptor in self.descriptors():
+            rows.append(f"{descriptor.name}: {descriptor.short_description}")
+        return rows
+
+    def detail(self, name: str) -> str:
+        descriptor = self.get(name)
+        if descriptor is None:
+            raise KeyError(name)
+
+        schema = descriptor.tool.schema()
+        return (
+            f"name: {descriptor.name}\n"
+            f"source: {descriptor.source}\n"
+            f"description: {descriptor.short_description}\n"
+            f"detail: {descriptor.detail}\n"
+            f"schema: {schema}"
+        )
+
+    def execute(
+        self,
+        name: str,
+        *,
+        kwargs: dict[str, Any],
+        context: ToolContext | None = None,
+    ) -> Any:
+        descriptor = self.get(name)
+        if descriptor is None:
+            raise KeyError(name)
+
+        if descriptor.tool.context:
+            return descriptor.tool.run(context=context, **kwargs)
+        return descriptor.tool.run(**kwargs)

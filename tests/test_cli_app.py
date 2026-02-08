@@ -1,166 +1,72 @@
-"""Tests for CLI app commands."""
-
-from __future__ import annotations
-
 import importlib
-from dataclasses import dataclass, field
 from pathlib import Path
 
-from bub.runtime.router import AssistantResult, RouteResult
+from typer.testing import CliRunner
 
-cli_app = importlib.import_module("bub.cli.app")
-
-
-@dataclass
-class _FakeTape:
-    tool_events: list[tuple[str, dict]] = field(default_factory=list)
-    assistant_messages: list[str] = field(default_factory=list)
-
-    def record_tool_event(self, kind: str, payload: dict) -> None:
-        self.tool_events.append((kind, payload))
-
-    def record_assistant_message(self, content: str) -> None:
-        self.assistant_messages.append(content)
+cli_app_module = importlib.import_module("bub.cli.app")
 
 
-@dataclass
-class _FakeSession:
-    route_result: RouteResult
-    assistant_result: AssistantResult
+class DummyRuntime:
+    def __init__(self, workspace: Path) -> None:
+        self.workspace = workspace
 
-    handle_calls: int = 0
-    respond_calls: int = 0
-    interpret_calls: int = 0
+        class _Settings:
+            model = "openrouter:test"
+            telegram_enabled = False
+            telegram_token = None
+            telegram_allow_from = ()
 
-    def handle_input(self, raw: str, *, origin: str = "human") -> RouteResult:
-        _ = (raw, origin)
-        self.handle_calls += 1
-        return self.route_result
+        self.settings = _Settings()
 
-    def agent_respond(self, on_event=None) -> str:
-        self.respond_calls += 1
-        if on_event is not None:
-            on_event(type("Event", (), {"kind": "tool_call", "payload": {"name": "fs_read"}})())
-        return "raw assistant"
+    def get_session(self, _session_id: str):
+        class _Tape:
+            @staticmethod
+            def info():
+                class _Info:
+                    entries = 0
+                    anchors = 0
+                    last_anchor = None
 
-    def interpret_assistant(self, raw: str) -> AssistantResult:
-        _ = raw
-        self.interpret_calls += 1
-        return self.assistant_result
+                return _Info()
 
+        class _Session:
+            tape = _Tape()
 
-@dataclass
-class _FakeRuntime:
-    session: _FakeSession
-    tape: _FakeTape
+        return _Session()
 
-
-@dataclass
-class _FakeRenderer:
-    infos: list[str] = field(default_factory=list)
-    errors: list[str] = field(default_factory=list)
-
-    def info(self, message: str) -> None:
-        self.infos.append(message)
-
-    def error(self, message: str) -> None:
-        self.errors.append(message)
+    def handle_input(self, _session_id: str, _text: str):
+        raise AssertionError
 
 
-def test_run_performs_single_request_response(monkeypatch, tmp_path: Path) -> None:
-    session = _FakeSession(
-        route_result=RouteResult(agent_input="request", enter_agent=True, exit_requested=False, done_requested=False),
-        assistant_result=AssistantResult(
-            followup_input='<cmd name="bash" status="ok">\\n...\\n</cmd>',
-            exit_requested=False,
-            done_requested=False,
-            visible_text="final response",
-        ),
-    )
-    tape = _FakeTape()
-    runtime = _FakeRuntime(session=session, tape=tape)
-    renderer = _FakeRenderer()
+def test_chat_command_invokes_interactive_runner(monkeypatch, tmp_path: Path) -> None:
+    called = {"run": False}
 
-    monkeypatch.setattr(cli_app, "renderer", renderer)
-    monkeypatch.setattr(cli_app, "_build_runtime", lambda workspace_path, model, max_tokens: runtime)
+    def _fake_build_runtime(workspace: Path, *, model=None, max_tokens=None):
+        assert workspace == tmp_path
+        return DummyRuntime(workspace)
 
-    cli_app.run("say hi", workspace=tmp_path)
+    class _FakeInteractive:
+        def __init__(self, _runtime):
+            pass
 
-    assert session.handle_calls == 1
-    assert session.respond_calls == 1
-    assert session.interpret_calls == 1
-    assert renderer.infos == ["final response"]
-    assert tape.assistant_messages == ["final response"]
-    assert tape.tool_events == [("tool_call", {"name": "fs_read"})]
+        def run(self) -> None:
+            called["run"] = True
+
+    monkeypatch.setattr(cli_app_module, "build_runtime", _fake_build_runtime)
+    monkeypatch.setattr(cli_app_module, "InteractiveCli", _FakeInteractive)
+
+    runner = CliRunner()
+    result = runner.invoke(cli_app_module.app, ["chat", "--workspace", str(tmp_path)])
+    assert result.exit_code == 0
+    assert called["run"] is True
 
 
-def test_run_skips_agent_when_route_does_not_enter_agent(monkeypatch, tmp_path: Path) -> None:
-    session = _FakeSession(
-        route_result=RouteResult(agent_input="", enter_agent=False, exit_requested=False, done_requested=False),
-        assistant_result=AssistantResult(
-            followup_input="",
-            exit_requested=False,
-            done_requested=False,
-            visible_text="should not appear",
-        ),
-    )
-    runtime = _FakeRuntime(session=session, tape=_FakeTape())
-    renderer = _FakeRenderer()
+def test_telegram_command_validates_enabled(monkeypatch, tmp_path: Path) -> None:
+    def _fake_build_runtime(workspace: Path, *, model=None, max_tokens=None):
+        return DummyRuntime(workspace)
 
-    monkeypatch.setattr(cli_app, "renderer", renderer)
-    monkeypatch.setattr(cli_app, "_build_runtime", lambda workspace_path, model, max_tokens: runtime)
-
-    cli_app.run("$tape.info", workspace=tmp_path)
-
-    assert session.handle_calls == 1
-    assert session.respond_calls == 0
-    assert session.interpret_calls == 0
-    assert renderer.infos == []
-
-
-def test_run_skips_agent_when_done_requested(monkeypatch, tmp_path: Path) -> None:
-    session = _FakeSession(
-        route_result=RouteResult(agent_input="", enter_agent=True, exit_requested=False, done_requested=True),
-        assistant_result=AssistantResult(
-            followup_input="",
-            exit_requested=False,
-            done_requested=False,
-            visible_text="should not appear",
-        ),
-    )
-    runtime = _FakeRuntime(session=session, tape=_FakeTape())
-    renderer = _FakeRenderer()
-
-    monkeypatch.setattr(cli_app, "renderer", renderer)
-    monkeypatch.setattr(cli_app, "_build_runtime", lambda workspace_path, model, max_tokens: runtime)
-
-    cli_app.run("$done", workspace=tmp_path)
-
-    assert session.handle_calls == 1
-    assert session.respond_calls == 0
-    assert session.interpret_calls == 0
-    assert renderer.infos == []
-
-
-def test_run_skips_agent_when_exit_requested(monkeypatch, tmp_path: Path) -> None:
-    session = _FakeSession(
-        route_result=RouteResult(agent_input="", enter_agent=True, exit_requested=True, done_requested=False),
-        assistant_result=AssistantResult(
-            followup_input="",
-            exit_requested=False,
-            done_requested=False,
-            visible_text="should not appear",
-        ),
-    )
-    runtime = _FakeRuntime(session=session, tape=_FakeTape())
-    renderer = _FakeRenderer()
-
-    monkeypatch.setattr(cli_app, "renderer", renderer)
-    monkeypatch.setattr(cli_app, "_build_runtime", lambda workspace_path, model, max_tokens: runtime)
-
-    cli_app.run("$quit", workspace=tmp_path)
-
-    assert session.handle_calls == 1
-    assert session.respond_calls == 0
-    assert session.interpret_calls == 0
-    assert renderer.infos == []
+    monkeypatch.setattr(cli_app_module, "build_runtime", _fake_build_runtime)
+    runner = CliRunner()
+    result = runner.invoke(cli_app_module.app, ["telegram", "--workspace", str(tmp_path)])
+    assert result.exit_code != 0
+    assert "telegram is disabled" in result.output

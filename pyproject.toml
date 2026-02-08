@@ -1,7 +1,7 @@
 [project]
 name = "bub"
-version = "0.1.1"
-description = "Bub it. Build it."
+version = "0.2.0"
+description = "Bub it. Build it. Tape-first coding agent CLI."
 authors = [{ name = "Chojan Shang", email = "psiace@apache.org" }]
 readme = "README.md"
 keywords = ['python']
@@ -16,14 +16,15 @@ classifiers = [
 ]
 
 dependencies = [
-    "html2markdown>=0.1.7",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
     "pyyaml>=6.0.0",
     "typer>=0.9.0",
-    "republic>=0.2.0",
+    "republic>=0.3.0",
     "rich>=13.0.0",
     "prompt-toolkit>=3.0.0",
+    "blinker>=1.8.2",
+    "python-telegram-bot>=21.0",
 ]
 
 [project.urls]
@@ -84,6 +85,7 @@ fix = true
 extend-exclude = [
     "src/bub/skills/skill-creator/scripts",
     "src/bub/skills/skill-installer/scripts",
+    "backup",
 ]
 
 [tool.ruff.lint]
@@ -124,10 +126,13 @@ ignore = [
     "E501",
     # DoNotAssignLambda
     "E731",
+    # Avoid noisy exception-message rule for CLI/tool errors
+    "TRY003",
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101"]
+"src/bub/tools/builtin.py" = ["C901"]
 
 [tool.ruff.format]
 preview = true

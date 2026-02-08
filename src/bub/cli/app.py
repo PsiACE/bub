@@ -1,106 +1,76 @@
-"""CLI main module for Bub."""
+"""Typer CLI entrypoints."""
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
+from typing import Annotated
 
 import typer
 
-from ..errors import ApiKeyNotConfiguredError, ConfigurationError
-from ..runtime import Runtime
-from .live import run_chat
-from .render import create_cli_renderer
+from bub.app import build_runtime
+from bub.channels import ChannelManager, MessageBus, TelegramChannel, TelegramConfig
+from bub.cli.interactive import InteractiveCli
 
-app = typer.Typer(
-    name="bub",
-    help="Bub it. Build it.",
-    add_completion=False,
-    rich_markup_mode="rich",
-)
+app = typer.Typer(name="bub", help="Tape-first coding agent CLI", add_completion=False)
+TELEGRAM_DISABLED_ERROR = "telegram is disabled; set BUB_TELEGRAM_ENABLED=true"
+TELEGRAM_TOKEN_ERROR = "missing telegram token; set BUB_TELEGRAM_TOKEN"  # noqa: S105
 
 
 @app.callback(invoke_without_command=True)
-def main_callback(ctx: typer.Context) -> None:
+def _default(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is None:
         chat()
 
 
-renderer = create_cli_renderer()
-
-
-def _build_runtime(
-    workspace_path: Path,
-    model: str | None,
-    max_tokens: int | None,
-) -> Runtime:
-    try:
-        return Runtime.build(workspace_path, model=model, max_tokens=max_tokens)
-    except ApiKeyNotConfiguredError as exc:
-        renderer.api_key_error()
-        raise typer.Exit(1) from exc
-    except ConfigurationError as exc:
-        renderer.error(str(exc))
-        raise typer.Exit(1) from exc
-
-
 @app.command()
 def chat(
-    workspace: Path | None = None,
-    model: str | None = None,
-    max_tokens: int | None = None,
+    workspace: Annotated[Path | None, typer.Option("--workspace", "-w")] = None,
+    model: Annotated[str | None, typer.Option("--model")] = None,
+    max_tokens: Annotated[int | None, typer.Option("--max-tokens")] = None,
 ) -> None:
-    """Start interactive chat with Bub."""
-    try:
-        workspace_path = workspace or Path.cwd()
-        runtime = _build_runtime(workspace_path, model, max_tokens)
+    """Run interactive CLI."""
 
-        renderer.welcome()
-        renderer.usage_info(
-            workspace_path=str(workspace_path),
-            model=runtime.session.agent.model,
-        )
-        renderer.info("Type $help for commands.")
-        renderer.info("Type $quit to end the session.")
-        renderer.info("Type $debug to toggle tool trace visibility.")
-        renderer.info("")
-
-        run_chat(runtime, renderer)
-
-    except Exception as exc:
-        renderer.error(f"Failed to start chat: {exc!s}")
-        raise typer.Exit(1) from exc
+    runtime = build_runtime(workspace or Path.cwd(), model=model, max_tokens=max_tokens)
+    InteractiveCli(runtime).run()
 
 
 @app.command()
-def run(
-    command: str,
-    workspace: Path | None = None,
-    model: str | None = None,
-    max_tokens: int | None = None,
+def telegram(
+    workspace: Annotated[Path | None, typer.Option("--workspace", "-w")] = None,
+    model: Annotated[str | None, typer.Option("--model")] = None,
+    max_tokens: Annotated[int | None, typer.Option("--max-tokens")] = None,
 ) -> None:
-    """Run a single request-response turn with Bub."""
+    """Run Telegram adapter with the same agent loop runtime."""
+
+    runtime = build_runtime(workspace or Path.cwd(), model=model, max_tokens=max_tokens)
+    token = runtime.settings.telegram_token
+    if not runtime.settings.telegram_enabled:
+        raise typer.BadParameter(TELEGRAM_DISABLED_ERROR)
+    if not token:
+        raise typer.BadParameter(TELEGRAM_TOKEN_ERROR)
+
+    bus = MessageBus()
+    manager = ChannelManager(bus, runtime)
+    manager.register(
+        TelegramChannel(
+            bus,
+            TelegramConfig(
+                token=token,
+                allow_from=set(runtime.settings.telegram_allow_from),
+            ),
+        )
+    )
     try:
-        workspace_path = workspace or Path.cwd()
-        runtime = _build_runtime(workspace_path, model, max_tokens)
-        _run_once(runtime, command)
-    except Exception as exc:
-        renderer.error(f"Failed to run command: {exc!s}")
-        raise typer.Exit(1) from exc
-
-
-def _run_once(runtime: Runtime, command: str) -> None:
-    route = runtime.session.handle_input(command, origin="human")
-    if route.exit_requested or route.done_requested or not route.enter_agent:
+        asyncio.run(_serve_channels(manager))
+    except KeyboardInterrupt:
         return
 
-    response = runtime.session.agent_respond(
-        on_event=lambda event: runtime.tape.record_tool_event(event.kind, event.payload)
-    )
-    assistant_result = runtime.session.interpret_assistant(response)
-    if assistant_result.visible_text:
-        runtime.tape.record_assistant_message(assistant_result.visible_text)
-        renderer.info(assistant_result.visible_text)
 
-
-if __name__ == "__main__":
-    app()
+async def _serve_channels(manager: ChannelManager) -> None:
+    await manager.start()
+    try:
+        while True:
+            await asyncio.sleep(1.0)
+    finally:
+        await manager.stop()
