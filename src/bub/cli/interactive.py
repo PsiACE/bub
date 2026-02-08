@@ -44,8 +44,9 @@ class InteractiveCli:
             if not raw:
                 continue
 
+            request = self._normalize_input(raw)
             with self._renderer.console.status("[cyan]Processing...[/cyan]", spinner="dots"):
-                result = self._runtime.handle_input(self._session_id, raw)
+                result = self._runtime.handle_input(self._session_id, request)
             if result.immediate_output:
                 self._renderer.command_output(result.immediate_output)
             if result.error:
@@ -92,7 +93,7 @@ class InteractiveCli:
 
     def _prompt_message(self) -> FormattedText:
         cwd = Path.cwd().name
-        symbol = ">" if self._mode == "agent" else "$"
+        symbol = ">" if self._mode == "agent" else ","
         return FormattedText([("bold", f"{cwd} {symbol} ")])
 
     def _render_bottom_toolbar(self) -> FormattedText:
@@ -104,6 +105,13 @@ class InteractiveCli:
             f"entries:{info.entries} anchors:{info.anchors} last:{info.last_anchor or '-'}"
         )
         return FormattedText([("", f"{left}  {right}")])
+
+    def _normalize_input(self, raw: str) -> str:
+        if self._mode != "shell":
+            return raw
+        if raw.startswith(","):
+            return raw
+        return f", {raw}"
 
     @staticmethod
     def _history_file(home: Path, workspace: Path) -> Path:

@@ -183,9 +183,12 @@ def register_builtin_tools(
 
     def command_help(_params: EmptyInput) -> str:
         return (
-            "Internal commands use ',' prefix.\n"
+            "Commands use ',' at line start.\n"
+            "Known names map to internal tools; other commands run through bash.\n"
             "Examples:\n"
             "  ,help\n"
+            "  ,git status\n"
+            "  , ls -la\n"
             "  ,tools\n"
             "  ,tool.describe name=fs.read\n"
             "  ,handoff name=phase-1 summary='Bootstrap complete'\n"

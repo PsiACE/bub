@@ -8,8 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from bub.core.command_detector import detect_line_command
-from bub.core.commands import ParsedArgs, parse_kv_arguments
+from bub.core.commands import ParsedArgs, parse_command_words, parse_internal_command, parse_kv_arguments
 from bub.core.types import DetectedCommand
 from bub.tape.service import TapeService
 from bub.tools.progressive import ProgressiveToolView
@@ -73,7 +72,7 @@ class InputRouter:
         if not stripped:
             return UserRouteResult(enter_model=False, model_prompt="", immediate_output="", exit_requested=False)
 
-        command = detect_line_command(stripped)
+        command = self._detect_user_command(stripped)
         if command is None:
             return UserRouteResult(enter_model=True, model_prompt=stripped, immediate_output="", exit_requested=False)
 
@@ -109,6 +108,9 @@ class InputRouter:
             exit_requested=False,
         )
 
+    def _detect_user_command(self, stripped: str) -> DetectedCommand | None:
+        return self._parse_comma_prefixed_command(stripped)
+
     def route_assistant(self, raw: str) -> AssistantRouteResult:
         visible_lines: list[str] = []
         command_blocks: list[str] = []
@@ -137,7 +139,8 @@ class InputRouter:
                 continue
 
             if in_fence:
-                if stripped.startswith("$ "):
+                shell_candidate = self._parse_comma_prefixed_command(stripped)
+                if shell_candidate is not None and shell_candidate.kind == "shell":
                     exit_requested = (
                         self._flush_pending_assistant_command(
                             pending_command_lines=pending_command_lines,
@@ -147,7 +150,7 @@ class InputRouter:
                         )
                         or exit_requested
                     )
-                    pending_command_lines.append(stripped[2:].lstrip())
+                    pending_command_lines.append(shell_candidate.raw)
                     pending_source_lines.append(line)
                     continue
                 if pending_command_lines:
@@ -174,6 +177,9 @@ class InputRouter:
             or exit_requested
         )
         visible_text = "\n".join(visible_lines).strip()
+        if command_blocks:
+            # Hide execution-phase chatter and keep only post-execution assistant answers.
+            visible_text = ""
         next_prompt = "\n".join(command_blocks).strip()
         return AssistantRouteResult(
             visible_text=visible_text,
@@ -198,7 +204,8 @@ class InputRouter:
             return False
 
         command_text = "\n".join(pending_command_lines).strip()
-        command = self._detect_assistant_command(command_text)
+        words = parse_command_words(command_text)
+        command = DetectedCommand(kind="shell", raw=command_text, name=words[0], args_tokens=words[1:]) if words else None
         pending_command_lines.clear()
         source_lines = list(pending_source_lines)
         pending_source_lines.clear()
@@ -208,23 +215,25 @@ class InputRouter:
             return False
         return self._execute_assistant_command(command, command_blocks)
 
-    @staticmethod
-    def _detect_assistant_command(stripped: str) -> DetectedCommand | None:
-        command = detect_line_command(stripped)
-        if command is not None:
-            return command
+    def _detect_assistant_command(self, stripped: str) -> DetectedCommand | None:
+        return self._parse_comma_prefixed_command(stripped)
 
-        if stripped.startswith("$ "):
-            candidate = stripped[2:].lstrip()
-            fallback = detect_line_command(candidate)
-            if fallback is not None and fallback.kind == "shell":
-                return DetectedCommand(
-                    kind="shell",
-                    raw=candidate,
-                    name=fallback.name,
-                    args_tokens=fallback.args_tokens,
-                )
-        return None
+    def _parse_comma_prefixed_command(self, stripped: str) -> DetectedCommand | None:
+        if not stripped.startswith(","):
+            return None
+        body = stripped[1:].lstrip()
+        if not body:
+            return None
+        name, args_tokens = parse_internal_command(stripped)
+        if name:
+            resolved = self._resolve_internal_name(name)
+            if self._registry.has(resolved):
+                return DetectedCommand(kind="internal", raw=stripped, name=name, args_tokens=args_tokens)
+
+        words = parse_command_words(body)
+        if not words:
+            return None
+        return DetectedCommand(kind="shell", raw=body, name=words[0], args_tokens=words[1:])
 
     def _execute_command(self, command: DetectedCommand, *, origin: str) -> CommandExecutionResult:
         start = time.time()

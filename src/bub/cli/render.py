@@ -20,6 +20,7 @@ class CliRenderer:
             f"workspace: {workspace}\n"
             f"model: {model}\n"
             "internal command prefix: ','\n"
+            "shell command prefix: ',' at line start (Ctrl-X for shell mode)\n"
             "type ',help' for command list"
         )
         self.console.print(Panel(body, title="Bub", border_style="cyan"))
