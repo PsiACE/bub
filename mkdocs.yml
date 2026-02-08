@@ -12,7 +12,6 @@ nav:
   - Architecture: architecture.md
   - Interactive CLI: cli.md
   - Telegram: telegram.md
-  - Rewrite Plan: rewrite-plan-2026-02.md
 
 plugins:
   - search
