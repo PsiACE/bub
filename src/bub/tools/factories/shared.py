@@ -88,6 +88,19 @@ class BubInput(BaseModel):
     args: list[str] = Field(default_factory=list, description="Command arguments")
 
 
+class WebFetchInput(BaseModel):
+    """Fetch a web page and convert the HTML body to markdown."""
+
+    url: str = Field(..., description="URL to fetch")
+
+
+class WebSearchInput(BaseModel):
+    """Run a web search query via Ollama web search API."""
+
+    query: str = Field(..., description="Search query")
+    max_results: int = Field(default=5, ge=1, le=10, description="Maximum search results")
+
+
 def resolve_path(context: Context, raw_path: str) -> Path:
     path = Path(raw_path)
     if path.is_absolute():

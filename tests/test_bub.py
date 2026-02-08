@@ -1,5 +1,6 @@
 """Tests for Bub."""
 
+import json
 from pathlib import Path
 
 from bub.agent import Context
@@ -70,6 +71,8 @@ class TestTools:
             "tape_reset",
             "tape_search",
             "tools",
+            "web_fetch",
+            "web_search",
         }
 
     def test_write_and_read(self, tmp_path, monkeypatch):
@@ -126,3 +129,88 @@ class TestTools:
         tool_map = self._tool_map(tmp_path, monkeypatch)
         result = tool_map["bash"].run(cmd="false")
         assert result.startswith("error: exit=1")
+
+    def test_web_fetch_tool(self, tmp_path, monkeypatch):
+        """Test web_fetch tool converts HTML to markdown."""
+        tool_map = self._tool_map(tmp_path, monkeypatch)
+        observed_urls: list[str] = []
+
+        class _Headers:
+            def get_content_charset(self):
+                return "utf-8"
+
+        class _Response:
+            headers = _Headers()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                _ = (exc_type, exc, tb)
+                return False
+
+            def read(self, size: int | None = None) -> bytes:
+                body = b"<html><body><h1>Title</h1><p>Hello world.</p></body></html>"
+                return body if size is None else body[:size]
+
+        def _fake_urlopen(request, timeout=0):
+            _ = timeout
+            observed_urls.append(request.full_url)
+            return _Response()
+
+        monkeypatch.setattr("bub.tools.factories.web.urllib_request.urlopen", _fake_urlopen)
+        result = tool_map["web_fetch"].run(url="example.com")
+        assert observed_urls == ["https://example.com"]
+        assert "Title" in result
+        assert "Hello world." in result
+
+    def test_web_search_tool(self, tmp_path, monkeypatch):
+        """Test web_search tool calls Ollama API and formats results."""
+        monkeypatch.setenv("BUB_OLLAMA_API_KEY", "ollama-test-key")
+        monkeypatch.setenv("BUB_OLLAMA_API_BASE", "https://search.ollama.test/api")
+        tool_map = self._tool_map(tmp_path, monkeypatch)
+        observed_request: dict[str, str] = {}
+
+        class _Headers:
+            def get_content_charset(self):
+                return "utf-8"
+
+        class _Response:
+            headers = _Headers()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                _ = (exc_type, exc, tb)
+                return False
+
+            def read(self, size: int | None = None) -> bytes:
+                _ = size
+                payload = {
+                    "results": [
+                        {
+                            "title": "Example",
+                            "url": "https://example.com",
+                            "content": "Example snippet",
+                        }
+                    ]
+                }
+                return json.dumps(payload).encode("utf-8")
+
+        def _fake_urlopen(request, timeout=0):
+            _ = timeout
+            observed_request["url"] = request.full_url
+            observed_request["auth"] = request.headers.get("Authorization", "")
+            observed_request["payload"] = request.data.decode("utf-8") if request.data else ""
+            return _Response()
+
+        monkeypatch.setattr("bub.tools.factories.web.urllib_request.urlopen", _fake_urlopen)
+        result = tool_map["web_search"].run(query="test query", max_results=3)
+
+        assert observed_request["url"] == "https://search.ollama.test/api/web_search"
+        assert observed_request["auth"] == "Bearer ollama-test-key"
+        assert json.loads(observed_request["payload"]) == {"query": "test query", "max_results": 3}
+        assert "Example" in result
+        assert "https://example.com" in result
+        assert "Example snippet" in result

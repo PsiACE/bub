@@ -25,6 +25,8 @@ from .adapters import (
     create_tape_reset_tool,
     create_tape_search_tool,
     create_tools_tool,
+    create_web_fetch_tool,
+    create_web_search_tool,
     create_write_tool,
 )
 
@@ -129,6 +131,7 @@ def build_tool_catalog() -> ToolCatalog:
 def _all_specs() -> list[ToolSpec]:
     return [
         *_filesystem_specs(),
+        *_web_specs(),
         *_tape_specs(),
         *_meta_specs(),
     ]
@@ -173,6 +176,15 @@ def _tape_specs() -> list[ToolSpec]:
         ),
         ToolSpec("handoff", "Create handoff anchor", lambda ctx, _cat: create_handoff_tool(ctx), show_in_help=True),
         ToolSpec("status", "Show unified status panel", lambda ctx, _cat: create_status_tool(ctx), show_in_help=True),
+    ]
+
+
+def _web_specs() -> list[ToolSpec]:
+    return [
+        ToolSpec("web.fetch", "Fetch URL as markdown", lambda ctx, _cat: create_web_fetch_tool(ctx), show_in_help=True),
+        ToolSpec(
+            "web.search", "Search web via Ollama API", lambda ctx, _cat: create_web_search_tool(ctx), show_in_help=True
+        ),
     ]
 
 

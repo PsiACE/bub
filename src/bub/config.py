@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     )
     api_key: str | None = Field(default=None, description="API key for the model provider")
     api_base: str | None = Field(default=None, description="Custom API base URL")
+    ollama_api_key: str | None = Field(default=None, description="API key for Ollama cloud APIs")
+    ollama_api_base: str | None = Field(default="https://ollama.com/api", description="Base URL for Ollama APIs")
     max_tokens: int | None = Field(default=None, description="Maximum tokens for AI responses")
 
     # Agent settings
@@ -33,8 +35,8 @@ class Settings(BaseSettings):
         default=(
             "You are Bub, a concise coding assistant.\n"
             "Use tools when they help you answer or modify the project.\n"
-            "Available tools: fs_read, fs_write, fs_edit, fs_glob, fs_grep, bash, tape_search, tape_anchors, "
-            "tape_info, tape_reset, handoff, status, help, tools.\n"
+            "Available tools: fs_read, fs_write, fs_edit, fs_glob, fs_grep, bash, web_fetch, web_search, "
+            "tape_search, tape_anchors, tape_info, tape_reset, handoff, status, help, tools.\n"
             "Use exact tool names as listed above for tool calling.\n"
             "Tool observations are returned as JSON with keys: tool, signature, category, status, repeat, "
             "machine_readable, human_preview.\n"

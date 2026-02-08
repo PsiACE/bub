@@ -11,6 +11,7 @@ from .tape import (
     create_tape_reset_tool,
     create_tape_search_tool,
 )
+from .web import create_web_fetch_tool, create_web_search_tool
 
 __all__ = [
     "create_bash_tool",
@@ -28,5 +29,7 @@ __all__ = [
     "create_tape_reset_tool",
     "create_tape_search_tool",
     "create_tools_tool",
+    "create_web_fetch_tool",
+    "create_web_search_tool",
     "create_write_tool",
 ]

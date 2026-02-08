@@ -18,6 +18,8 @@ from .factories import (
     create_tape_reset_tool,
     create_tape_search_tool,
     create_tools_tool,
+    create_web_fetch_tool,
+    create_web_search_tool,
     create_write_tool,
 )
 from .factories.shared import (
@@ -33,6 +35,8 @@ from .factories.shared import (
     TapeAnchorsInput,
     TapeResetInput,
     TapeSearchInput,
+    WebFetchInput,
+    WebSearchInput,
     WriteInput,
 )
 
@@ -49,6 +53,8 @@ __all__ = [
     "TapeAnchorsInput",
     "TapeResetInput",
     "TapeSearchInput",
+    "WebFetchInput",
+    "WebSearchInput",
     "WriteInput",
     "create_bash_tool",
     "create_bub_tool",
@@ -65,5 +71,7 @@ __all__ = [
     "create_tape_reset_tool",
     "create_tape_search_tool",
     "create_tools_tool",
+    "create_web_fetch_tool",
+    "create_web_search_tool",
     "create_write_tool",
 ]

@@ -27,6 +27,8 @@ VERIFICATION_TOOL_NAMES = {
     "tape_info",
     "tape_anchors",
     "status",
+    "web_fetch",
+    "web_search",
 }
 BASH_VERIFICATION_TOKENS = (
     "pytest",
