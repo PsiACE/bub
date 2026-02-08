@@ -7,60 +7,46 @@
 
 > Bub it. Build it.
 
-Bub is a tape-first coding agent CLI built on `republic`.
+Bub is a coding agent CLI built on `republic`.
+It is designed for real engineering workflows where execution must be predictable, inspectable, and recoverable.
 
-It uses a deterministic session model:
-- one forward-only tape per session,
-- explicit anchors/handoff for phase transitions,
-- command-aware routing shared by both user input and assistant output..
+## Four Things To Know
 
-## Install
+1. Command boundary is strict: only lines starting with `,` are treated as commands.
+2. The same routing model is applied to both user input and assistant output.
+3. Successful commands return directly; failed commands fall back to the model with structured context.
+4. Session context is append-only tape with explicit `anchor/handoff` transitions.
+
+## Quick Start
 
 ```bash
 git clone https://github.com/psiace/bub.git
 cd bub
 uv sync
+cp env.example .env
 ```
 
-## Configure
-
-Create `.env` (or export environment variables):
+Minimal `.env`:
 
 ```bash
 BUB_MODEL=openrouter:qwen/qwen3-coder-next
 OPENROUTER_API_KEY=your_key_here
-
-# optional
-BUB_MAX_TOKENS=1200
-BUB_MAX_STEPS=20
-BUB_HOME=~/.bub
-BUB_SYSTEM_PROMPT=
 ```
 
-Telegram:
+Start interactive CLI:
 
 ```bash
-BUB_TELEGRAM_ENABLED=true
-BUB_TELEGRAM_TOKEN=123456:token
-# json array or pydantic-compatible list input
-BUB_TELEGRAM_ALLOW_FROM=["123456789","your_username"]
+uv run bub
 ```
 
-## Usage
+## Interaction Rules
 
-Interactive CLI:
+- `hello`: natural language routed to model.
+- `,help`: internal command.
+- `,git status`: shell command.
+- `, ls -la`: shell command (space after comma is optional).
 
-```bash
-uv run bub chat
-```
-
-Telegram adapter:
-
-```bash
-uv run bub telegram
-```
-
-## Internal Commands
+Common commands:
 
 ```text
 ,help
@@ -68,7 +54,7 @@ uv run bub telegram
 ,tool.describe name=fs.read
 ,skills.list
 ,skills.describe name=friendly-python
-,handoff name=phase-1 summary="done" next_steps="run tests"
+,handoff name=phase-1 summary="bootstrap done"
 ,anchors
 ,tape.info
 ,tape.search query=error
@@ -76,22 +62,22 @@ uv run bub telegram
 ,quit
 ```
 
-Shell command examples:
+## Telegram (Optional)
 
-```text
-,git status
-, uv run pytest -q
+```bash
+BUB_TELEGRAM_ENABLED=true
+BUB_TELEGRAM_TOKEN=123456:token
+BUB_TELEGRAM_ALLOW_FROM=["123456789","your_username"]
+uv run bub telegram
 ```
 
-## Tool/Skill View
+## Documentation
 
-Bub keeps a unified tool registry:
-- builtin tools (`bash`, `fs.*`, `web.*`, `tape.*`, etc.),
-- skill tools (`skills.*` and dynamic `skill.<name>`).
-
-Prompt exposure is progressive:
-- compact names/descriptions by default,
-- expanded schema/details after selection.
+- `docs/index.md`: getting started and usage overview
+- `docs/features.md`: key capabilities and why they matter
+- `docs/cli.md`: interactive CLI workflow and troubleshooting
+- `docs/architecture.md`: agent loop, tape, anchor, and tool/skill design
+- `docs/telegram.md`: Telegram integration and operations
 
 ## Development
 
@@ -99,6 +85,7 @@ Prompt exposure is progressive:
 uv run ruff check .
 uv run mypy
 uv run pytest -q
+just docs-test
 ```
 
 ## License

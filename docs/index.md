@@ -1,22 +1,43 @@
 # Bub Docs
 
-## What Bub Is
+Bub is built for day-to-day coding tasks: run commands, edit files, debug failures, and keep progress visible across long sessions.
 
-Bub is a tape-first coding agent runtime:
-- deterministic, forward-only session flow,
-- explicit anchors and handoff for phase transitions,
-- shared command router for user and assistant outputs.
+## What You Can Expect
 
-## Core Rules
+- Clear command behavior: only lines that start with `,` are commands.
+- One execution path: the same rules apply to both your input and assistant-generated commands.
+- Graceful recovery: failed commands are fed back to the model with structured context.
+- Trackable sessions: tape, anchors, and handoff help you resume work cleanly.
 
-1. Commands are recognized only when line starts with `,`.
-2. Known command names map to internal tools (for example: `,help`, `,tools`, `,tape.info`).
-3. Other comma-prefixed lines run as shell through `bash` tool (for example: `,git status`).
-4. Command success returns directly; command failure falls back to model with structured command context.
-5. Tape is append-only; no runtime fork/rollback semantics.
+## How Bub Behaves In Practice
 
-## Read Next
+1. Type normal text to ask the assistant.
+2. Start a line with `,` to run a command.
+3. Known names such as `,help` are internal commands.
+4. Other comma-prefixed lines are treated as shell commands.
+5. If a command fails, Bub keeps going and uses the error context in the next model step.
 
-- [Architecture](architecture.md)
+## Start Here
+
+- [Key Features](features.md)
 - [Interactive CLI](cli.md)
+- [Architecture](architecture.md)
 - [Telegram Integration](telegram.md)
+
+## Common Commands
+
+```text
+,help
+,tools
+,tool.describe name=fs.read
+,tape.info
+,tape.search query=timeout
+,handoff name=phase-2 summary="router fixed" next_steps="run pytest"
+,anchors
+,tape.reset archive=true
+```
+
+## Configuration
+
+Start from `env.example` in the repository root.
+Use model + API key first, then add Telegram and advanced settings when needed.

@@ -1,72 +1,48 @@
 # Architecture
 
-## Design Goal
+This page is for developers and advanced users who need to understand why Bub behavior is deterministic and how to extend it safely.
 
-Bub uses one endless tape per session and keeps behavior inspectable:
-- facts are appended, never rewritten,
-- runtime state is rebuilt from anchors,
-- handoff marks phase transitions with minimal structured state.
+## Core Principles
+
+1. One session, one append-only tape.
+2. Same routing rules for user input and assistant output.
+3. Command execution and model reasoning are explicit layers.
+4. Phase transitions are represented by `anchor/handoff`, not hidden state jumps.
 
 ## Runtime Topology
 
 ```text
 input -> InputRouter -> AgentLoop -> ModelRunner -> InputRouter(assistant output) -> ...
-                    \-> direct command response
+                \-> direct command response
 ```
 
-Main modules:
+Key modules:
 
-- `bub.app.runtime`: workspace runtime + per-session runtime creation.
-- `bub.core.router`: command detection/execution for user and assistant outputs.
-- `bub.core.agent_loop`: turn orchestration.
-- `bub.core.model_runner`: bounded model loop and follow-up command context.
-- `bub.tape.*`: persistent tape store and handoff/anchor helpers.
+- `src/bub/core/router.py`: command detection, execution, and failure context wrapping.
+- `src/bub/core/agent_loop.py`: turn orchestration and stop conditions.
+- `src/bub/core/model_runner.py`: bounded model loop and user-driven skill-hint activation.
+- `src/bub/tape/service.py`: tape read/write, anchor/handoff, reset, and search.
+- `src/bub/tools/*`: unified registry and progressive tool view.
 
-## Tape and Anchors
+## Single Turn Flow
 
-Tape store:
-- file-backed JSONL per workspace + session tape name.
-- append-only `TapeEntry`.
+1. `InputRouter.route_user` checks whether input starts with `,`.
+2. If command succeeds, return output directly.
+3. If command fails, generate a `<command ...>` block for model context.
+4. `ModelRunner` gets assistant output.
+5. `route_assistant` applies the same command parsing/execution rules.
+6. Loop ends on plain final text, explicit quit, or `max_steps`.
 
-Anchor usage:
-- bootstrap anchor is created once (`session/start`).
-- `,handoff` writes anchor with optional `summary` and `next_steps`.
-- context selection is `LAST_ANCHOR` by default.
+## Tape, Anchor, Handoff
 
-## Tool and Skill Unification
+- Tape is workspace-level JSONL for replay and audit.
+- `handoff` writes an anchor with optional `summary` and `next_steps`.
+- `anchors` lists phase boundaries.
+- `tape.reset` clears active context (optionally archiving first).
 
-All capabilities are exposed via one registry:
-- builtin tools (`bash`, `fs.*`, `web.*`, `tape.*`, control commands),
-- skill tools:
-  - `skills.list`
-  - `skills.describe`
-  - dynamic `skill.<skill_name>`.
+## Tools and Skills
 
-Progressive exposure:
-- system prompt includes compact tool list,
-- detailed schema is expanded after selection (`tool.describe` / invocation).
-
-## Agent Loop Contract
-
-Per user turn:
-1. Route user input.
-2. Parse comma-prefixed commands in router:
-   internal command if known name, otherwise shell command.
-3. If command success: return.
-4. If command failure or NL input: enter model loop.
-5. Parse assistant output with same router.
-6. If assistant emitted commands: execute and feed command blocks into next model step.
-7. Stop on plain final text, explicit quit, or `max_steps`.
-
-Routing note:
-- Only line-start `,` is considered command prefix.
-- Non-prefixed text is always treated as natural language.
-
-## Channel Integration
-
-`blinker` signal bus:
-- inbound signal -> runtime handle_input,
-- outbound signal -> channel adapter send.
-
-Current external adapter:
-- Telegram long polling (`python-telegram-bot`).
+- Built-in tools and skills live in one registry.
+- System prompt starts with compact tool descriptions.
+- Full tool schema is expanded on demand (`tool.describe` or explicit selection).
+- `$name` hints progressively expand tool/skill details from either user input or model output.

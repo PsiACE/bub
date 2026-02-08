@@ -3,51 +3,55 @@
 ## Start
 
 ```bash
-uv run bub chat
+uv run bub
 ```
 
 Optional:
 
 ```bash
-uv run bub chat --workspace /path/to/repo --model openrouter:openrouter/auto --max-tokens 1400
+uv run bub chat --workspace /path/to/repo --model openrouter:qwen/qwen3-coder-next --max-tokens 1400
 ```
 
-## Interaction Model
+## How Input Is Interpreted
 
-- Single interactive mode only.
-- PromptToolkit input with history and bottom status bar.
-- Shared runtime contract with channel adapters.
-- Unified command prefix: `,` at line start.
-- `Ctrl-X` toggles shell mode; in shell mode, plain input is auto-normalized to comma-prefixed shell command.
+- Only lines starting with `,` are interpreted as commands.
+- Registered names like `,help` are internal commands.
+- Other comma-prefixed lines run through shell, for example `,git status`.
+- Non-comma input is always treated as natural language.
 
-## Command Examples (Internal)
+This rule is shared by both user input and assistant output.
+
+## Shell Mode
+
+Press `Ctrl-X` to toggle between `agent` and `shell` mode.
+
+- `agent` mode: send input as typed.
+- `shell` mode: if input does not start with `,`, Bub auto-normalizes it to `, <your command>`.
+
+Use shell mode when you want to run multiple shell commands quickly.
+
+## Typical Workflow
+
+1. Check repo status: `,git status`
+2. Read files: `,fs.read path=README.md`
+3. Edit files: `,fs.edit path=foo.py old=... new=...`
+4. Validate: `,uv run pytest -q`
+5. Mark phase transition: `,handoff name=phase-x summary="tests pass"`
+
+## Session Context Commands
 
 ```text
-,help
-,tools
-,tool.describe name=fs.read
-,skills.list
-,handoff name=phase-x summary="done"
 ,tape.info
-,quit
+,tape.search query=error
+,anchors
+,tape.reset archive=true
 ```
 
-Shell command examples:
+- `,tape.reset archive=true` archives then clears current tape.
+- `,anchors` shows phase boundaries.
 
-```text
-,git status
-, uv run pytest -q
-```
+## Troubleshooting
 
-## Status Bar
-
-Bottom toolbar displays:
-- current time,
-- mode,
-- model id,
-- tape summary (`entries`, `anchors`, `last_anchor`).
-
-## Exit
-
-- `,quit`
-- `Ctrl-D`
+- `command not found`: verify whether it should be an internal command (`,help` for list).
+- Verbose or odd output: Bub may still be processing command follow-up context.
+- Context is too heavy: add a handoff anchor, then reset tape when needed.
