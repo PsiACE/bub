@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from html import escape
 from pathlib import Path
+
+import yaml
 
 DEFAULT_SKILL_DESCRIPTION = "No description provided."
 FRONTMATTER_DELIMITER = "---"
@@ -67,21 +70,18 @@ def render_available_skills_xml(skills: list[SkillMetadata]) -> str:
     return "\n".join(lines)
 
 
-def _discover_skill_roots(workspace_path: Path | None) -> list[Path]:
-    roots: list[Path] = []
+def _discover_skill_roots(workspace_path: Path | None) -> Iterator[Path]:
     project_root = _find_project_skills_root(workspace_path)
     if project_root is not None:
-        roots.append(project_root)
+        yield project_root.resolve()
 
     global_root = _global_skills_root()
     if global_root.is_dir():
-        roots.append(global_root.resolve())
+        yield global_root.resolve()
 
     builtin_root = _builtin_skills_root()
     if builtin_root.is_dir():
-        roots.append(builtin_root)
-
-    return roots
+        yield builtin_root.resolve()
 
 
 def _find_project_skills_root(workspace_path: Path | None) -> Path | None:
@@ -123,8 +123,9 @@ def _read_skill_metadata(skill_dir: Path) -> SkillMetadata | None:
     except OSError:
         return None
 
-    frontmatter_lines = _extract_frontmatter(content)
-    frontmatter = _parse_frontmatter(frontmatter_lines)
+    frontmatter = _parse_frontmatter(content)
+    if frontmatter is None:
+        return None
 
     name = _normalize_metadata_value(frontmatter.get("name")) or skill_dir.name
     description = _normalize_metadata_value(frontmatter.get("description")) or DEFAULT_SKILL_DESCRIPTION
@@ -136,78 +137,47 @@ def _read_skill_metadata(skill_dir: Path) -> SkillMetadata | None:
     )
 
 
-def _extract_frontmatter(content: str) -> list[str]:
+def _extract_frontmatter(content: str) -> str | None:
     lines = content.splitlines()
     if not lines or lines[0].strip() != FRONTMATTER_DELIMITER:
-        return []
+        return None
 
     for idx, line in enumerate(lines[1:], start=1):
         if line.strip() == FRONTMATTER_DELIMITER:
-            return lines[1:idx]
-    return []
+            return "\n".join(lines[1:idx])
+    return None
 
 
-def _parse_frontmatter(lines: list[str]) -> dict[str, str]:
-    metadata: dict[str, str] = {}
-    idx = 0
-    while idx < len(lines):
-        raw = lines[idx]
-        stripped = raw.strip()
-        if not stripped or stripped.startswith("#"):
-            idx += 1
-            continue
-        if ":" not in raw:
-            idx += 1
-            continue
+def _parse_frontmatter(content: str) -> dict[str, object] | None:
+    raw_frontmatter = _extract_frontmatter(content)
+    if raw_frontmatter is None:
+        return None
 
-        key, raw_value = raw.split(":", 1)
-        key = key.strip().lower()
-        value = raw_value.strip()
-        if not key:
-            idx += 1
-            continue
+    try:
+        parsed = yaml.safe_load(raw_frontmatter)
+    except yaml.YAMLError:
+        return None
 
-        if value in {"|", ">"}:
-            style = value
-            idx += 1
-            block_lines: list[str] = []
-            while idx < len(lines):
-                block_line = lines[idx]
-                if block_line.startswith((" ", "\t")) or not block_line.strip():
-                    block_lines.append(block_line.lstrip())
-                    idx += 1
-                    continue
-                break
-            metadata[key] = _normalize_block_scalar(block_lines, style)
-            continue
+    if parsed is None:
+        return {}
+    if not isinstance(parsed, dict):
+        return None
 
-        metadata[key] = _strip_quotes(value)
-        idx += 1
-
+    metadata: dict[str, object] = {}
+    for key, value in parsed.items():
+        if isinstance(key, str):
+            metadata[key.lower()] = value
     return metadata
 
 
-def _normalize_block_scalar(lines: list[str], style: str) -> str:
-    if not lines:
-        return ""
-
-    normalized = [line.rstrip() for line in lines]
-    if style == ">":
-        non_empty = [line.strip() for line in normalized if line.strip()]
-        return " ".join(non_empty)
-    return "\n".join(normalized).strip()
-
-
-def _strip_quotes(value: str) -> str:
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
-        return value[1:-1]
-    return value
-
-
-def _normalize_metadata_value(value: str | None) -> str:
+def _normalize_metadata_value(value: object) -> str:
     if value is None:
         return ""
-    return value.strip()
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, (bool, int, float)):
+        return str(value).strip()
+    return ""
 
 
 __all__ = [

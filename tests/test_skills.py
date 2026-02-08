@@ -78,3 +78,21 @@ def test_builtin_skills_are_discoverable(tmp_path, monkeypatch) -> None:
 
     assert "skill-creator" in names
     assert "skill-installer" in names
+
+
+def test_invalid_frontmatter_skill_is_skipped(tmp_path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    project_root = workspace / ".agent" / "skills"
+    invalid_dir = project_root / "invalid_skill"
+    invalid_dir.mkdir(parents=True)
+    (invalid_dir / "SKILL.md").write_text(
+        ("---\nname: invalid-skill\ndescription: [unterminated\n---\n\nBody.\n"),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    skills = discover_skills(workspace)
+    names = {skill.name for skill in skills}
+
+    assert "invalid-skill" not in names
