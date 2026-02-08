@@ -71,6 +71,7 @@ def test_model_runner_follows_command_context_until_stop() -> None:
         model="openrouter:test",
         max_steps=5,
         max_tokens=512,
+        model_timeout_seconds=90,
         base_system_prompt="base",
         workspace_system_prompt="workspace",
     )
@@ -99,6 +100,7 @@ def test_model_runner_expands_skill_from_hint() -> None:
         model="openrouter:test",
         max_steps=1,
         max_tokens=512,
+        model_timeout_seconds=90,
         base_system_prompt="base",
         workspace_system_prompt="",
     )

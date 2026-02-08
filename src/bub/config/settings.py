@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     llm_api_key: str | None = Field(default=None, validation_alias="LLM_API_KEY")
     openrouter_api_key: str | None = Field(default=None, validation_alias="OPENROUTER_API_KEY")
     max_tokens: int = Field(default=1024, ge=1)
+    model_timeout_seconds: int = Field(default=90, ge=1)
     system_prompt: str = Field(default="")
 
     home: str | None = Field(default=None)

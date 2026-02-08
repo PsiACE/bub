@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import queue
 import re
+import threading
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -54,6 +56,7 @@ class ModelRunner:
         model: str,
         max_steps: int,
         max_tokens: int,
+        model_timeout_seconds: int,
         base_system_prompt: str,
         workspace_system_prompt: str,
     ) -> None:
@@ -65,6 +68,7 @@ class ModelRunner:
         self._model = model
         self._max_steps = max_steps
         self._max_tokens = max_tokens
+        self._model_timeout_seconds = model_timeout_seconds
         self._base_system_prompt = base_system_prompt.strip()
         self._workspace_system_prompt = workspace_system_prompt.strip()
         self._expanded_skills: dict[str, str] = {}
@@ -136,12 +140,39 @@ class ModelRunner:
         )
 
     def _chat(self, prompt: str) -> _ChatResult:
-        output = self._tape.tape.chat(
-            prompt=prompt,
-            system_prompt=self._render_system_prompt(),
-            max_tokens=self._max_tokens,
-        )
-        return _ChatResult.from_structured(output)
+        system_prompt = self._render_system_prompt()
+        if self._model_timeout_seconds <= 0:
+            output = self._tape.tape.chat(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                max_tokens=self._max_tokens,
+            )
+            return _ChatResult.from_structured(output)
+        return self._chat_with_timeout(prompt=prompt, system_prompt=system_prompt)
+
+    def _chat_with_timeout(self, *, prompt: str, system_prompt: str) -> _ChatResult:
+        result_queue: queue.Queue[_ChatResult] = queue.Queue(maxsize=1)
+
+        def _worker() -> None:
+            try:
+                output = self._tape.tape.chat(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    max_tokens=self._max_tokens,
+                )
+                result_queue.put(_ChatResult.from_structured(output))
+            except Exception as exc:
+                result_queue.put(_ChatResult(text="", error=f"model_call_error: {exc!s}"))
+
+        thread = threading.Thread(target=_worker, daemon=True, name="bub-model-call")
+        thread.start()
+        try:
+            return result_queue.get(timeout=self._model_timeout_seconds)
+        except queue.Empty:
+            return _ChatResult(
+                text="",
+                error=f"model_timeout: no response within {self._model_timeout_seconds}s",
+            )
 
     def _render_system_prompt(self) -> str:
         blocks: list[str] = []

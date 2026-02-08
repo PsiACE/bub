@@ -44,7 +44,8 @@ class InteractiveCli:
             if not raw:
                 continue
 
-            result = self._runtime.handle_input(self._session_id, raw)
+            with self._renderer.console.status("[cyan]Processing...[/cyan]", spinner="dots"):
+                result = self._runtime.handle_input(self._session_id, raw)
             if result.immediate_output:
                 self._renderer.command_output(result.immediate_output)
             if result.error:

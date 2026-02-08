@@ -77,6 +77,7 @@ class AppRuntime:
             model=self.settings.model,
             max_steps=self.settings.max_steps,
             max_tokens=self.settings.max_tokens,
+            model_timeout_seconds=self.settings.model_timeout_seconds,
             base_system_prompt=self.settings.system_prompt,
             workspace_system_prompt=self._workspace_prompt,
         )
