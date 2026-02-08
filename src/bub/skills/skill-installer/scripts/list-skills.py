@@ -28,15 +28,19 @@ class Args(argparse.Namespace):
 
 
 def _request(url: str) -> bytes:
-    return github_request(url, "codex-skill-list")
+    return github_request(url, "bub-skill-list")
 
 
-def _codex_home() -> str:
-    return os.environ.get("CODEX_HOME", os.path.expanduser("~/.codex"))
+def _skills_home() -> str:
+    if custom_root := os.environ.get("BUB_SKILLS_HOME"):
+        return os.path.expanduser(custom_root)
+    if bub_home := os.environ.get("BUB_HOME"):
+        return os.path.join(os.path.expanduser(bub_home), "skills")
+    return os.path.expanduser("~/.agent/skills")
 
 
 def _installed_skills() -> set[str]:
-    root = os.path.join(_codex_home(), "skills")
+    root = _skills_home()
     if not os.path.isdir(root):
         return set()
     entries = set()
