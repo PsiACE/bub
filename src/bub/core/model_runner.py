@@ -233,8 +233,10 @@ def _runtime_contract() -> str:
         "<runtime_contract>\n"
         "1) Internal commands must use ',' prefix, for example ',help' or ',fs.read path=README.md'.\n"
         "2) Shell commands are plain command lines and will run through bash.\n"
-        "3) If command output is needed before final answer, emit command lines first, then continue.\n"
-        "4) '$' is only a hint token for potential tool/skill usage; it is not a command prefix.\n"
-        "5) When enough evidence is collected, return plain natural language answer without command lines.\n"
+        "3) When executing commands, output raw command lines only: no markdown fences, no bullets, no XML tags.\n"
+        "4) If command output is needed before final answer, emit command lines first, then continue.\n"
+        "5) '$' is only a hint token for potential tool/skill usage; it is not a command prefix.\n"
+        "6) Never emit '<command ...>' blocks yourself; those are runtime-generated.\n"
+        "7) When enough evidence is collected, return plain natural language answer without command lines.\n"
         "</runtime_contract>"
     )

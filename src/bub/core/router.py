@@ -113,21 +113,66 @@ class InputRouter:
         visible_lines: list[str] = []
         command_blocks: list[str] = []
         exit_requested = False
+        in_fence = False
+        pending_command_lines: list[str] = []
+        pending_source_lines: list[str] = []
 
         for line in raw.splitlines():
             stripped = line.strip()
             if not stripped:
                 continue
-            command = detect_line_command(stripped)
+
+            if stripped.startswith("```"):
+                if in_fence:
+                    exit_requested = (
+                        self._flush_pending_assistant_command(
+                            pending_command_lines=pending_command_lines,
+                            pending_source_lines=pending_source_lines,
+                            visible_lines=visible_lines,
+                            command_blocks=command_blocks,
+                        )
+                        or exit_requested
+                    )
+                in_fence = not in_fence
+                continue
+
+            if in_fence:
+                if stripped.startswith("$ "):
+                    exit_requested = (
+                        self._flush_pending_assistant_command(
+                            pending_command_lines=pending_command_lines,
+                            pending_source_lines=pending_source_lines,
+                            visible_lines=visible_lines,
+                            command_blocks=command_blocks,
+                        )
+                        or exit_requested
+                    )
+                    pending_command_lines.append(stripped[2:].lstrip())
+                    pending_source_lines.append(line)
+                    continue
+                if pending_command_lines:
+                    pending_command_lines.append(line)
+                    pending_source_lines.append(line)
+                    continue
+                visible_lines.append(line)
+                continue
+
+            command = self._detect_assistant_command(stripped)
             if command is None:
                 visible_lines.append(line)
                 continue
 
-            result = self._execute_command(command, origin="assistant")
-            command_blocks.append(result.block())
-            if result.name == "quit" and result.status == "ok" and result.output == "exit":
-                exit_requested = True
+            exit_requested = self._execute_assistant_command(command, command_blocks) or exit_requested
 
+        exit_requested = (
+            self._flush_pending_assistant_command(
+                pending_command_lines=pending_command_lines,
+                pending_source_lines=pending_source_lines,
+                visible_lines=visible_lines,
+                command_blocks=command_blocks,
+            )
+            or exit_requested
+        )
         visible_text = "\n".join(visible_lines).strip()
         next_prompt = "\n".join(command_blocks).strip()
         return AssistantRouteResult(
@@ -135,6 +180,51 @@ class InputRouter:
             next_prompt=next_prompt,
             exit_requested=exit_requested,
         )
+
+    def _execute_assistant_command(self, command: DetectedCommand, command_blocks: list[str]) -> bool:
+        result = self._execute_command(command, origin="assistant")
+        command_blocks.append(result.block())
+        return result.name == "quit" and result.status == "ok" and result.output == "exit"
+
+    def _flush_pending_assistant_command(
+        self,
+        *,
+        pending_command_lines: list[str],
+        pending_source_lines: list[str],
+        visible_lines: list[str],
+        command_blocks: list[str],
+    ) -> bool:
+        if not pending_command_lines:
+            return False
+
+        command_text = "\n".join(pending_command_lines).strip()
+        command = self._detect_assistant_command(command_text)
+        pending_command_lines.clear()
+        source_lines = list(pending_source_lines)
+        pending_source_lines.clear()
+
+        if command is None:
+            visible_lines.extend(source_lines)
+            return False
+        return self._execute_assistant_command(command, command_blocks)
+
+    @staticmethod
+    def _detect_assistant_command(stripped: str) -> DetectedCommand | None:
+        command = detect_line_command(stripped)
+        if command is not None:
+            return command
+
+        if stripped.startswith("$ "):
+            candidate = stripped[2:].lstrip()
+            fallback = detect_line_command(candidate)
+            if fallback is not None and fallback.kind == "shell":
+                return DetectedCommand(
+                    kind="shell",
+                    raw=candidate,
+                    name=fallback.name,
+                    args_tokens=fallback.args_tokens,
+                )
+        return None
 
     def _execute_command(self, command: DetectedCommand, *, origin: str) -> CommandExecutionResult:
         start = time.time()

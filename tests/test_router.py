@@ -101,3 +101,24 @@ def test_internal_quit_sets_exit_requested() -> None:
     router = _build_router()
     result = router.route_user(",quit")
     assert result.exit_requested is True
+
+
+def test_assistant_dollar_prefixed_shell_command_is_executed() -> None:
+    router = _build_router()
+    result = router.route_assistant("create file\n$ echo hi")
+    assert result.visible_text == "create file"
+    assert "<command name=\"bash\" status=\"ok\">" in result.next_prompt
+
+
+def test_assistant_fenced_multiline_dollar_command_is_executed() -> None:
+    router = _build_router()
+    result = router.route_assistant("I will run this:\n```\n$ echo first\necho second\n```")
+    assert result.visible_text == "I will run this:"
+    assert "<command name=\"bash\" status=\"ok\">" in result.next_prompt
+
+
+def test_assistant_fenced_plain_text_is_not_executed() -> None:
+    router = _build_router()
+    result = router.route_assistant("```\necho hi\n```")
+    assert result.visible_text == "echo hi"
+    assert result.next_prompt == ""
