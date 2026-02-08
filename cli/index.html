@@ -103,10 +103,18 @@
                 
                 
                 <li property="itemListElement" typeof="ListItem">
+                    <a href="../features/" class="menu-item " property="item" typeof="WebPage">
+                        <span property="name">Key Features</span>
+                    </a>
+                    <meta property="position" content="1">
+                </li>
+                
+                
+                <li property="itemListElement" typeof="ListItem">
                     <a href="../architecture/" class="menu-item " property="item" typeof="WebPage">
                         <span property="name">Architecture</span>
                     </a>
-                    <meta property="position" content="1">
+                    <meta property="position" content="2">
                 </li>
                 
                 
@@ -114,7 +122,7 @@
                     <a href="./" class="menu-item active" property="item" typeof="WebPage">
                         <span property="name">Interactive CLI</span>
                     </a>
-                    <meta property="position" content="2">
+                    <meta property="position" content="3">
                 </li>
                 
                 
@@ -122,7 +130,7 @@
                     <a href="../telegram/" class="menu-item " property="item" typeof="WebPage">
                         <span property="name">Telegram</span>
                     </a>
-                    <meta property="position" content="3">
+                    <meta property="position" content="4">
                 </li>
                 
                     
@@ -133,7 +141,7 @@
     <a href="#" class="menu-item" data-toggle="modal" data-target="#mkdocs_search_modal" property="item" typeof="SearchAction">
         <i aria-hidden="true" class="fa fa-search"></i> <span property="name">Search</span>
     </a>
-    <meta property="position" content="4">
+    <meta property="position" content="5">
 </li>
                     
             </ul>
@@ -160,6 +168,25 @@
             <a class="
 
     terminal-mkdocs-side-nav-item" href="..">Home</a>
+        
+    
+    
+    
+  </li>
+        
+          
+
+
+
+<li class="terminal-mkdocs-side-nav-li">
+    
+    
+    
+        
+        
+            <a class="
+
+    terminal-mkdocs-side-nav-item" href="../features/">Key Features</a>
         
     
     
@@ -227,7 +254,7 @@
 <nav>
     <ul>
         <li><a href="#interactive-cli">Interactive CLI</a></li>
-        <li><a href="#start">Start</a></li><li><a href="#interaction-model">Interaction Model</a></li><li><a href="#command-examples">Command Examples</a></li><li><a href="#status-bar">Status Bar</a></li><li><a href="#exit">Exit</a></li>
+        <li><a href="#start">Start</a></li><li><a href="#how-input-is-interpreted">How Input Is Interpreted</a></li><li><a href="#shell-mode">Shell Mode</a></li><li><a href="#typical-workflow">Typical Workflow</a></li><li><a href="#session-context-commands">Session Context Commands</a></li><li><a href="#troubleshooting">Troubleshooting</a></li>
     </ul>
 </nav>
 </aside>
@@ -235,40 +262,49 @@
 <section id="mkdocs-terminal-content">
     <h1 id="interactive-cli">Interactive CLI<a class="headerlink" href="#interactive-cli" title="Permanent link">&para;</a></h1>
 <h2 id="start">Start<a class="headerlink" href="#start" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>run<span class="w"> </span>bub<span class="w"> </span>chat
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uv<span class="w"> </span>run<span class="w"> </span>bub
 </code></pre></div>
 <p>Optional:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>run<span class="w"> </span>bub<span class="w"> </span>chat<span class="w"> </span>--workspace<span class="w"> </span>/path/to/repo<span class="w"> </span>--model<span class="w"> </span>openrouter:openrouter/auto<span class="w"> </span>--max-tokens<span class="w"> </span><span class="m">1400</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>run<span class="w"> </span>bub<span class="w"> </span>chat<span class="w"> </span>--workspace<span class="w"> </span>/path/to/repo<span class="w"> </span>--model<span class="w"> </span>openrouter:qwen/qwen3-coder-next<span class="w"> </span>--max-tokens<span class="w"> </span><span class="m">1400</span>
 </code></pre></div>
-<h2 id="interaction-model">Interaction Model<a class="headerlink" href="#interaction-model" title="Permanent link">&para;</a></h2>
+<h2 id="how-input-is-interpreted">How Input Is Interpreted<a class="headerlink" href="#how-input-is-interpreted" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Single interactive mode only.</li>
-<li>PromptToolkit input with history and bottom status bar.</li>
-<li>Shared runtime contract with channel adapters.</li>
+<li>Only lines starting with <code>,</code> are interpreted as commands.</li>
+<li>Registered names like <code>,help</code> are internal commands.</li>
+<li>Other comma-prefixed lines run through shell, for example <code>,git status</code>.</li>
+<li>Non-comma input is always treated as natural language.</li>
 </ul>
-<h2 id="command-examples">Command Examples<a class="headerlink" href="#command-examples" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>,help
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>,tools
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>,tool.describe name=fs.read
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>,skills.list
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>,handoff name=phase-x summary=&quot;done&quot;
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>,tape.info
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>,quit
-</code></pre></div>
-<p>Shell command examples:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>git status
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>uv run pytest -q
-</code></pre></div>
-<h2 id="status-bar">Status Bar<a class="headerlink" href="#status-bar" title="Permanent link">&para;</a></h2>
-<p>Bottom toolbar displays:
-- current time,
-- mode,
-- model id,
-- tape summary (<code>entries</code>, <code>anchors</code>, <code>last_anchor</code>).</p>
-<h2 id="exit">Exit<a class="headerlink" href="#exit" title="Permanent link">&para;</a></h2>
+<p>This rule is shared by both user input and assistant output.</p>
+<h2 id="shell-mode">Shell Mode<a class="headerlink" href="#shell-mode" title="Permanent link">&para;</a></h2>
+<p>Press <code>Ctrl-X</code> to toggle between <code>agent</code> and <code>shell</code> mode.</p>
 <ul>
-<li><code>,quit</code></li>
-<li><code>Ctrl-D</code></li>
+<li><code>agent</code> mode: send input as typed.</li>
+<li><code>shell</code> mode: if input does not start with <code>,</code>, Bub auto-normalizes it to <code>, &lt;your command&gt;</code>.</li>
+</ul>
+<p>Use shell mode when you want to run multiple shell commands quickly.</p>
+<h2 id="typical-workflow">Typical Workflow<a class="headerlink" href="#typical-workflow" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Check repo status: <code>,git status</code></li>
+<li>Read files: <code>,fs.read path=README.md</code></li>
+<li>Edit files: <code>,fs.edit path=foo.py old=... new=...</code></li>
+<li>Validate: <code>,uv run pytest -q</code></li>
+<li>Mark phase transition: <code>,handoff name=phase-x summary="tests pass"</code></li>
+</ol>
+<h2 id="session-context-commands">Session Context Commands<a class="headerlink" href="#session-context-commands" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>,tape.info
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>,tape.search query=error
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>,anchors
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>,tape.reset archive=true
+</code></pre></div>
+<ul>
+<li><code>,tape.reset archive=true</code> archives then clears current tape.</li>
+<li><code>,anchors</code> shows phase boundaries.</li>
+</ul>
+<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>command not found</code>: verify whether it should be an internal command (<code>,help</code> for list).</li>
+<li>Verbose or odd output: Bub may still be processing command follow-up context.</li>
+<li>Context is too heavy: add a handoff anchor, then reset tape when needed.</li>
 </ul>
 </section>
 

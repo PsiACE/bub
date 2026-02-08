@@ -103,10 +103,18 @@
                 
                 
                 <li property="itemListElement" typeof="ListItem">
+                    <a href="features/" class="menu-item " property="item" typeof="WebPage">
+                        <span property="name">Key Features</span>
+                    </a>
+                    <meta property="position" content="1">
+                </li>
+                
+                
+                <li property="itemListElement" typeof="ListItem">
                     <a href="architecture/" class="menu-item " property="item" typeof="WebPage">
                         <span property="name">Architecture</span>
                     </a>
-                    <meta property="position" content="1">
+                    <meta property="position" content="2">
                 </li>
                 
                 
@@ -114,7 +122,7 @@
                     <a href="cli/" class="menu-item " property="item" typeof="WebPage">
                         <span property="name">Interactive CLI</span>
                     </a>
-                    <meta property="position" content="2">
+                    <meta property="position" content="3">
                 </li>
                 
                 
@@ -122,7 +130,7 @@
                     <a href="telegram/" class="menu-item " property="item" typeof="WebPage">
                         <span property="name">Telegram</span>
                     </a>
-                    <meta property="position" content="3">
+                    <meta property="position" content="4">
                 </li>
                 
                     
@@ -133,7 +141,7 @@
     <a href="#" class="menu-item" data-toggle="modal" data-target="#mkdocs_search_modal" property="item" typeof="SearchAction">
         <i aria-hidden="true" class="fa fa-search"></i> <span property="name">Search</span>
     </a>
-    <meta property="position" content="4">
+    <meta property="position" content="5">
 </li>
                     
             </ul>
@@ -159,6 +167,25 @@
         <span class="
 
     terminal-mkdocs-side-nav-item--active">Home</span>
+    
+    
+    
+  </li>
+        
+          
+
+
+
+<li class="terminal-mkdocs-side-nav-li">
+    
+    
+    
+        
+        
+            <a class="
+
+    terminal-mkdocs-side-nav-item" href="features/">Key Features</a>
+        
     
     
     
@@ -227,33 +254,49 @@
 <nav>
     <ul>
         <li><a href="#bub-docs">Bub Docs</a></li>
-        <li><a href="#what-bub-is">What Bub Is</a></li><li><a href="#core-rules">Core Rules</a></li><li><a href="#read-next">Read Next</a></li>
+        <li><a href="#what-you-can-expect">What You Can Expect</a></li><li><a href="#how-bub-behaves-in-practice">How Bub Behaves In Practice</a></li><li><a href="#start-here">Start Here</a></li><li><a href="#common-commands">Common Commands</a></li><li><a href="#configuration">Configuration</a></li>
     </ul>
 </nav>
 </aside>
             <main id="terminal-mkdocs-main-content">
 <section id="mkdocs-terminal-content">
     <h1 id="bub-docs">Bub Docs<a class="headerlink" href="#bub-docs" title="Permanent link">&para;</a></h1>
-<h2 id="what-bub-is">What Bub Is<a class="headerlink" href="#what-bub-is" title="Permanent link">&para;</a></h2>
-<p>Bub is a tape-first coding agent runtime:
-- deterministic, forward-only session flow,
-- explicit anchors and handoff for phase transitions,
-- shared command router for user and assistant outputs.</p>
-<h2 id="core-rules">Core Rules<a class="headerlink" href="#core-rules" title="Permanent link">&para;</a></h2>
-<ol>
-<li>Internal commands use <code>,</code> prefix.</li>
-<li>Shell commands run through <code>bash</code> tool.</li>
-<li>Command success returns directly; command failure falls back to model.</li>
-<li><code>$</code> is hint-only for potential tool/skill usage.</li>
-<li>Tape is append-only; no runtime fork/rollback semantics.</li>
-</ol>
-<h2 id="read-next">Read Next<a class="headerlink" href="#read-next" title="Permanent link">&para;</a></h2>
+<p>Bub is built for day-to-day coding tasks: run commands, edit files, debug failures, and keep progress visible across long sessions.</p>
+<h2 id="what-you-can-expect">What You Can Expect<a class="headerlink" href="#what-you-can-expect" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="architecture/">Architecture</a></li>
-<li><a href="cli/">Interactive CLI</a></li>
-<li><a href="telegram/">Telegram Integration</a></li>
-<li><a href="rewrite-plan-2026-02.md">Rewrite Plan (tracking)</a></li>
+<li>Clear command behavior: only lines that start with <code>,</code> are commands.</li>
+<li>One execution path: the same rules apply to both your input and assistant-generated commands.</li>
+<li>Graceful recovery: failed commands are fed back to the model with structured context.</li>
+<li>Trackable sessions: tape, anchors, and handoff help you resume work cleanly.</li>
 </ul>
+<h2 id="how-bub-behaves-in-practice">How Bub Behaves In Practice<a class="headerlink" href="#how-bub-behaves-in-practice" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Type normal text to ask the assistant.</li>
+<li>Start a line with <code>,</code> to run a command.</li>
+<li>Known names such as <code>,help</code> are internal commands.</li>
+<li>Other comma-prefixed lines are treated as shell commands.</li>
+<li>If a command fails, Bub keeps going and uses the error context in the next model step.</li>
+</ol>
+<h2 id="start-here">Start Here<a class="headerlink" href="#start-here" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="features/">Key Features</a></li>
+<li><a href="cli/">Interactive CLI</a></li>
+<li><a href="architecture/">Architecture</a></li>
+<li><a href="telegram/">Telegram Integration</a></li>
+</ul>
+<h2 id="common-commands">Common Commands<a class="headerlink" href="#common-commands" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>,help
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>,tools
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>,tool.describe name=fs.read
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>,tape.info
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>,tape.search query=timeout
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>,handoff name=phase-2 summary=&quot;router fixed&quot; next_steps=&quot;run pytest&quot;
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>,anchors
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>,tape.reset archive=true
+</code></pre></div>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
+<p>Start from <code>env.example</code> in the repository root.
+Use model + API key first, then add Telegram and advanced settings when needed.</p>
 </section>
 
             </main>

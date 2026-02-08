@@ -11,7 +11,7 @@
     
     <meta name="author" content="Chojan Shang"> 
     
-    <link rel="canonical" href="https://bub.build/telegram/"><link rel="icon" type="image/png" sizes="192x192" href="../img/android-chrome-192x192.png" />
+    <link rel="canonical" href="https://bub.build/features/"><link rel="icon" type="image/png" sizes="192x192" href="../img/android-chrome-192x192.png" />
 <link rel="icon" type="image/png" sizes="512x512" href="../img/android-chrome-512x512.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="../img/apple-touch-icon.png" />
 <link rel="shortcut icon" type="image/png" sizes="48x48" href="../img/favicon.ico" />
@@ -21,7 +21,7 @@
 
     
  
-<title>Telegram - bub</title>
+<title>Key Features - bub</title>
 
 
 <link href="../css/fontawesome/css/fontawesome.min.css" rel="stylesheet">
@@ -103,7 +103,7 @@
                 
                 
                 <li property="itemListElement" typeof="ListItem">
-                    <a href="../features/" class="menu-item " property="item" typeof="WebPage">
+                    <a href="./" class="menu-item active" property="item" typeof="WebPage">
                         <span property="name">Key Features</span>
                     </a>
                     <meta property="position" content="1">
@@ -127,7 +127,7 @@
                 
                 
                 <li property="itemListElement" typeof="ListItem">
-                    <a href="./" class="menu-item active" property="item" typeof="WebPage">
+                    <a href="../telegram/" class="menu-item " property="item" typeof="WebPage">
                         <span property="name">Telegram</span>
                     </a>
                     <meta property="position" content="4">
@@ -183,11 +183,9 @@
     
     
         
-        
-            <a class="
+        <span class="
 
-    terminal-mkdocs-side-nav-item" href="../features/">Key Features</a>
-        
+    terminal-mkdocs-side-nav-item--active">Key Features</span>
     
     
     
@@ -240,9 +238,11 @@
     
     
         
-        <span class="
+        
+            <a class="
 
-    terminal-mkdocs-side-nav-item--active">Telegram</span>
+    terminal-mkdocs-side-nav-item" href="../telegram/">Telegram</a>
+        
     
     
     
@@ -253,43 +253,58 @@
 </nav><hr>
 <nav>
     <ul>
-        <li><a href="#telegram-integration">Telegram Integration</a></li>
-        <li><a href="#configure">Configure</a></li><li><a href="#run">Run</a></li><li><a href="#runtime-behavior">Runtime Behavior</a></li><li><a href="#security-and-operations">Security and Operations</a></li>
+        <li><a href="#key-features">Key Features</a></li>
+        <li><a href="#1-deterministic-command-routing">1. Deterministic Command Routing</a></li><li><a href="#2-command-failure-recovery">2. Command Failure Recovery</a></li><li><a href="#3-tape-first-session-memory">3. Tape-First Session Memory</a></li><li><a href="#4-unified-tool-skill-view">4. Unified Tool + Skill View</a></li><li><a href="#5-interactive-cli-focused-on-real-work">5. Interactive CLI Focused on Real Work</a></li><li><a href="#6-telegram-channel-integration">6. Telegram Channel Integration</a></li>
     </ul>
 </nav>
 </aside>
             <main id="terminal-mkdocs-main-content">
 <section id="mkdocs-terminal-content">
-    <h1 id="telegram-integration">Telegram Integration<a class="headerlink" href="#telegram-integration" title="Permanent link">&para;</a></h1>
-<p>Telegram allows Bub to run as a remote coding assistant entry point for lightweight operations.</p>
-<h2 id="configure">Configure<a class="headerlink" href="#configure" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">BUB_TELEGRAM_ENABLED</span><span class="o">=</span><span class="nb">true</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nv">BUB_TELEGRAM_TOKEN</span><span class="o">=</span><span class="m">123456</span>:token
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nv">BUB_TELEGRAM_ALLOW_FROM</span><span class="o">=[</span><span class="s2">&quot;123456789&quot;</span>,<span class="s2">&quot;your_username&quot;</span><span class="o">]</span>
-</code></pre></div>
-<p>Notes:</p>
+    <h1 id="key-features">Key Features<a class="headerlink" href="#key-features" title="Permanent link">&para;</a></h1>
+<p>This page summarizes the capabilities users rely on most when working with Bub.</p>
+<h2 id="1-deterministic-command-routing">1. Deterministic Command Routing<a class="headerlink" href="#1-deterministic-command-routing" title="Permanent link">&para;</a></h2>
 <ul>
-<li>If <code>BUB_TELEGRAM_ALLOW_FROM</code> is empty, all senders are accepted.</li>
-<li>In production, use a strict allowlist.</li>
+<li>Command mode is explicit: only line-start <code>,</code> triggers command parsing.</li>
+<li>Known names map to internal commands (for example <code>,help</code>, <code>,tools</code>, <code>,tape.info</code>).</li>
+<li>Other comma-prefixed lines run as shell commands (for example <code>,git status</code>).</li>
 </ul>
-<h2 id="run">Run<a class="headerlink" href="#run" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>run<span class="w"> </span>bub<span class="w"> </span>telegram
-</code></pre></div>
-<h2 id="runtime-behavior">Runtime Behavior<a class="headerlink" href="#runtime-behavior" title="Permanent link">&para;</a></h2>
+<p>Why it matters: fewer accidental tool calls and more predictable behavior.</p>
+<h2 id="2-command-failure-recovery">2. Command Failure Recovery<a class="headerlink" href="#2-command-failure-recovery" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Uses long polling.</li>
-<li>Each Telegram chat maps to <code>telegram:&lt;chat_id&gt;</code> session key.</li>
-<li>Inbound text enters the same <code>AgentLoop</code> used by CLI.</li>
-<li>Outbound messages are sent by <code>ChannelManager</code>.</li>
-<li>Typing indicator is emitted while processing.</li>
+<li>Successful commands return directly.</li>
+<li>Failed commands are wrapped as structured command blocks and sent back to the model loop.</li>
 </ul>
-<h2 id="security-and-operations">Security and Operations<a class="headerlink" href="#security-and-operations" title="Permanent link">&para;</a></h2>
-<ol>
-<li>Keep bot token only in <code>.env</code> or a secret manager.</li>
-<li>Use a dedicated bot account.</li>
-<li>Keep allowlist updated with valid user IDs/usernames.</li>
-<li>If no response is observed, check network, token, then runtime/model logs.</li>
-</ol>
+<p>Why it matters: the assistant can debug based on real command output instead of generic guesses.</p>
+<h2 id="3-tape-first-session-memory">3. Tape-First Session Memory<a class="headerlink" href="#3-tape-first-session-memory" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Bub writes session activity to append-only tape.</li>
+<li><code>,anchors</code> and <code>,handoff</code> mark phase transitions.</li>
+<li><code>,tape.search</code> and <code>,tape.info</code> help inspect context quickly.</li>
+</ul>
+<p>Why it matters: long tasks stay traceable and easier to resume.</p>
+<h2 id="4-unified-tool-skill-view">4. Unified Tool + Skill View<a class="headerlink" href="#4-unified-tool-skill-view" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Built-in tools and skills share one registry.</li>
+<li>Prompt includes compact tool descriptions first.</li>
+<li>Tool details expand on explicit selection (for example <code>,tool.describe name=fs.read</code>).</li>
+<li><code>$name</code> hints expand details progressively for both tools and skills.</li>
+<li>Hints can come from user input or model output (for example <code>$fs.read</code>, <code>$friendly-python</code>).</li>
+</ul>
+<p>Why it matters: prompt stays focused while advanced capabilities remain available on demand.</p>
+<h2 id="5-interactive-cli-focused-on-real-work">5. Interactive CLI Focused on Real Work<a class="headerlink" href="#5-interactive-cli-focused-on-real-work" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Rich interactive shell with history and completions.</li>
+<li><code>Ctrl-X</code> toggles shell mode for faster command execution.</li>
+<li>Same runtime behavior as channel integrations.</li>
+</ul>
+<p>Why it matters: local debugging and implementation loops are fast and consistent.</p>
+<h2 id="6-telegram-channel-integration">6. Telegram Channel Integration<a class="headerlink" href="#6-telegram-channel-integration" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Optional long-polling Telegram adapter.</li>
+<li>Per-chat session isolation (<code>telegram:&lt;chat_id&gt;</code>).</li>
+<li>Optional sender allowlist for access control.</li>
+</ul>
+<p>Why it matters: you can continue lightweight operations from mobile or remote environments.</p>
 </section>
 
             </main>

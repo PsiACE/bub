@@ -103,10 +103,18 @@
                 
                 
                 <li property="itemListElement" typeof="ListItem">
+                    <a href="../features/" class="menu-item " property="item" typeof="WebPage">
+                        <span property="name">Key Features</span>
+                    </a>
+                    <meta property="position" content="1">
+                </li>
+                
+                
+                <li property="itemListElement" typeof="ListItem">
                     <a href="./" class="menu-item active" property="item" typeof="WebPage">
                         <span property="name">Architecture</span>
                     </a>
-                    <meta property="position" content="1">
+                    <meta property="position" content="2">
                 </li>
                 
                 
@@ -114,7 +122,7 @@
                     <a href="../cli/" class="menu-item " property="item" typeof="WebPage">
                         <span property="name">Interactive CLI</span>
                     </a>
-                    <meta property="position" content="2">
+                    <meta property="position" content="3">
                 </li>
                 
                 
@@ -122,7 +130,7 @@
                     <a href="../telegram/" class="menu-item " property="item" typeof="WebPage">
                         <span property="name">Telegram</span>
                     </a>
-                    <meta property="position" content="3">
+                    <meta property="position" content="4">
                 </li>
                 
                     
@@ -133,7 +141,7 @@
     <a href="#" class="menu-item" data-toggle="modal" data-target="#mkdocs_search_modal" property="item" typeof="SearchAction">
         <i aria-hidden="true" class="fa fa-search"></i> <span property="name">Search</span>
     </a>
-    <meta property="position" content="4">
+    <meta property="position" content="5">
 </li>
                     
             </ul>
@@ -160,6 +168,25 @@
             <a class="
 
     terminal-mkdocs-side-nav-item" href="..">Home</a>
+        
+    
+    
+    
+  </li>
+        
+          
+
+
+
+<li class="terminal-mkdocs-side-nav-li">
+    
+    
+    
+        
+        
+            <a class="
+
+    terminal-mkdocs-side-nav-item" href="../features/">Key Features</a>
         
     
     
@@ -227,62 +254,56 @@
 <nav>
     <ul>
         <li><a href="#architecture">Architecture</a></li>
-        <li><a href="#design-goal">Design Goal</a></li><li><a href="#runtime-topology">Runtime Topology</a></li><li><a href="#tape-and-anchors">Tape and Anchors</a></li><li><a href="#tool-and-skill-unification">Tool and Skill Unification</a></li><li><a href="#agent-loop-contract">Agent Loop Contract</a></li><li><a href="#channel-integration">Channel Integration</a></li>
+        <li><a href="#core-principles">Core Principles</a></li><li><a href="#runtime-topology">Runtime Topology</a></li><li><a href="#single-turn-flow">Single Turn Flow</a></li><li><a href="#tape-anchor-handoff">Tape, Anchor, Handoff</a></li><li><a href="#tools-and-skills">Tools and Skills</a></li>
     </ul>
 </nav>
 </aside>
             <main id="terminal-mkdocs-main-content">
 <section id="mkdocs-terminal-content">
     <h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h1>
-<h2 id="design-goal">Design Goal<a class="headerlink" href="#design-goal" title="Permanent link">&para;</a></h2>
-<p>Bub uses one endless tape per session and keeps behavior inspectable:
-- facts are appended, never rewritten,
-- runtime state is rebuilt from anchors,
-- handoff marks phase transitions with minimal structured state.</p>
+<p>This page is for developers and advanced users who need to understand why Bub behavior is deterministic and how to extend it safely.</p>
+<h2 id="core-principles">Core Principles<a class="headerlink" href="#core-principles" title="Permanent link">&para;</a></h2>
+<ol>
+<li>One session, one append-only tape.</li>
+<li>Same routing rules for user input and assistant output.</li>
+<li>Command execution and model reasoning are explicit layers.</li>
+<li>Phase transitions are represented by <code>anchor/handoff</code>, not hidden state jumps.</li>
+</ol>
 <h2 id="runtime-topology">Runtime Topology<a class="headerlink" href="#runtime-topology" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>input -&gt; InputRouter -&gt; AgentLoop -&gt; ModelRunner -&gt; InputRouter(assistant output) -&gt; ...
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>                    \-&gt; direct command response
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>                \-&gt; direct command response
 </code></pre></div>
-<p>Main modules:</p>
+<p>Key modules:</p>
 <ul>
-<li><code>bub.app.runtime</code>: workspace runtime + per-session runtime creation.</li>
-<li><code>bub.core.router</code>: command detection/execution for user and assistant outputs.</li>
-<li><code>bub.core.agent_loop</code>: turn orchestration.</li>
-<li><code>bub.core.model_runner</code>: bounded model loop and follow-up command context.</li>
-<li><code>bub.tape.*</code>: persistent tape store and handoff/anchor helpers.</li>
+<li><code>src/bub/core/router.py</code>: command detection, execution, and failure context wrapping.</li>
+<li><code>src/bub/core/agent_loop.py</code>: turn orchestration and stop conditions.</li>
+<li><code>src/bub/core/model_runner.py</code>: bounded model loop and user-driven skill-hint activation.</li>
+<li><code>src/bub/tape/service.py</code>: tape read/write, anchor/handoff, reset, and search.</li>
+<li><code>src/bub/tools/*</code>: unified registry and progressive tool view.</li>
 </ul>
-<h2 id="tape-and-anchors">Tape and Anchors<a class="headerlink" href="#tape-and-anchors" title="Permanent link">&para;</a></h2>
-<p>Tape store:
-- file-backed JSONL per workspace + session tape name.
-- append-only <code>TapeEntry</code>.</p>
-<p>Anchor usage:
-- bootstrap anchor is created once (<code>session/start</code>).
-- <code>,handoff</code> writes anchor with optional <code>summary</code> and <code>next_steps</code>.
-- context selection is <code>LAST_ANCHOR</code> by default.</p>
-<h2 id="tool-and-skill-unification">Tool and Skill Unification<a class="headerlink" href="#tool-and-skill-unification" title="Permanent link">&para;</a></h2>
-<p>All capabilities are exposed via one registry:
-- builtin tools (<code>bash</code>, <code>fs.*</code>, <code>web.*</code>, <code>tape.*</code>, control commands),
-- skill tools:
-  - <code>skills.list</code>
-  - <code>skills.describe</code>
-  - dynamic <code>skill.&lt;skill_name&gt;</code>.</p>
-<p>Progressive exposure:
-- system prompt includes compact tool list,
-- detailed schema is expanded after selection (<code>tool.describe</code> / invocation).</p>
-<h2 id="agent-loop-contract">Agent Loop Contract<a class="headerlink" href="#agent-loop-contract" title="Permanent link">&para;</a></h2>
-<p>Per user turn:
-1. Route user input.
-2. If command success: return.
-3. If command failure or NL input: enter model loop.
-4. Parse assistant output with same router.
-5. If assistant emitted commands: execute and feed command blocks into next model step.
-6. Stop on plain final text, explicit quit, or <code>max_steps</code>.</p>
-<h2 id="channel-integration">Channel Integration<a class="headerlink" href="#channel-integration" title="Permanent link">&para;</a></h2>
-<p><code>blinker</code> signal bus:
-- inbound signal -&gt; runtime handle_input,
-- outbound signal -&gt; channel adapter send.</p>
-<p>Current external adapter:
-- Telegram long polling (<code>python-telegram-bot</code>).</p>
+<h2 id="single-turn-flow">Single Turn Flow<a class="headerlink" href="#single-turn-flow" title="Permanent link">&para;</a></h2>
+<ol>
+<li><code>InputRouter.route_user</code> checks whether input starts with <code>,</code>.</li>
+<li>If command succeeds, return output directly.</li>
+<li>If command fails, generate a <code>&lt;command ...&gt;</code> block for model context.</li>
+<li><code>ModelRunner</code> gets assistant output.</li>
+<li><code>route_assistant</code> applies the same command parsing/execution rules.</li>
+<li>Loop ends on plain final text, explicit quit, or <code>max_steps</code>.</li>
+</ol>
+<h2 id="tape-anchor-handoff">Tape, Anchor, Handoff<a class="headerlink" href="#tape-anchor-handoff" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Tape is workspace-level JSONL for replay and audit.</li>
+<li><code>handoff</code> writes an anchor with optional <code>summary</code> and <code>next_steps</code>.</li>
+<li><code>anchors</code> lists phase boundaries.</li>
+<li><code>tape.reset</code> clears active context (optionally archiving first).</li>
+</ul>
+<h2 id="tools-and-skills">Tools and Skills<a class="headerlink" href="#tools-and-skills" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Built-in tools and skills live in one registry.</li>
+<li>System prompt starts with compact tool descriptions.</li>
+<li>Full tool schema is expanded on demand (<code>tool.describe</code> or explicit selection).</li>
+<li><code>$name</code> hints progressively expand tool/skill details from either user input or model output.</li>
+</ul>
 </section>
 
             </main>
