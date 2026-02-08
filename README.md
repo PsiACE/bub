@@ -126,6 +126,18 @@ When making changes, always run tests first.
 
 The AGENTS.md file takes precedence over the `BUB_SYSTEM_PROMPT` environment variable, making it easy to share consistent AI behavior across your development team.
 
+### Reusable Skills
+
+Bub can discover reusable skills from both project and global locations:
+
+- `<workspace>/.agent/skills`
+- `~/.agent/skills`
+- Built-in package skills under `src/bub/skills`
+
+Each skill should be stored in its own directory with a `SKILL.md` file. Bub reads skill metadata from frontmatter and injects an `<available_skills>` block into the system prompt, so the agent can load matching skills on demand.
+
+When skill names conflict, precedence is: project > global > built-in.
+
 ## Development
 
 ```bash

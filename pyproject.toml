@@ -58,6 +58,10 @@ paths = ["src"]
 
 [tool.mypy]
 files = ["src"]
+exclude = [
+    '^src/bub/skills/skill-creator/scripts/.*$',
+    '^src/bub/skills/skill-installer/scripts/.*$',
+]
 disallow_untyped_defs = false
 disallow_any_unimported = false
 no_implicit_optional = true
@@ -74,6 +78,10 @@ testpaths = ["tests"]
 target-version = "py39"
 line-length = 120
 fix = true
+extend-exclude = [
+    "src/bub/skills/skill-creator/scripts",
+    "src/bub/skills/skill-installer/scripts",
+]
 
 [tool.ruff.lint]
 select = [
