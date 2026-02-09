@@ -65,24 +65,15 @@ class InteractiveCli:
             self._mode = "shell" if self._mode == "agent" else "agent"
             event.app.invalidate()
 
+        def _tool_sort_key(tool_name: str) -> tuple[str, str]:
+            section, _, name = tool_name.rpartition(".")
+            return (section, name)
+
         history_file = self._history_file(self._runtime.settings.resolve_home(), self._runtime.workspace)
         history_file.parent.mkdir(parents=True, exist_ok=True)
         history = FileHistory(str(history_file))
-        completer = WordCompleter(
-            [
-                ",help",
-                ",tools",
-                ",tool.describe",
-                ",tape.info",
-                ",tape.search",
-                ",anchors",
-                ",handoff",
-                ",skills.list",
-                ",skills.describe",
-                ",quit",
-            ],
-            ignore_case=True,
-        )
+        tool_names = sorted((f",{tool.name}" for tool in self._runtime.registry.descriptors()), key=_tool_sort_key)
+        completer = WordCompleter(tool_names, ignore_case=True)
         return PromptSession(
             completer=completer,
             complete_while_typing=True,
