@@ -37,6 +37,7 @@ Tests are in `tests/`. Documentation is in `docs/`. Legacy implementation is arc
 - For behavior changes, update/add tests in the same PR.
 
 ## Commit & Pull Request Guidelines
+- **Before creating branches and submitting PRs, always sync with upstream main branch first.**
 - Follow Conventional Commit style seen in history: `feat:`, `fix:`, `chore:`.
 - Keep commits focused; avoid mixing refactor and behavior change without explanation.
 - PRs should include:
