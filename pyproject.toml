@@ -21,7 +21,7 @@ dependencies = [
     "pydantic-settings>=2.0.0",
     "pyyaml>=6.0.0",
     "typer>=0.9.0",
-    "republic>=0.3.0",
+    "republic",
     "rich>=13.0.0",
     "prompt-toolkit>=3.0.0",
     "blinker>=1.8.2",
@@ -140,3 +140,6 @@ ignore = [
 
 [tool.ruff.format]
 preview = true
+
+[tool.uv.sources]
+republic = { path = "republic", editable = true }

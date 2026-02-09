@@ -1,0 +1,15 @@
+repository:
+  description: "An explicit LLM client and router with append-only history and controllable context."
+  homepage: "https://getrepublic.org"
+  topics:
+    - ai
+    - agents
+    - any-llm
+    - context
+    - llm
+    - openai
+    - openrouter
+    - python
+    - routing
+    - tape
+    - tools

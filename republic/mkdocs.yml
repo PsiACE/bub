@@ -1,0 +1,43 @@
+site_name: republic
+repo_url: https://github.com/psiace/republic
+site_url: https://getrepublic.org
+site_description: Tape-first LLM client with structured outputs.
+site_author: Chojan Shang
+edit_uri: edit/main/docs/
+repo_name: psiace/republic
+copyright: Maintained by <a href="https://psiace.com">psiace</a>.
+
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - Guides:
+      - Chat: guides/chat.md
+      - Tools: guides/tools.md
+      - Tape: guides/tape.md
+      - Stream Events: guides/stream-events.md
+      - Text Decisions: guides/text.md
+      - Embeddings: guides/embeddings.md
+  - Philosophy: philosophy.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: ["src"]
+
+theme:
+  name: terminal
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/psiace/republic
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/republic
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
