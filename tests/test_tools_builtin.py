@@ -1,4 +1,5 @@
 import json
+import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -41,16 +42,27 @@ class _DummyTape:
         return "reset"
 
 
+class _DummyRuntime:
+    def __init__(self, settings: Settings, scheduler: BackgroundScheduler) -> None:
+        self.settings = settings
+        self.scheduler = scheduler
+        self.skills: list[object] = []
+        self.bus = None
+
+    @staticmethod
+    def load_skill_body(_name: str) -> str | None:
+        return None
+
+
 def _build_registry(workspace: Path, settings: Settings, scheduler: BackgroundScheduler) -> ToolRegistry:
     registry = ToolRegistry()
+    runtime = _DummyRuntime(settings, scheduler)
     register_builtin_tools(
         registry,
         workspace=workspace,
         tape=_DummyTape(),  # type: ignore[arg-type]
-        skills=[],
-        load_skill_body=lambda _name: None,
-        settings=settings,
-        scheduler=scheduler,
+        runtime=runtime,  # type: ignore[arg-type]
+        session_id="cli:test",
     )
     return registry
 
@@ -236,18 +248,20 @@ def test_schedule_add_list_remove_roundtrip(tmp_path: Path, scheduler: Backgroun
         "schedule.add",
         kwargs={
             "cron": "*/5 * * * *",
-            "command": "echo hello",
-            "job_id": "job-a",
+            "message": "hello",
         },
     )
-    assert "scheduled: id=job-a" in add_result
+    assert add_result.startswith("scheduled: ")
+    matched = re.match(r"^scheduled: (?P<job_id>[a-z0-9-]+) next=.*$", add_result)
+    assert matched is not None
+    job_id = matched.group("job_id")
 
     list_result = registry.execute("schedule.list", kwargs={})
-    assert "job-a" in list_result
-    assert "cmd=echo hello" in list_result
+    assert job_id in list_result
+    assert "msg=hello" in list_result
 
-    remove_result = registry.execute("schedule.remove", kwargs={"job_id": "job-a"})
-    assert remove_result == "removed: job-a"
+    remove_result = registry.execute("schedule.remove", kwargs={"job_id": job_id})
+    assert remove_result == f"removed: {job_id}"
 
     assert registry.execute("schedule.list", kwargs={}) == "(no scheduled jobs)"
 
@@ -259,7 +273,7 @@ def test_schedule_add_rejects_invalid_cron(tmp_path: Path, scheduler: Background
     try:
         registry.execute(
             "schedule.add",
-            kwargs={"cron": "* * *", "command": "echo bad", "job_id": "bad-job"},
+            kwargs={"cron": "* * *", "message": "bad"},
         )
         raise AssertionError("expected RuntimeError")
     except RuntimeError as exc:
@@ -285,9 +299,11 @@ def test_schedule_shared_scheduler_across_registries(tmp_path: Path, scheduler: 
     registry_a = _build_registry(workspace, settings, scheduler)
     registry_b = _build_registry(workspace, settings, scheduler)
 
-    registry_a.execute(
+    add_result = registry_a.execute(
         "schedule.add",
-        kwargs={"cron": "*/5 * * * *", "command": "echo from-a", "job_id": "shared-job"},
+        kwargs={"cron": "*/5 * * * *", "message": "from-a"},
     )
+    matched = re.match(r"^scheduled: (?P<job_id>[a-z0-9-]+) next=.*$", add_result)
+    assert matched is not None
 
-    assert "shared-job" in registry_b.execute("schedule.list", kwargs={})
+    assert matched.group("job_id") in registry_b.execute("schedule.list", kwargs={})

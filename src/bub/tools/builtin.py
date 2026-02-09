@@ -188,7 +188,10 @@ def register_builtin_tools(
     """Register built-in tools and internal commands."""
 
     register = registry.register
-    loop = asyncio.get_event_loop()
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
     support_scheduling = runtime.scheduler.running
 
     @register(name="bash", short_description="Run shell command", model=BashInput)
@@ -310,7 +313,8 @@ def register_builtin_tools(
     def _run_scheduled_reminder(message: str) -> None:
         from bub.channels.events import InboundMessage
 
-        if runtime.bus is None:
+        bus = runtime.bus
+        if bus is None:
             logger.error("cannot send scheduled reminder: bus is not set")
             return
         channel, chat_id = session_id.split(":", 1)
@@ -320,7 +324,12 @@ def register_builtin_tools(
             chat_id=chat_id,
             content=message,
         )
-        loop.create_task(runtime.bus.publish_inbound(inbound_message))  # noqa: RUF006
+
+        if loop is not None and loop.is_running():
+            loop.call_soon_threadsafe(lambda: asyncio.create_task(bus.publish_inbound(inbound_message)))
+            return
+
+        asyncio.run(bus.publish_inbound(inbound_message))
 
     if support_scheduling:
 
