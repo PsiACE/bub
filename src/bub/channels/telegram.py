@@ -44,7 +44,8 @@ class BubMessageFilter(filters.MessageFilter):
 
         return False
 
-    def _mentions_bot(self, message: Message, text: str, bot_id: int, bot_username: str) -> bool:
+    @staticmethod
+    def _mentions_bot(message: Message, text: str, bot_id: int, bot_username: str) -> bool:
         for entity in message.entities or ():
             if entity.type == "mention" and bot_username:
                 mention_text = text[entity.offset : entity.offset + entity.length]
