@@ -65,10 +65,10 @@ class ChannelManager:
         output = "\n\n".join(parts).strip()
         if not output:
             return
-        
+
         # Extract message_id for reply functionality in group chats
         reply_to_message_id = message.metadata.get("message_id")
-        
+
         await self.bus.publish_outbound(
             OutboundMessage(
                 channel=message.channel,

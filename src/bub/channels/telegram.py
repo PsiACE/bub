@@ -122,7 +122,7 @@ class TelegramChannel(BaseChannel):
         if self._app is None:
             return
         self._stop_typing(message.chat_id)
-        
+
         # In group chats, reply to the original message if reply_to_message_id is provided
         if message.reply_to_message_id is not None:
             await self._app.bot.send_message(
