@@ -57,7 +57,7 @@ class ModelRunner:
         model: str,
         max_steps: int,
         max_tokens: int,
-        model_timeout_seconds: int,
+        model_timeout_seconds: int | None,
         base_system_prompt: str,
         workspace_system_prompt: str,
     ) -> None:
@@ -158,9 +158,8 @@ class ModelRunner:
 
     async def _chat(self, prompt: str) -> _ChatResult:
         system_prompt = self._render_system_prompt()
-        timeout = self._model_timeout_seconds if self._model_timeout_seconds > 0 else None
         try:
-            async with asyncio.timeout(timeout):
+            async with asyncio.timeout(self._model_timeout_seconds):
                 output = await self._tape.tape.run_tools_async(
                     prompt=prompt,
                     system_prompt=system_prompt,
@@ -171,7 +170,7 @@ class ModelRunner:
         except TimeoutError:
             return _ChatResult(
                 text="",
-                error=f"model_timeout: no response within {timeout}s",
+                error=f"model_timeout: no response within {self._model_timeout_seconds}s",
             )
         except Exception as exc:
             logger.exception("model.call.error")
