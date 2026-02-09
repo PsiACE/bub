@@ -46,4 +46,43 @@ def test_default_tape_context_handles_result_without_calls() -> None:
     entries = [TapeEntry.tool_result([{"status": "ok"}])]
     messages = context.select(entries, context)
 
-    assert messages == [{"role": "tool", "content": '{"status": "ok"}'}]
+    assert messages == []
+
+
+def test_default_tape_context_drops_unpaired_tool_calls_and_results() -> None:
+    context = default_tape_context()
+    assert context.select is not None
+
+    entries = [
+        TapeEntry.message({"role": "user", "content": "start"}),
+        TapeEntry.tool_call([
+            {
+                "id": "call-1",
+                "type": "function",
+                "function": {"name": "fs.write", "arguments": '{"path":"a.txt","content":"hi"}'},
+            },
+            {
+                "id": "call-2",
+                "type": "function",
+                "function": {"name": "fs.read", "arguments": '{"path":"a.txt"}'},
+            },
+        ]),
+        TapeEntry.tool_result(["ok"]),
+        TapeEntry.message({"role": "assistant", "content": "done"}),
+    ]
+
+    messages = context.select(entries, context)
+    assert messages[0] == {"role": "user", "content": "start"}
+    assert messages[1] == {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+            {
+                "id": "call-1",
+                "type": "function",
+                "function": {"name": "fs.write", "arguments": '{"path":"a.txt","content":"hi"}'},
+            }
+        ],
+    }
+    assert messages[2] == {"role": "tool", "content": "ok", "tool_call_id": "call-1", "name": "fs.write"}
+    assert messages[3] == {"role": "assistant", "content": "done"}

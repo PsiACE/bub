@@ -21,11 +21,12 @@ def _select_messages(entries: Sequence[TapeEntry], _context: TapeContext) -> lis
 
     for entry in entries:
         if entry.kind == "message":
+            pending_calls = []
             _append_message_entry(messages, entry)
             continue
 
         if entry.kind == "tool_call":
-            pending_calls = _append_tool_call_entry(messages, entry)
+            pending_calls = _collect_tool_call_entry(entry)
             continue
 
         if entry.kind == "tool_result":
@@ -41,11 +42,8 @@ def _append_message_entry(messages: list[dict[str, Any]], entry: TapeEntry) -> N
         messages.append(dict(payload))
 
 
-def _append_tool_call_entry(messages: list[dict[str, Any]], entry: TapeEntry) -> list[dict[str, Any]]:
-    calls = _normalize_tool_calls(entry.payload.get("calls"))
-    if calls:
-        messages.append({"role": "assistant", "content": "", "tool_calls": calls})
-    return calls
+def _collect_tool_call_entry(entry: TapeEntry) -> list[dict[str, Any]]:
+    return _normalize_tool_calls(entry.payload.get("calls"))
 
 
 def _append_tool_result_entry(
@@ -56,8 +54,15 @@ def _append_tool_result_entry(
     results = entry.payload.get("results")
     if not isinstance(results, list):
         return
-    for index, result in enumerate(results):
-        messages.append(_build_tool_result_message(result, pending_calls, index))
+    paired_count = min(len(pending_calls), len(results))
+    if paired_count <= 0:
+        return
+
+    paired_calls = pending_calls[:paired_count]
+    messages.append({"role": "assistant", "content": "", "tool_calls": paired_calls})
+
+    for index, result in enumerate(results[:paired_count]):
+        messages.append(_build_tool_result_message(result, paired_calls, index))
 
 
 def _build_tool_result_message(
