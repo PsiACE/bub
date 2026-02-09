@@ -81,7 +81,7 @@ class TelegramChannel(BaseChannel):
     def __init__(self, bus: MessageBus, config: TelegramConfig) -> None:
         super().__init__(bus)
         self._config = config
-        self._app = None
+        self._app: Application | None = None
         self._typing_tasks: dict[str, asyncio.Task[None]] = {}
 
     async def start(self) -> None:
