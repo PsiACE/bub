@@ -324,6 +324,7 @@ def register_builtin_tools(
             chat_id=chat_id,
             content=message,
         )
+        logger.info("sending scheduled reminder to channel={} chat_id={} message={}", channel, chat_id, message)
 
         if loop is not None and loop.is_running():
             loop.call_soon_threadsafe(lambda: asyncio.create_task(bus.publish_inbound(inbound_message)))
