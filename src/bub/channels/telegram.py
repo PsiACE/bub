@@ -123,18 +123,74 @@ class TelegramChannel(BaseChannel):
             return
         self._stop_typing(message.chat_id)
 
-        # In group chats, reply to the original message if reply_to_message_id is provided
-        if message.reply_to_message_id is not None:
-            await self._app.bot.send_message(
-                chat_id=int(message.chat_id),
-                text=md(message.content),
-                parse_mode="MarkdownV2",
-                reply_to_message_id=message.reply_to_message_id,
-            )
+        # Split long messages into multiple parts (similar to fyiv50/tg_bot_collections)
+        MAX_MESSAGE_LENGTH = 4000
+        text = md(message.content)
+
+        if len(text.encode("utf-8")) <= MAX_MESSAGE_LENGTH:
+            # Short message, send as-is
+            if message.reply_to_message_id is not None:
+                await self._app.bot.send_message(
+                    chat_id=int(message.chat_id),
+                    text=text,
+                    parse_mode="MarkdownV2",
+                    reply_to_message_id=message.reply_to_message_id,
+                )
+            else:
+                await self._app.bot.send_message(
+                    chat_id=int(message.chat_id),
+                    text=text,
+                    parse_mode="MarkdownV2",
+                )
         else:
-            await self._app.bot.send_message(
-                chat_id=int(message.chat_id), text=md(message.content), parse_mode="MarkdownV2"
-            )
+            # Long message, split into multiple parts
+            parts = self._split_message(text, MAX_MESSAGE_LENGTH)
+            total = len(parts)
+
+            for i, part in enumerate(parts, start=1):
+                prefix = f"[{i}/{total}] "
+                part_text = prefix + part
+
+                # First part: reply to original message if available
+                if i == 1 and message.reply_to_message_id is not None:
+                    await self._app.bot.send_message(
+                        chat_id=int(message.chat_id),
+                        text=part_text,
+                        parse_mode="MarkdownV2",
+                        reply_to_message_id=message.reply_to_message_id,
+                    )
+                else:
+                    await self._app.bot.send_message(
+                        chat_id=int(message.chat_id),
+                        text=part_text,
+                        parse_mode="MarkdownV2",
+                    )
+
+    def _split_message(self, text: str, max_length: int) -> list[str]:
+        """Split a long message into multiple parts, trying to break at line breaks."""
+        if len(text.encode("utf-8")) <= max_length:
+            return [text]
+
+        parts: list[str] = []
+        lines = text.split("\n")
+        current_part = ""
+
+        for line in lines:
+            test_part = current_part + "\n" + line if current_part else line
+
+            if len(test_part.encode("utf-8")) <= max_length:
+                current_part = test_part
+            else:
+                # Current part is full, save it and start a new one
+                if current_part:
+                    parts.append(current_part)
+                current_part = line
+
+        # Don't forget the last part
+        if current_part:
+            parts.append(current_part)
+
+        return parts if parts else [text]
 
     async def _on_start(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
         if update.message is None:
