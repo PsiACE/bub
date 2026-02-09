@@ -157,7 +157,7 @@ class TelegramChannel(BaseChannel):
         # Strip /bot prefix if present
         if text.startswith("/bot "):
             text = text[5:]
-        
+
         logger.info(
             "telegram.channel.inbound chat_id={} sender_id={} username={} content={}",
             chat_id,
@@ -165,7 +165,7 @@ class TelegramChannel(BaseChannel):
             user.username or "",
             text[:100],  # Log first 100 chars to avoid verbose logs
         )
-        
+
         self._start_typing(chat_id)
         self.publish_inbound(
             InboundMessage(
