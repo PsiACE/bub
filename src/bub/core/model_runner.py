@@ -5,8 +5,8 @@ from __future__ import annotations
 import queue
 import re
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable
 
 from loguru import logger
 from republic import Tool, ToolAutoResult
