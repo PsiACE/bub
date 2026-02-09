@@ -77,6 +77,8 @@ class TelegramChannel(BaseChannel):
     """Telegram adapter using long polling mode."""
 
     name = "telegram"
+    REPLY_CONTEXT_MAX_CHARS: ClassVar[int] = 30
+    REPLY_ANCHOR_EDGE_CHARS: ClassVar[int] = 12
 
     def __init__(self, bus: MessageBus, config: TelegramConfig) -> None:
         super().__init__(bus)
@@ -168,6 +170,8 @@ class TelegramChannel(BaseChannel):
         if text.startswith("/bot "):
             text = text[5:]
 
+        text = self._compose_inbound_text(update.message, text)
+
         logger.info(
             "telegram.channel.inbound chat_id={} sender_id={} username={} content={}",
             chat_id,
@@ -190,6 +194,73 @@ class TelegramChannel(BaseChannel):
                 },
             )
         )
+
+    def _compose_inbound_text(self, message: Message, text: str) -> str:
+        stripped = text.strip()
+        if not stripped:
+            return text
+
+        # Keep command routing behavior intact for comma-prefixed commands.
+        if stripped.startswith(","):
+            return text
+
+        reply_to_message = message.reply_to_message
+        if reply_to_message is None:
+            return text
+
+        reply_text = self._extract_reply_text(reply_to_message)
+        if not reply_text:
+            return text
+
+        sender = self._format_reply_sender(reply_to_message)
+        partial = len(reply_text) > self.REPLY_CONTEXT_MAX_CHARS
+        partial_flag = "true" if partial else "false"
+        lines = [
+            f"{text}",
+            "",
+            "<reply_context>",
+            f"from: {sender}",
+            f"partial: {partial_flag}",
+        ]
+
+        if partial:
+            edge = min(self.REPLY_ANCHOR_EDGE_CHARS, max(1, len(reply_text) // 2))
+            lines.append(f"head: {reply_text[:edge]}")
+            lines.append(f"tail: {reply_text[-edge:]}")
+            lines.append(f"chars: {len(reply_text)}")
+        else:
+            lines.append(f"quote: {reply_text}")
+
+        lines.extend(
+            [
+                "rule: if partial=true, recover from ctx by head/tail first; if uncertain ask full quote; no guess",
+                "if_miss: ask user to paste full quote",
+                "</reply_context>",
+            ]
+        )
+
+        return "\n".join(lines)
+
+    def _extract_reply_text(self, reply_to_message: Message) -> str:
+        raw = (reply_to_message.text or reply_to_message.caption or "").strip()
+        if not raw:
+            return ""
+        return " ".join(raw.split())
+
+    @staticmethod
+    def _format_reply_sender(reply_to_message: Message) -> str:
+        from_user = reply_to_message.from_user
+        if from_user is None:
+            return "unknown"
+        if from_user.username:
+            return f"@{from_user.username}"
+
+        first_name = (from_user.first_name or "").strip()
+        last_name = (from_user.last_name or "").strip()
+        full_name = " ".join(part for part in (first_name, last_name) if part)
+        if full_name:
+            return full_name
+        return str(from_user.id)
 
     def _start_typing(self, chat_id: str) -> None:
         self._stop_typing(chat_id)
