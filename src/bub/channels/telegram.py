@@ -4,14 +4,63 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from typing import Any, ClassVar
 
 from loguru import logger
-from telegram import Update
+from telegram import Message, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from bub.channels.base import BaseChannel
 from bub.channels.bus import MessageBus
 from bub.channels.events import InboundMessage, OutboundMessage
+
+
+class BubMessageFilter(filters.MessageFilter):
+    GROUP_CHAT_TYPES: ClassVar[set[str]] = {"group", "supergroup"}
+
+    def filter(self, message: Message) -> bool | dict[str, list[Any]] | None:
+        # Only text messages are allowed
+        text = message.text
+        if not text:
+            return False
+
+        # Private chat: accept all messages except for commands (starting with /)
+        if message.chat.type == "private":
+            return not filters.COMMAND.filter(message)
+
+        # Group chat: only allow `/bot`, mention bot, or reply to bot messages.
+        if message.chat.type in self.GROUP_CHAT_TYPES:
+            bot = message.get_bot()
+            bot_id = bot.id
+            bot_username = (bot.username or "").lower()
+            if text.startswith("/bot "):
+                return True
+
+            if self._mentions_bot(message, text, bot_id, bot_username):
+                return True
+
+            if self._is_reply_to_bot(message, bot_id):
+                return True
+
+        return False
+
+    def _mentions_bot(self, message: Message, text: str, bot_id: int, bot_username: str) -> bool:
+        for entity in message.entities or ():
+            if entity.type == "mention" and bot_username:
+                mention_text = text[entity.offset : entity.offset + entity.length]
+                if mention_text.lower() == f"@{bot_username}":
+                    return True
+                continue
+            if entity.type == "text_mention" and entity.user and entity.user.id == bot_id:
+                return True
+        return False
+
+    @staticmethod
+    def _is_reply_to_bot(message: Message, bot_id: int) -> bool:
+        reply_to_message = message.reply_to_message
+        if reply_to_message is None or reply_to_message.from_user is None:
+            return False
+        return reply_to_message.from_user.id == bot_id
 
 
 @dataclass(frozen=True)
@@ -41,7 +90,7 @@ class TelegramChannel(BaseChannel):
         self._app = Application.builder().token(self._config.token).build()
         self._app.add_handler(CommandHandler("start", self._on_start))
         self._app.add_handler(CommandHandler("help", self._on_help))
-        self._app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._on_text))
+        self._app.add_handler(MessageHandler(BubMessageFilter(), self._on_text))
         await self._app.initialize()
         await self._app.start()
         updater = self._app.updater
