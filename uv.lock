@@ -75,7 +75,6 @@ dependencies = [
     { name = "blinker" },
     { name = "html2markdown" },
     { name = "loguru" },
-    { name = "markdown" },
     { name = "prompt-toolkit" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -99,7 +98,6 @@ dev = [
     { name = "ruff" },
     { name = "rust-just" },
     { name = "tox-uv" },
-    { name = "types-markdown" },
     { name = "types-pyyaml" },
 ]
 
@@ -108,7 +106,6 @@ requires-dist = [
     { name = "blinker", specifier = ">=1.8.2" },
     { name = "html2markdown", specifier = ">=0.1.7" },
     { name = "loguru", specifier = ">=0.7.2" },
-    { name = "markdown", specifier = ">=3.4.0" },
     { name = "prompt-toolkit", specifier = ">=3.0.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },
@@ -132,7 +129,6 @@ dev = [
     { name = "ruff", specifier = ">=0.11.5" },
     { name = "rust-just", specifier = ">=1.42.0" },
     { name = "tox-uv", specifier = ">=1.11.3" },
-    { name = "types-markdown", specifier = ">=3.4.0" },
     { name = "types-pyyaml", specifier = ">=6.0.12" },
 ]
 
@@ -1239,15 +1235,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/36/bf/8825b5929afd84d0dabd606c67cd57b8388cb3ec385f7ef19c5cc2202069/typer-0.21.1.tar.gz", hash = "sha256:ea835607cd752343b6b2b7ce676893e5a0324082268b48f27aa058bdb7d2145d", size = 110371, upload-time = "2026-01-06T11:21:10.989Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a0/1d/d9257dd49ff2ca23ea5f132edf1281a0c4f9de8a762b9ae399b670a59235/typer-0.21.1-py3-none-any.whl", hash = "sha256:7985e89081c636b88d172c2ee0cfe33c253160994d47bdfdc302defd7d1f1d01", size = 47381, upload-time = "2026-01-06T11:21:09.824Z" },
-]
-
-[[package]]
-name = "types-markdown"
-version = "3.10.0.20251106"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/de/e4/060f0dadd9b551cae77d6407f2bc84b168f918d90650454aff219c1b3ed2/types_markdown-3.10.0.20251106.tar.gz", hash = "sha256:12836f7fcbd7221db8baeb0d3a2f820b95050d0824bfa9665c67b4d144a1afa1", size = 19486, upload-time = "2025-11-06T03:06:44.317Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/92/58/f666ca9391f2a8bd33bb0b0797cde6ac3e764866708d5f8aec6fab215320/types_markdown-3.10.0.20251106-py3-none-any.whl", hash = "sha256:2c39512a573899b59efae07e247ba088a75b70e3415e81277692718f430afd7e", size = 25862, upload-time = "2025-11-06T03:06:43.082Z" },
 ]
 
 [[package]]
