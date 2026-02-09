@@ -167,7 +167,7 @@ class TelegramChannel(BaseChannel):
         )
 
         self._start_typing(chat_id)
-        self.publish_inbound(
+        await self.publish_inbound(
             InboundMessage(
                 channel=self.name,
                 sender_id=str(user.id),

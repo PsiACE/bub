@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import queue
+import asyncio
 import re
-import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -58,7 +57,7 @@ class ModelRunner:
         model: str,
         max_steps: int,
         max_tokens: int,
-        model_timeout_seconds: int,
+        model_timeout_seconds: int | None,
         base_system_prompt: str,
         workspace_system_prompt: str,
     ) -> None:
@@ -77,7 +76,7 @@ class ModelRunner:
         self._expanded_skills: dict[str, str] = {}
         self._skill_index = {skill.name.casefold(): skill for skill in skills}
 
-    def run(self, prompt: str) -> ModelTurnResult:
+    async def run(self, prompt: str) -> ModelTurnResult:
         state = _PromptState(prompt=prompt)
         self._activate_hints(prompt)
 
@@ -91,7 +90,7 @@ class ModelRunner:
                     "model": self._model,
                 },
             )
-            response = self._chat(state.prompt)
+            response = await self._chat(state.prompt)
             if response.error is not None:
                 state.error = response.error
                 self._tape.append_event(
@@ -157,43 +156,25 @@ class ModelRunner:
             },
         )
 
-    def _chat(self, prompt: str) -> _ChatResult:
+    async def _chat(self, prompt: str) -> _ChatResult:
         system_prompt = self._render_system_prompt()
-        if self._model_timeout_seconds <= 0:
-            output = self._tape.tape.run_tools(
-                prompt=prompt,
-                system_prompt=system_prompt,
-                max_tokens=self._max_tokens,
-                tools=self._tools,
-            )
-            return _ChatResult.from_tool_auto(output)
-        return self._chat_with_timeout(prompt=prompt, system_prompt=system_prompt)
-
-    def _chat_with_timeout(self, *, prompt: str, system_prompt: str) -> _ChatResult:
-        result_queue: queue.Queue[_ChatResult] = queue.Queue(maxsize=1)
-
-        def _worker() -> None:
-            try:
-                output = self._tape.tape.run_tools(
+        try:
+            async with asyncio.timeout(self._model_timeout_seconds):
+                output = await self._tape.tape.run_tools_async(
                     prompt=prompt,
                     system_prompt=system_prompt,
                     max_tokens=self._max_tokens,
                     tools=self._tools,
                 )
-                result_queue.put(_ChatResult.from_tool_auto(output))
-            except Exception as exc:
-                logger.exception("model.call.error")
-                result_queue.put(_ChatResult(text="", error=f"model_call_error: {exc!s}"))
-
-        thread = threading.Thread(target=_worker, daemon=True, name="bub-model-call")
-        thread.start()
-        try:
-            return result_queue.get(timeout=self._model_timeout_seconds)
-        except queue.Empty:
+                return _ChatResult.from_tool_auto(output)
+        except TimeoutError:
             return _ChatResult(
                 text="",
                 error=f"model_timeout: no response within {self._model_timeout_seconds}s",
             )
+        except Exception as exc:
+            logger.exception("model.call.error")
+            return _ChatResult(text="", error=f"model_call_error: {exc!s}")
 
     def _render_system_prompt(self) -> str:
         blocks: list[str] = []

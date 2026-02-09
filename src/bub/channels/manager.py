@@ -21,7 +21,6 @@ class ChannelManager:
         self.runtime = runtime
         self._channels: dict[str, BaseChannel] = {}
         self._tasks: list[asyncio.Task[None]] = []
-        self._loop: asyncio.AbstractEventLoop | None = None
         self._unsub_inbound: Callable[[], None] | None = None
         self._unsub_outbound: Callable[[], None] | None = None
 
@@ -33,9 +32,8 @@ class ChannelManager:
         return dict(self._channels)
 
     async def start(self) -> None:
-        self._loop = asyncio.get_running_loop()
-        self._unsub_inbound = self.bus.on_inbound(self._handle_inbound)
-        self._unsub_outbound = self.bus.on_outbound(self._handle_outbound)
+        self._unsub_inbound = self.bus.on_inbound(self._process_inbound)
+        self._unsub_outbound = self.bus.on_outbound(self._process_outbound)
         logger.info("channel.manager.start channels={}", sorted(self._channels.keys()))
         for channel in self._channels.values():
             self._tasks.append(asyncio.create_task(channel.start()))
@@ -59,25 +57,15 @@ class ChannelManager:
             self._unsub_outbound()
             self._unsub_outbound = None
 
-    def _handle_inbound(self, message: InboundMessage) -> None:
-        if self._loop is None:
-            return
-        self._loop.create_task(self._process_inbound(message))
-
-    def _handle_outbound(self, message: OutboundMessage) -> None:
-        if self._loop is None:
-            return
-        self._loop.create_task(self._process_outbound(message))
-
     async def _process_inbound(self, message: InboundMessage) -> None:
-        result = self.runtime.handle_input(message.session_id, message.content)
+        result = await self.runtime.handle_input(message.session_id, message.content)
         parts = [part for part in (result.immediate_output, result.assistant_output) if part]
         if result.error:
             parts.append(f"error: {result.error}")
         output = "\n\n".join(parts).strip()
         if not output:
             return
-        self.bus.publish_outbound(
+        await self.bus.publish_outbound(
             OutboundMessage(
                 channel=message.channel,
                 chat_id=message.chat_id,

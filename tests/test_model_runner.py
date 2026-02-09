@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 
+import pytest
+
 from bub.core.model_runner import TOOL_CONTINUE_PROMPT, ModelRunner
 from bub.core.router import AssistantRouteResult
 from bub.skills.loader import SkillMetadata
@@ -83,7 +85,7 @@ class FakeTapeImpl:
     outputs: list[ToolAutoResult]
     calls: list[tuple[str, str, int]] = field(default_factory=list)
 
-    def run_tools(
+    async def run_tools_async(
         self,
         *,
         prompt: str,
@@ -104,7 +106,8 @@ class FakeTapeService:
         self.events.append((name, data))
 
 
-def test_model_runner_follows_command_context_until_stop() -> None:
+@pytest.mark.asyncio
+async def test_model_runner_follows_command_context_until_stop() -> None:
     tape = FakeTapeService(
         FakeTapeImpl(
             outputs=[
@@ -128,14 +131,15 @@ def test_model_runner_follows_command_context_until_stop() -> None:
         workspace_system_prompt="workspace",
     )
 
-    result = runner.run("start")
+    result = await runner.run("start")
     assert result.visible_text == "v1\n\nv2"
     assert result.steps == 2
     assert result.command_followups == 1
     assert result.error is None
 
 
-def test_model_runner_continues_after_tool_execution() -> None:
+@pytest.mark.asyncio
+async def test_model_runner_continues_after_tool_execution() -> None:
     tape = FakeTapeService(
         FakeTapeImpl(
             outputs=[
@@ -162,14 +166,15 @@ def test_model_runner_continues_after_tool_execution() -> None:
         workspace_system_prompt="workspace",
     )
 
-    result = runner.run("create file")
+    result = await runner.run("create file")
     assert result.visible_text == "tool done"
     assert result.steps == 2
     assert result.command_followups == 1
     assert tape.tape.calls[1][0] == TOOL_CONTINUE_PROMPT
 
 
-def test_model_runner_tool_followup_does_not_inline_tool_payload() -> None:
+@pytest.mark.asyncio
+async def test_model_runner_tool_followup_does_not_inline_tool_payload() -> None:
     tape = FakeTapeService(
         FakeTapeImpl(
             outputs=[
@@ -203,12 +208,13 @@ def test_model_runner_tool_followup_does_not_inline_tool_payload() -> None:
         workspace_system_prompt="workspace",
     )
 
-    runner.run("create file")
+    await runner.run("create file")
     followup_prompt = tape.tape.calls[1][0]
     assert followup_prompt == TOOL_CONTINUE_PROMPT
 
 
-def test_model_runner_expands_skill_from_hint() -> None:
+@pytest.mark.asyncio
+async def test_model_runner_expands_skill_from_hint() -> None:
     tape = FakeTapeService(FakeTapeImpl(outputs=[ToolAutoResult.text_result("assistant-only")]))
     skill = SkillMetadata(
         name="friendly-python",
@@ -231,13 +237,14 @@ def test_model_runner_expands_skill_from_hint() -> None:
         workspace_system_prompt="",
     )
 
-    runner.run("please follow $friendly-python")
+    await runner.run("please follow $friendly-python")
     _, system_prompt, _ = tape.tape.calls[0]
     assert "<skill_details>" in system_prompt
     assert "friendly-python" in system_prompt
 
 
-def test_model_runner_expands_skill_from_assistant_hint() -> None:
+@pytest.mark.asyncio
+async def test_model_runner_expands_skill_from_assistant_hint() -> None:
     tape = FakeTapeService(
         FakeTapeImpl(
             outputs=[
@@ -267,13 +274,14 @@ def test_model_runner_expands_skill_from_assistant_hint() -> None:
         workspace_system_prompt="",
     )
 
-    runner.run("no skill hint here")
+    await runner.run("no skill hint here")
     _, second_system_prompt, _ = tape.tape.calls[1]
     assert "<skill_details>" in second_system_prompt
     assert "friendly-python" in second_system_prompt
 
 
-def test_model_runner_expands_tool_from_user_hint() -> None:
+@pytest.mark.asyncio
+async def test_model_runner_expands_tool_from_user_hint() -> None:
     tool_view = FakeToolView()
     tape = FakeTapeService(FakeTapeImpl(outputs=[ToolAutoResult.text_result("assistant-only")]))
     runner = ModelRunner(
@@ -291,13 +299,14 @@ def test_model_runner_expands_tool_from_user_hint() -> None:
         workspace_system_prompt="",
     )
 
-    runner.run("use $fs.read")
+    await runner.run("use $fs.read")
     _, first_system_prompt, _ = tape.tape.calls[0]
     assert "<tool_details>" in first_system_prompt
     assert '<tool name="fs.read"/>' in first_system_prompt
 
 
-def test_model_runner_expands_tool_from_assistant_hint() -> None:
+@pytest.mark.asyncio
+async def test_model_runner_expands_tool_from_assistant_hint() -> None:
     tool_view = FakeToolView()
     tape = FakeTapeService(
         FakeTapeImpl(
@@ -322,7 +331,7 @@ def test_model_runner_expands_tool_from_assistant_hint() -> None:
         workspace_system_prompt="",
     )
 
-    runner.run("no tool hint here")
+    await runner.run("no tool hint here")
     _, second_system_prompt, _ = tape.tape.calls[1]
     assert "<tool_details>" in second_system_prompt
     assert '<tool name="fs.read"/>' in second_system_prompt

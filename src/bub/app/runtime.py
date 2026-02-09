@@ -28,8 +28,8 @@ class SessionRuntime:
     loop: AgentLoop
     tape: TapeService
 
-    def handle_input(self, text: str) -> LoopResult:
-        return self.loop.handle_input(text)
+    async def handle_input(self, text: str) -> LoopResult:
+        return await self.loop.handle_input(text)
 
 
 class AppRuntime:
@@ -88,6 +88,6 @@ class AppRuntime:
         self._sessions[session_id] = runtime
         return runtime
 
-    def handle_input(self, session_id: str, text: str) -> LoopResult:
+    async def handle_input(self, session_id: str, text: str) -> LoopResult:
         session = self.get_session(session_id)
-        return session.handle_input(text)
+        return await session.handle_input(text)
