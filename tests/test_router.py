@@ -159,6 +159,14 @@ def test_assistant_comma_prefixed_shell_command_is_executed() -> None:
         assert '<command name="bash" status="ok">' in result.next_prompt
 
 
+def test_assistant_comma_prefixed_shell_failure_still_follows_up() -> None:
+    router = _build_router(bash_error=True)
+    for line in (",echo hi", ", echo hi", ",   echo hi"):
+        result = router.route_assistant(f"create file\n{line}")
+        assert result.visible_text == ""
+        assert '<command name="bash" status="error">' in result.next_prompt
+
+
 def test_assistant_internal_command_with_comma_is_executed() -> None:
     router = _build_router()
     result = router.route_assistant("show help\n,help")

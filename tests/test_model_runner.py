@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 
-from republic import StructuredOutput
+from republic import ToolAutoResult
 
 from bub.core.model_runner import ModelRunner
 from bub.core.router import AssistantRouteResult
@@ -49,6 +49,12 @@ class FollowupRouter:
         return AssistantRouteResult(visible_text="done", next_prompt="", exit_requested=False)
 
 
+class ToolFollowupRouter:
+    def route_assistant(self, raw: str) -> AssistantRouteResult:
+        assert raw == "assistant-after-tool"
+        return AssistantRouteResult(visible_text="tool done", next_prompt="", exit_requested=False)
+
+
 class FakeToolView:
     def __init__(self) -> None:
         self.expanded: set[str] = set()
@@ -75,10 +81,17 @@ class FakeToolView:
 
 @dataclass
 class FakeTapeImpl:
-    outputs: list[StructuredOutput]
+    outputs: list[ToolAutoResult]
     calls: list[tuple[str, str, int]] = field(default_factory=list)
 
-    def chat(self, *, prompt: str, system_prompt: str, max_tokens: int) -> StructuredOutput:
+    def run_tools(
+        self,
+        *,
+        prompt: str,
+        system_prompt: str,
+        max_tokens: int,
+        tools: list[object],
+    ) -> ToolAutoResult:
         self.calls.append((prompt, system_prompt, max_tokens))
         return self.outputs.pop(0)
 
@@ -96,8 +109,8 @@ def test_model_runner_follows_command_context_until_stop() -> None:
     tape = FakeTapeService(
         FakeTapeImpl(
             outputs=[
-                StructuredOutput("assistant-first", error=None),
-                StructuredOutput("assistant-second", error=None),
+                ToolAutoResult.text_result("assistant-first"),
+                ToolAutoResult.text_result("assistant-second"),
             ]
         )
     )
@@ -105,6 +118,7 @@ def test_model_runner_follows_command_context_until_stop() -> None:
         tape=tape,  # type: ignore[arg-type]
         router=FakeRouter(),  # type: ignore[arg-type]
         tool_view=FakeToolView(),  # type: ignore[arg-type]
+        tools=[],
         skills=[],
         load_skill_body=lambda name: None,
         model="openrouter:test",
@@ -122,8 +136,86 @@ def test_model_runner_follows_command_context_until_stop() -> None:
     assert result.error is None
 
 
+def test_model_runner_continues_after_tool_execution() -> None:
+    tape = FakeTapeService(
+        FakeTapeImpl(
+            outputs=[
+                ToolAutoResult.tools_result(
+                    tool_calls=[
+                        {"function": {"name": "fs.write", "arguments": '{"path":"tmp.txt","content":"hi"}'}}
+                    ],
+                    tool_results=["ok"],
+                ),
+                ToolAutoResult.text_result("assistant-after-tool"),
+            ]
+        )
+    )
+    runner = ModelRunner(
+        tape=tape,  # type: ignore[arg-type]
+        router=ToolFollowupRouter(),  # type: ignore[arg-type]
+        tool_view=FakeToolView(),  # type: ignore[arg-type]
+        tools=[],
+        skills=[],
+        load_skill_body=lambda name: None,
+        model="openrouter:test",
+        max_steps=3,
+        max_tokens=512,
+        model_timeout_seconds=90,
+        base_system_prompt="base",
+        workspace_system_prompt="workspace",
+    )
+
+    result = runner.run("create file")
+    assert result.visible_text == "tool done"
+    assert result.steps == 2
+    assert result.command_followups == 1
+    assert "<tool_execution>" in tape.tape.calls[1][0]
+
+
+def test_model_runner_escapes_tool_followup_payload() -> None:
+    tape = FakeTapeService(
+        FakeTapeImpl(
+            outputs=[
+                ToolAutoResult.tools_result(
+                    tool_calls=[
+                        {
+                            "function": {
+                                "name": 'fs.write"unsafe',
+                                "arguments": '{"path":"tmp/<unsafe>.txt","content":"x & y"}',
+                            }
+                        }
+                    ],
+                    tool_results=['ok <done> & "quoted"'],
+                ),
+                ToolAutoResult.text_result("assistant-after-tool"),
+            ]
+        )
+    )
+    runner = ModelRunner(
+        tape=tape,  # type: ignore[arg-type]
+        router=ToolFollowupRouter(),  # type: ignore[arg-type]
+        tool_view=FakeToolView(),  # type: ignore[arg-type]
+        tools=[],
+        skills=[],
+        load_skill_body=lambda name: None,
+        model="openrouter:test",
+        max_steps=3,
+        max_tokens=512,
+        model_timeout_seconds=90,
+        base_system_prompt="base",
+        workspace_system_prompt="workspace",
+    )
+
+    runner.run("create file")
+    followup_prompt = tape.tape.calls[1][0]
+    assert 'name="fs.write&quot;unsafe"' in followup_prompt
+    assert "&lt;unsafe&gt;" in followup_prompt
+    assert "x &amp; y" in followup_prompt
+    assert "ok &lt;done&gt; &amp; &quot;quoted&quot;" in followup_prompt
+
+
 def test_model_runner_expands_skill_from_hint() -> None:
-    tape = FakeTapeService(FakeTapeImpl(outputs=[StructuredOutput("assistant-only", error=None)]))
+    tape = FakeTapeService(FakeTapeImpl(outputs=[ToolAutoResult.text_result("assistant-only")]))
     skill = SkillMetadata(
         name="friendly-python",
         description="style",
@@ -134,6 +226,7 @@ def test_model_runner_expands_skill_from_hint() -> None:
         tape=tape,  # type: ignore[arg-type]
         router=AnySingleStepRouter(),  # type: ignore[arg-type]
         tool_view=FakeToolView(),  # type: ignore[arg-type]
+        tools=[],
         skills=[skill],
         load_skill_body=lambda name: f"body for {name}",
         model="openrouter:test",
@@ -154,8 +247,8 @@ def test_model_runner_expands_skill_from_assistant_hint() -> None:
     tape = FakeTapeService(
         FakeTapeImpl(
             outputs=[
-                StructuredOutput("assistant mentions $friendly-python", error=None),
-                StructuredOutput("assistant-second", error=None),
+                ToolAutoResult.text_result("assistant mentions $friendly-python"),
+                ToolAutoResult.text_result("assistant-second"),
             ]
         )
     )
@@ -169,6 +262,7 @@ def test_model_runner_expands_skill_from_assistant_hint() -> None:
         tape=tape,  # type: ignore[arg-type]
         router=FollowupRouter(first="assistant mentions $friendly-python", second="assistant-second"),  # type: ignore[arg-type]
         tool_view=FakeToolView(),  # type: ignore[arg-type]
+        tools=[],
         skills=[skill],
         load_skill_body=lambda name: f"body for {name}",
         model="openrouter:test",
@@ -187,11 +281,12 @@ def test_model_runner_expands_skill_from_assistant_hint() -> None:
 
 def test_model_runner_expands_tool_from_user_hint() -> None:
     tool_view = FakeToolView()
-    tape = FakeTapeService(FakeTapeImpl(outputs=[StructuredOutput("assistant-only", error=None)]))
+    tape = FakeTapeService(FakeTapeImpl(outputs=[ToolAutoResult.text_result("assistant-only")]))
     runner = ModelRunner(
         tape=tape,  # type: ignore[arg-type]
         router=AnySingleStepRouter(),  # type: ignore[arg-type]
         tool_view=tool_view,  # type: ignore[arg-type]
+        tools=[],
         skills=[],
         load_skill_body=lambda name: None,
         model="openrouter:test",
@@ -213,8 +308,8 @@ def test_model_runner_expands_tool_from_assistant_hint() -> None:
     tape = FakeTapeService(
         FakeTapeImpl(
             outputs=[
-                StructuredOutput("assistant mentions $fs.read", error=None),
-                StructuredOutput("assistant-second", error=None),
+                ToolAutoResult.text_result("assistant mentions $fs.read"),
+                ToolAutoResult.text_result("assistant-second"),
             ]
         )
     )
@@ -222,6 +317,7 @@ def test_model_runner_expands_tool_from_assistant_hint() -> None:
         tape=tape,  # type: ignore[arg-type]
         router=FollowupRouter(first="assistant mentions $fs.read", second="assistant-second"),  # type: ignore[arg-type]
         tool_view=tool_view,  # type: ignore[arg-type]
+        tools=[],
         skills=[],
         load_skill_body=lambda name: None,
         model="openrouter:test",
