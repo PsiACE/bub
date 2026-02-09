@@ -124,10 +124,10 @@ class TelegramChannel(BaseChannel):
             return
         self._stop_typing(message.chat_id)
 
-        # Use expandable blockquote for long messages
-        MAX_MESSAGE_LENGTH = 4000
+        # Use expandable blockquote for long messages (over 140 chars)
+        MAX_COLLAPSE_LENGTH = 140
         raw_content = message.content
-        if len(raw_content.encode("utf-8")) > MAX_MESSAGE_LENGTH:
+        if len(raw_content) > MAX_COLLAPSE_LENGTH:
             # Long message: convert markdown to HTML and wrap in expandable blockquote
             text = markdown.markdown(raw_content)
             text = f"<blockquote expandable>{text}</blockquote>"
