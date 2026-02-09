@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 from urllib import error as urllib_error
 from urllib import parse as urllib_parse
 from urllib.request import Request, urlopen
