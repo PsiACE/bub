@@ -51,7 +51,7 @@ def _build_registry(workspace: Path, settings: Settings) -> ToolRegistry:
 
 
 def test_web_search_default_returns_duckduckgo_url(tmp_path: Path) -> None:
-    settings = Settings(_env_file=None, model="openrouter:test")
+    settings = Settings(_env_file=None, model="openrouter:test", ollama_api_key=None)
     registry = _build_registry(tmp_path, settings)
     result = registry.execute("web.search", kwargs={"query": "psiace bub"})
     assert result == "https://duckduckgo.com/?q=psiace+bub"
@@ -182,3 +182,30 @@ def test_web_fetch_ollama_mode_normalizes_url_and_extracts_text(tmp_path: Path, 
     assert observed_urls == ["https://example.com"]
     assert "Title" in result
     assert "Hello world." in result
+
+
+def test_fs_grep_skips_binary_files_and_still_matches_text(tmp_path: Path) -> None:
+    (tmp_path / "docs").mkdir()
+    text_file = tmp_path / "docs" / "guide.md"
+    text_file.write_text("line1\nBUB_TELEGRAM_ENABLED=true\n", encoding="utf-8")
+
+    binary_file = tmp_path / "docs" / "image.png"
+    binary_file.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR")
+
+    settings = Settings(_env_file=None, model="openrouter:test")
+    registry = _build_registry(tmp_path, settings)
+    result = registry.execute("fs.grep", kwargs={"pattern": "BUB_TELEGRAM", "path": "docs"})
+
+    assert "guide.md:2:BUB_TELEGRAM_ENABLED=true" in result
+    assert "image.png" not in result
+
+
+def test_fs_grep_returns_no_matches_for_binary_only_tree(tmp_path: Path) -> None:
+    (tmp_path / "bin").mkdir()
+    (tmp_path / "bin" / "blob.dat").write_bytes(b"\x00\xf3\x89\x10\xff")
+
+    settings = Settings(_env_file=None, model="openrouter:test")
+    registry = _build_registry(tmp_path, settings)
+    result = registry.execute("fs.grep", kwargs={"pattern": "telegram", "path": "bin"})
+
+    assert result == "(no matches)"

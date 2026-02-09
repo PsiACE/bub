@@ -45,6 +45,7 @@ dev = [
     "pytest>=7.2.0",
     "tox-uv>=1.11.3",
     "types-PyYAML>=6.0.12",
+    "types-Markdown>=3.4.0",
     "mypy>=0.991",
     "ruff>=0.11.5",
     "mkdocs>=1.4.2",

@@ -1,7 +1,7 @@
 import pytest
-from republic import Tool, ToolContext
+from republic import ToolContext
 
-from bub.tools.registry import ToolDescriptor, ToolRegistry
+from bub.tools.registry import ToolRegistry
 
 
 def test_registry_logs_once_for_execute(monkeypatch) -> None:
@@ -15,17 +15,9 @@ def test_registry_logs_once_for_execute(monkeypatch) -> None:
 
     registry = ToolRegistry()
 
+    @registry.register(name="math.add", short_description="add", detail="add")
     def add(*, a: int, b: int) -> int:
         return a + b
-
-    registry.register(
-        ToolDescriptor(
-            name="math.add",
-            short_description="add",
-            detail="add",
-            tool=Tool.from_callable(add, name="math.add"),
-        )
-    )
 
     result = registry.execute("math.add", kwargs={"a": 1, "b": 2})
     assert result == 3
@@ -44,23 +36,9 @@ def test_registry_logs_for_direct_tool_run_with_context(monkeypatch) -> None:
 
     registry = ToolRegistry()
 
+    @registry.register(name="fs.ctx", short_description="ctx", detail="ctx", context=True)
     def handle(*, context: ToolContext, path: str) -> str:
         return f"{context.run_id}:{path}"
-
-    registry.register(
-        ToolDescriptor(
-            name="fs.ctx",
-            short_description="ctx",
-            detail="ctx",
-            tool=Tool(
-                name="fs.ctx",
-                description="ctx",
-                parameters={"type": "object"},
-                handler=handle,
-                context=True,
-            ),
-        )
-    )
 
     descriptor = registry.get("fs.ctx")
     assert descriptor is not None
@@ -74,17 +52,9 @@ def test_registry_logs_for_direct_tool_run_with_context(monkeypatch) -> None:
 def test_registry_model_tools_use_underscore_names_and_keep_handlers() -> None:
     registry = ToolRegistry()
 
+    @registry.register(name="fs.read", short_description="read", detail="read")
     def read(*, path: str) -> str:
         return f"read:{path}"
-
-    registry.register(
-        ToolDescriptor(
-            name="fs.read",
-            short_description="read",
-            detail="read",
-            tool=Tool.from_callable(read, name="fs.read"),
-        )
-    )
 
     rows = registry.compact_rows(for_model=True)
     assert rows == ["fs_read (command: fs.read): read"]
@@ -97,22 +67,8 @@ def test_registry_model_tools_use_underscore_names_and_keep_handlers() -> None:
 def test_registry_model_tool_name_conflict_raises_error() -> None:
     registry = ToolRegistry()
 
-    registry.register(
-        ToolDescriptor(
-            name="fs.read",
-            short_description="dot",
-            detail="dot",
-            tool=Tool.from_callable(lambda: "dot", name="fs.read"),
-        )
-    )
-    registry.register(
-        ToolDescriptor(
-            name="fs_read",
-            short_description="underscore",
-            detail="underscore",
-            tool=Tool.from_callable(lambda: "underscore", name="fs_read"),
-        )
-    )
+    registry.register(name="fs.read", short_description="dot", detail="dot")(lambda: "dot")
+    registry.register(name="fs_read", short_description="underscore", detail="underscore")(lambda: "underscore")
 
     with pytest.raises(ValueError, match="Duplicate model tool name"):
         registry.model_tools()
