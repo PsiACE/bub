@@ -9,6 +9,7 @@ from typing import Any, ClassVar
 from loguru import logger
 from telegram import Message, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegramify_markdown import markdownify as md
 
 from bub.channels.base import BaseChannel
 from bub.channels.bus import MessageBus
@@ -80,7 +81,7 @@ class TelegramChannel(BaseChannel):
     def __init__(self, bus: MessageBus, config: TelegramConfig) -> None:
         super().__init__(bus)
         self._config = config
-        self._app: Application | None = None
+        self._app = None
         self._typing_tasks: dict[str, asyncio.Task[None]] = {}
 
     async def start(self) -> None:
@@ -121,7 +122,9 @@ class TelegramChannel(BaseChannel):
         if self._app is None:
             return
         self._stop_typing(message.chat_id)
-        await self._app.bot.send_message(chat_id=int(message.chat_id), text=message.content)
+        await self._app.bot.send_message(
+            chat_id=int(message.chat_id), text=md(message.content), parse_mode="MarkdownV2"
+        )
 
     async def _on_start(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
         if update.message is None:

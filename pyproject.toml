@@ -27,6 +27,7 @@ dependencies = [
     "python-telegram-bot>=21.0",
     "html2markdown>=0.1.7",
     "loguru>=0.7.2",
+    "telegramify-markdown>=0.5.4",
 ]
 
 [project.urls]
