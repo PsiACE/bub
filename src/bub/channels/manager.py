@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable, Iterable
 
+from loguru import logger
+
 from bub.app.runtime import AppRuntime
 from bub.channels.base import BaseChannel
 from bub.channels.bus import MessageBus
@@ -34,10 +36,12 @@ class ChannelManager:
         self._loop = asyncio.get_running_loop()
         self._unsub_inbound = self.bus.on_inbound(self._handle_inbound)
         self._unsub_outbound = self.bus.on_outbound(self._handle_outbound)
+        logger.info("channel.manager.start channels={}", sorted(self._channels.keys()))
         for channel in self._channels.values():
             self._tasks.append(asyncio.create_task(channel.start()))
 
     async def stop(self) -> None:
+        logger.info("channel.manager.stop")
         for channel in self._channels.values():
             await channel.stop()
         for task in self._tasks:
@@ -83,10 +87,17 @@ class ChannelManager:
         )
 
     async def _process_outbound(self, message: OutboundMessage) -> None:
-        channel = self._channels.get(message.channel)
-        if channel is None:
-            return
-        await channel.send(message)
+        try:
+            channel = self._channels.get(message.channel)
+            if channel is None:
+                return
+            await channel.send(message)
+        except Exception:
+            logger.exception(
+                "channel.outbound.error channel={} chat_id={}",
+                message.channel,
+                message.chat_id,
+            )
 
     def enabled_channels(self) -> Iterable[str]:
         return self._channels.keys()

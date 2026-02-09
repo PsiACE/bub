@@ -9,6 +9,7 @@ import threading
 from dataclasses import dataclass, field
 from typing import Callable
 
+from loguru import logger
 from republic import StructuredOutput
 
 from bub.core.router import AssistantRouteResult, InputRouter
@@ -162,6 +163,7 @@ class ModelRunner:
                 )
                 result_queue.put(_ChatResult.from_structured(output))
             except Exception as exc:
+                logger.exception("model.call.error")
                 result_queue.put(_ChatResult(text="", error=f"model_call_error: {exc!s}"))
 
         thread = threading.Thread(target=_worker, daemon=True, name="bub-model-call")
