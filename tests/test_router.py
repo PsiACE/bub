@@ -2,11 +2,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from pydantic import BaseModel, Field
-from republic import tool_from_model
 
 from bub.core.router import InputRouter
 from bub.tools.progressive import ProgressiveToolView
-from bub.tools.registry import ToolDescriptor, ToolRegistry
+from bub.tools.registry import ToolRegistry
 
 
 class BashInput(BaseModel):
@@ -41,29 +40,23 @@ def _build_router(*, bash_error: bool = False) -> InputRouter:
         return "exit"
 
     registry.register(
-        ToolDescriptor(
-            name="bash",
-            short_description="Run shell command",
-            detail="bash detail",
-            tool=tool_from_model(BashInput, run_bash, name="bash"),
-        )
-    )
+        name="bash",
+        short_description="Run shell command",
+        detail="bash detail",
+        model=BashInput,
+    )(run_bash)
     registry.register(
-        ToolDescriptor(
-            name="help",
-            short_description="help",
-            detail="help detail",
-            tool=tool_from_model(EmptyInput, command_help, name="help"),
-        )
-    )
+        name="help",
+        short_description="help",
+        detail="help detail",
+        model=EmptyInput,
+    )(command_help)
     registry.register(
-        ToolDescriptor(
-            name="quit",
-            short_description="quit",
-            detail="quit detail",
-            tool=tool_from_model(EmptyInput, quit_command, name="quit"),
-        )
-    )
+        name="quit",
+        short_description="quit",
+        detail="quit detail",
+        model=EmptyInput,
+    )(quit_command)
 
     view = ProgressiveToolView(registry)
     return InputRouter(registry, view, FakeTape(), Path.cwd())
