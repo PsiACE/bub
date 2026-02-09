@@ -6,6 +6,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
+import markdown
 from loguru import logger
 from telegram import Message, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
@@ -129,6 +130,8 @@ class TelegramChannel(BaseChannel):
         MAX_MESSAGE_LENGTH = 4000
         if len(text.encode("utf-8")) > MAX_MESSAGE_LENGTH:
             # Wrap long message in expandable blockquote
+            # Convert markdown to HTML for HTML parse mode
+            text = markdown.markdown(message.content)
             text = f"<blockquote expandable>{text}</blockquote>"
             parse_mode = "HTML"
         else:
