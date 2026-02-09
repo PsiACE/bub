@@ -122,9 +122,19 @@ class TelegramChannel(BaseChannel):
         if self._app is None:
             return
         self._stop_typing(message.chat_id)
-        await self._app.bot.send_message(
-            chat_id=int(message.chat_id), text=md(message.content), parse_mode="MarkdownV2"
-        )
+        
+        # In group chats, reply to the original message if reply_to_message_id is provided
+        if message.reply_to_message_id is not None:
+            await self._app.bot.send_message(
+                chat_id=int(message.chat_id),
+                text=md(message.content),
+                parse_mode="MarkdownV2",
+                reply_to_message_id=message.reply_to_message_id,
+            )
+        else:
+            await self._app.bot.send_message(
+                chat_id=int(message.chat_id), text=md(message.content), parse_mode="MarkdownV2"
+            )
 
     async def _on_start(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
         if update.message is None:
@@ -176,6 +186,7 @@ class TelegramChannel(BaseChannel):
                 metadata={
                     "username": user.username or "",
                     "first_name": user.first_name or "",
+                    "message_id": update.message.message_id,
                 },
             )
         )

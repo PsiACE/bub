@@ -31,3 +31,4 @@ class OutboundMessage:
     chat_id: str
     content: str
     metadata: dict[str, Any] = field(default_factory=dict)
+    reply_to_message_id: int | None = None
