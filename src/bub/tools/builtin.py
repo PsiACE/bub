@@ -240,7 +240,7 @@ def register_builtin_tools(
                 continue
             try:
                 content = path.read_text(encoding="utf-8")
-            except OSError:
+            except (OSError, UnicodeDecodeError):
                 continue
             for idx, line in enumerate(content.splitlines(), start=1):
                 if params.pattern in line:
