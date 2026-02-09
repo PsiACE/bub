@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 
 from republic import ToolAutoResult
 
-from bub.core.model_runner import ModelRunner
+from bub.core.model_runner import TOOL_CONTINUE_PROMPT, ModelRunner
 from bub.core.router import AssistantRouteResult
 from bub.skills.loader import SkillMetadata
 
@@ -141,9 +141,7 @@ def test_model_runner_continues_after_tool_execution() -> None:
         FakeTapeImpl(
             outputs=[
                 ToolAutoResult.tools_result(
-                    tool_calls=[
-                        {"function": {"name": "fs.write", "arguments": '{"path":"tmp.txt","content":"hi"}'}}
-                    ],
+                    tool_calls=[{"function": {"name": "fs.write", "arguments": '{"path":"tmp.txt","content":"hi"}'}}],
                     tool_results=["ok"],
                 ),
                 ToolAutoResult.text_result("assistant-after-tool"),
@@ -169,10 +167,10 @@ def test_model_runner_continues_after_tool_execution() -> None:
     assert result.visible_text == "tool done"
     assert result.steps == 2
     assert result.command_followups == 1
-    assert "<tool_execution>" in tape.tape.calls[1][0]
+    assert tape.tape.calls[1][0] == TOOL_CONTINUE_PROMPT
 
 
-def test_model_runner_escapes_tool_followup_payload() -> None:
+def test_model_runner_tool_followup_does_not_inline_tool_payload() -> None:
     tape = FakeTapeService(
         FakeTapeImpl(
             outputs=[
@@ -208,10 +206,7 @@ def test_model_runner_escapes_tool_followup_payload() -> None:
 
     runner.run("create file")
     followup_prompt = tape.tape.calls[1][0]
-    assert 'name="fs.write&quot;unsafe"' in followup_prompt
-    assert "&lt;unsafe&gt;" in followup_prompt
-    assert "x &amp; y" in followup_prompt
-    assert "ok &lt;done&gt; &amp; &quot;quoted&quot;" in followup_prompt
+    assert followup_prompt == TOOL_CONTINUE_PROMPT
 
 
 def test_model_runner_expands_skill_from_hint() -> None:
