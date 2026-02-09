@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import builtins
 import json
-import textwrap
 import time
 from copy import deepcopy
 from dataclasses import dataclass
@@ -12,6 +11,23 @@ from typing import Any
 
 from loguru import logger
 from republic import Tool, ToolContext
+
+
+def _shorten_text(text: str, width: int = 30, placeholder: str = "...") -> str:
+    """Shorten text to width characters, cutting in the middle of words if needed.
+
+    Unlike textwrap.shorten, this function can cut in the middle of a word,
+    ensuring long strings without spaces are still truncated properly.
+    """
+    if len(text) <= width:
+        return text
+
+    # Reserve space for placeholder
+    available = width - len(placeholder)
+    if available <= 0:
+        return placeholder
+
+    return text[:available] + placeholder
 
 
 @dataclass(frozen=True)
@@ -118,7 +134,7 @@ class ToolRegistry:
                 rendered = json.dumps(value, ensure_ascii=False)
             except TypeError:
                 rendered = repr(value)
-            value = textwrap.shorten(rendered, width=30, placeholder="...")
+            value = _shorten_text(rendered, width=30, placeholder="...")
             if value.startswith('"') and not value.endswith('"'):
                 value = value + '"'
             if value.startswith("{") and not value.endswith("}"):
