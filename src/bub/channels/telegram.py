@@ -123,17 +123,30 @@ class TelegramChannel(BaseChannel):
             return
         self._stop_typing(message.chat_id)
 
+        text = md(message.content)
+
+        # Use expandable blockquote for long messages
+        MAX_MESSAGE_LENGTH = 4000
+        if len(text.encode("utf-8")) > MAX_MESSAGE_LENGTH:
+            # Wrap long message in expandable blockquote
+            text = f"<blockquote expandable>{text}</blockquote>"
+            parse_mode = "HTML"
+        else:
+            parse_mode = "MarkdownV2"
+
         # In group chats, reply to the original message if reply_to_message_id is provided
         if message.reply_to_message_id is not None:
             await self._app.bot.send_message(
                 chat_id=int(message.chat_id),
-                text=md(message.content),
-                parse_mode="MarkdownV2",
+                text=text,
+                parse_mode=parse_mode,
                 reply_to_message_id=message.reply_to_message_id,
             )
         else:
             await self._app.bot.send_message(
-                chat_id=int(message.chat_id), text=md(message.content), parse_mode="MarkdownV2"
+                chat_id=int(message.chat_id),
+                text=text,
+                parse_mode=parse_mode,
             )
 
     async def _on_start(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
