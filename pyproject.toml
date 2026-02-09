@@ -141,5 +141,8 @@ ignore = [
 [tool.ruff.format]
 preview = true
 
+[tool.uv.workspace]
+members = ["republic"]
+
 [tool.uv.sources]
-republic = { path = "republic", editable = true }
+republic = { workspace = true }
