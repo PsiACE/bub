@@ -67,6 +67,7 @@ paths = ["src"]
 
 [tool.mypy]
 files = ["src"]
+mypy_path = ["republic/src"]
 exclude = [
     '^src/bub/skills/skill-creator/scripts/.*$',
     '^src/bub/skills/skill-installer/scripts/.*$',
