@@ -9,20 +9,18 @@ def test_default_tape_context_includes_tool_messages() -> None:
 
     entries = [
         TapeEntry.message({"role": "user", "content": "create a file"}),
-        TapeEntry.tool_call(
-            [
-                {
-                    "id": "call-1",
-                    "type": "function",
-                    "function": {"name": "fs.write", "arguments": '{"path":"a.txt","content":"hi"}'},
-                },
-                {
-                    "id": "call-2",
-                    "type": "function",
-                    "function": {"name": "fs.read", "arguments": '{"path":"a.txt"}'},
-                },
-            ]
-        ),
+        TapeEntry.tool_call([
+            {
+                "id": "call-1",
+                "type": "function",
+                "function": {"name": "fs.write", "arguments": '{"path":"a.txt","content":"hi"}'},
+            },
+            {
+                "id": "call-2",
+                "type": "function",
+                "function": {"name": "fs.read", "arguments": '{"path":"a.txt"}'},
+            },
+        ]),
         TapeEntry.tool_result(["ok", {"content": "hi"}]),
         TapeEntry.message({"role": "assistant", "content": "done"}),
     ]

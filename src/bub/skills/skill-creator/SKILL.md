@@ -16,6 +16,15 @@ specialized knowledge, workflows, and tools. Think of them as "onboarding guides
 domains or tasks—they transform Bub from a general-purpose agent into a specialized agent
 equipped with procedural knowledge that no model can fully possess.
 
+### Skill Location Policy
+
+When creating a skill, place it in one of these two roots:
+
+1. Project-local: `$workspace/.agent/skills/<skill-name>`
+2. Global: `~/.agent/skills/<skill-name>` (shared across workspaces)
+
+Prefer project-local by default. Use global only when the user explicitly wants the skill available across multiple workspaces.
+
 ### What Skills Provide
 
 1. Specialized workflows - Multi-step procedures for specific domains
@@ -279,9 +288,10 @@ scripts/init_skill.py <skill-name> --path <output-directory> [--resources script
 Examples:
 
 ```bash
-scripts/init_skill.py my-skill --path skills/public
-scripts/init_skill.py my-skill --path skills/public --resources scripts,references
-scripts/init_skill.py my-skill --path skills/public --resources scripts --examples
+scripts/init_skill.py my-skill --path "$workspace/.agent/skills"
+scripts/init_skill.py my-skill --path "$workspace/.agent/skills" --resources scripts,references
+scripts/init_skill.py my-skill --path "$workspace/.agent/skills" --resources scripts --examples
+scripts/init_skill.py my-skill --path "~/.agent/skills"
 ```
 
 The script:

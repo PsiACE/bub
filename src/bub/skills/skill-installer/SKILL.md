@@ -16,6 +16,15 @@ Use the helper scripts based on the task:
 
 Install skills with the helper scripts.
 
+## Install Location Policy
+
+Use one of these roots for installed skills:
+
+1. Project-local: `$workspace/.agent/skills/<skill-name>`
+2. Global: `~/.agent/skills/<skill-name>` (shared across workspaces)
+
+Prefer project-local for repo-specific workflows. Use global only when the user asks for cross-workspace availability.
+
 ## Communication
 
 When listing skills, output approximately as follows, depending on the context of the user's request. If they ask about experimental skills, list from `.experimental` instead of `.curated` and label the source accordingly:
@@ -39,15 +48,16 @@ All of these scripts use network, so when running in the sandbox, request escala
 - `scripts/install-skill-from-github.py --repo <owner>/<repo> --path <path/to/skill> [<path/to/skill> ...]`
 - `scripts/install-skill-from-github.py --url https://github.com/<owner>/<repo>/tree/<ref>/<path>`
 - Example (experimental skill): `scripts/install-skill-from-github.py --repo openai/skills --path skills/.experimental/<skill-name>`
+- Project-local install example: `BUB_SKILLS_HOME="$workspace/.agent/skills" scripts/install-skill-from-github.py --repo openai/skills --path skills/.curated/<skill-name>`
+- Global install example: `scripts/install-skill-from-github.py --repo openai/skills --path skills/.curated/<skill-name>`
 
 ## Behavior and Options
 
 - Defaults to direct download for public GitHub repos.
 - If download fails with auth/permission errors, falls back to git sparse checkout.
 - Aborts if the destination skill directory already exists.
-- Installs into `BUB_SKILLS_HOME/<skill-name>` when set.
-- If `BUB_SKILLS_HOME` is not set, installs into `$BUB_HOME/skills/<skill-name>` when `BUB_HOME` is set.
-- Otherwise installs into `~/.agent/skills/<skill-name>`.
+- Installs into `$workspace/.agent/skills/<skill-name>` when `BUB_SKILLS_HOME="$workspace/.agent/skills"` is set.
+- Otherwise installs into `~/.agent/skills/<skill-name>` (global).
 - Multiple `--path` values install multiple skills in one run, each named from the path basename unless `--name` is supplied.
 - Options: `--ref <ref>` (default `main`), `--dest <path>`, `--method auto|download|git`.
 
@@ -57,4 +67,4 @@ All of these scripts use network, so when running in the sandbox, request escala
 - Private GitHub repos can be accessed via existing git credentials or optional `GITHUB_TOKEN`/`GH_TOKEN` for download.
 - Git fallback tries HTTPS first, then SSH.
 - The skills at https://github.com/openai/skills/tree/main/skills/.system are preinstalled, so no need to help users install those. If they ask, just explain this. If they insist, you can download and overwrite.
-- Installed annotations come from the active skills directory (`BUB_SKILLS_HOME`, `$BUB_HOME/skills`, or `~/.agent/skills`).
+- Installed annotations come from the active skills directory (`$workspace/.agent/skills` when `BUB_SKILLS_HOME` is set, otherwise `~/.agent/skills`).

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import builtins
+import json
 import textwrap
 import time
 from dataclasses import dataclass
@@ -64,7 +65,13 @@ class ToolRegistry:
     def _log_tool_call(self, name: str, kwargs: dict[str, Any], context: ToolContext | None) -> None:
         params: list[str] = []
         for key, value in kwargs.items():
-            value = textwrap.shorten(str(value), width=30, placeholder="...")
+            value = textwrap.shorten(json.dumps(value), width=30, placeholder="...")
+            if value.startswith('"') and not value.endswith('"'):
+                value = value + '"'
+            if value.startswith("{") and not value.endswith("}"):
+                value = value + "}"
+            if value.startswith("[") and not value.endswith("]"):
+                value = value + "]"
             params.append(f"{key}={value}")
         params_str = ", ".join(params)
         logger.info("tool.call.start name={} {{ {} }}", name, params_str)
