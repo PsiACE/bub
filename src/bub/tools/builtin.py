@@ -13,12 +13,12 @@ from urllib.request import Request, urlopen
 
 import html2markdown
 from pydantic import BaseModel, Field
-from republic import Tool, tool_from_model
 
 from bub.config.settings import Settings
 from bub.skills.loader import SkillMetadata
 from bub.tape.service import TapeService
 from bub.tools.registry import ToolDescriptor, ToolRegistry
+from republic import Tool, tool_from_model
 
 DEFAULT_OLLAMA_WEB_API_BASE = "https://ollama.com/api"
 WEB_REQUEST_TIMEOUT_SECONDS = 20

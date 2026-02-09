@@ -1,8 +1,7 @@
 from pathlib import Path
 
-from republic import TapeEntry
-
 from bub.tape.store import FileTapeStore
+from republic import TapeEntry
 
 
 def test_store_isolated_by_tape_name(tmp_path: Path) -> None:

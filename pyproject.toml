@@ -21,7 +21,7 @@ dependencies = [
     "pydantic-settings>=2.0.0",
     "pyyaml>=6.0.0",
     "typer>=0.9.0",
-    "republic>=0.3.0",
+    "republic",
     "rich>=13.0.0",
     "prompt-toolkit>=3.0.0",
     "blinker>=1.8.2",
@@ -67,6 +67,7 @@ paths = ["src"]
 
 [tool.mypy]
 files = ["src"]
+mypy_path = ["republic/src"]
 exclude = [
     '^src/bub/skills/skill-creator/scripts/.*$',
     '^src/bub/skills/skill-installer/scripts/.*$',
@@ -141,3 +142,9 @@ ignore = [
 
 [tool.ruff.format]
 preview = true
+
+[tool.uv.workspace]
+members = ["republic"]
+
+[tool.uv.sources]
+republic = { workspace = true }
