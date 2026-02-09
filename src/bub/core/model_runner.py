@@ -83,6 +83,7 @@ class ModelRunner:
 
         while state.step < self._max_steps and not state.exit_requested:
             state.step += 1
+            logger.info("model.runner.step step={} model={}", state.step, self._model)
             self._tape.append_event(
                 "loop.step.start",
                 {
