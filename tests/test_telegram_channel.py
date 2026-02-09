@@ -25,7 +25,9 @@ def test_compose_inbound_text_appends_reply_context_for_plain_text() -> None:
     assert "from: @alice" in composed
     assert "quote: hello from above" in composed
     assert "partial: false" in composed
-    assert "rule: if partial=true, recover from ctx by head/tail first; if uncertain ask full quote; no guess" in composed
+    assert (
+        "rule: if partial=true, recover from ctx by head/tail first; if uncertain ask full quote; no guess" in composed
+    )
     assert "if_miss: ask user to paste full quote" in composed
 
 

@@ -231,13 +231,11 @@ class TelegramChannel(BaseChannel):
         else:
             lines.append(f"quote: {reply_text}")
 
-        lines.extend(
-            [
-                "rule: if partial=true, recover from ctx by head/tail first; if uncertain ask full quote; no guess",
-                "if_miss: ask user to paste full quote",
-                "</reply_context>",
-            ]
-        )
+        lines.extend([
+            "rule: if partial=true, recover from ctx by head/tail first; if uncertain ask full quote; no guess",
+            "if_miss: ask user to paste full quote",
+            "</reply_context>",
+        ])
 
         return "\n".join(lines)
 
