@@ -5,12 +5,19 @@ from __future__ import annotations
 import builtins
 import json
 import time
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any
+from functools import wraps
+from typing import Any, ParamSpec, TypeVar
 
 from loguru import logger
-from republic import Tool, ToolContext
+from pydantic import BaseModel
+from republic import Tool, ToolContext, tool_from_model
+
+HandlerT = TypeVar("HandlerT", bound=Callable)
+P = ParamSpec("P")
+T = TypeVar("T")
 
 
 def _shorten_text(text: str, width: int = 30, placeholder: str = "...") -> str:
@@ -47,15 +54,46 @@ class ToolRegistry:
     def __init__(self) -> None:
         self._tools: dict[str, ToolDescriptor] = {}
 
-    def register(self, descriptor: ToolDescriptor) -> None:
-        wrapped_tool = self._wrap_tool(descriptor.tool)
-        self._tools[descriptor.name] = ToolDescriptor(
-            name=descriptor.name,
-            short_description=descriptor.short_description,
-            detail=descriptor.detail,
-            tool=wrapped_tool,
-            source=descriptor.source,
-        )
+    def register(
+        self,
+        *,
+        name: str,
+        short_description: str,
+        detail: str | None = None,
+        model: type[BaseModel] | None = None,
+        context: bool = False,
+        source: str = "builtin",
+    ) -> Callable[[Callable], ToolDescriptor]:
+        def decorator(func: Callable[P, T]) -> ToolDescriptor:
+            tool_detail = detail or func.__doc__ or ""
+
+            @wraps(func)
+            def handler(*args: Any, **kwargs: Any) -> T:
+                context_arg = kwargs.get("context") if context else None
+                call_kwargs = {key: value for key, value in kwargs.items() if key != "context"}
+                self._log_tool_call(name, call_kwargs, context_arg)
+
+                start = time.monotonic()
+                try:
+                    return func(*args, **kwargs)
+                except Exception:
+                    logger.exception("tool.call.error name={}", name)
+                    raise
+                finally:
+                    duration = time.monotonic() - start
+                    logger.info("tool.call.end name={} duration={:.3f}ms", name, duration * 1000)
+
+            if model is not None:
+                tool = tool_from_model(model, handler, name=name, description=short_description, context=context)
+            else:
+                tool = Tool.from_callable(handler, name=name, description=short_description, context=context)
+            tool_desc = ToolDescriptor(
+                name=name, short_description=short_description, detail=tool_detail, tool=tool, source=source
+            )
+            self._tools[name] = tool_desc
+            return tool_desc
+
+        return decorator
 
     def has(self, name: str) -> bool:
         return name in self._tools
@@ -151,36 +189,6 @@ class ToolRegistry:
             run_id,
             tape,
             params_str,
-        )
-
-    def _wrap_tool(self, tool: Tool) -> Tool:
-        if tool.handler is None:
-            return tool
-
-        original_tool = tool
-
-        def _handler(*args: Any, **kwargs: Any) -> Any:
-            context = kwargs.get("context") if original_tool.context else None
-            call_kwargs = {f"arg{idx}": value for idx, value in enumerate(args)}
-            call_kwargs.update({key: value for key, value in kwargs.items() if key != "context"})
-            self._log_tool_call(original_tool.name, call_kwargs, context)
-
-            start = time.monotonic()
-            try:
-                return original_tool.run(*args, **kwargs)
-            except Exception:
-                logger.exception("tool.call.error name={}", original_tool.name)
-                raise
-            finally:
-                duration = time.monotonic() - start
-                logger.info("tool.call.end name={} duration={:.3f}ms", original_tool.name, duration * 1000)
-
-        return Tool(
-            name=original_tool.name,
-            description=original_tool.description,
-            parameters=original_tool.parameters,
-            handler=_handler,
-            context=original_tool.context,
         )
 
     def execute(
