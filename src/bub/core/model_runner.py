@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import queue
 import re
 import threading
 from dataclasses import dataclass, field
-from html import escape
 from typing import Callable
 
 from loguru import logger
@@ -21,6 +19,7 @@ from bub.tools.progressive import ProgressiveToolView
 from bub.tools.view import render_tool_prompt_block
 
 HINT_RE = re.compile(r"\$([A-Za-z0-9_.-]+)")
+TOOL_CONTINUE_PROMPT = "Continue the task."
 
 
 @dataclass(frozen=True)
@@ -245,55 +244,14 @@ class _ChatResult:
         if output.kind == "text":
             return cls(text=output.text or "")
         if output.kind == "tools":
-            return cls(text="", followup_prompt=_render_tool_followup_prompt(output))
+            return cls(text="", followup_prompt=TOOL_CONTINUE_PROMPT)
 
         if output.tool_calls or output.tool_results:
-            return cls(text="", followup_prompt=_render_tool_followup_prompt(output))
+            return cls(text="", followup_prompt=TOOL_CONTINUE_PROMPT)
 
         if output.error is None:
             return cls(text="", error="tool_auto_error: unknown")
         return cls(text="", error=f"{output.error.kind.value}: {output.error.message}")
-
-
-def _render_tool_followup_prompt(output: ToolAutoResult) -> str:
-    lines = ["<tool_execution>"]
-
-    for call in output.tool_calls:
-        function = call.get("function") if isinstance(call, dict) else None
-        name = function.get("name") if isinstance(function, dict) else "unknown"
-        arguments = function.get("arguments") if isinstance(function, dict) else None
-        lines.append(f'  <tool_call name="{_xml_text(name)}">')
-        if isinstance(arguments, str) and arguments.strip():
-            lines.append(f"    {_xml_text(arguments)}")
-        else:
-            lines.append("    {}")
-        lines.append("  </tool_call>")
-
-    for result in output.tool_results:
-        if isinstance(result, str):
-            rendered = result
-        else:
-            try:
-                rendered = json.dumps(result, ensure_ascii=False)
-            except TypeError:
-                rendered = str(result)
-        lines.append("  <tool_result>")
-        for line in rendered.splitlines() or [""]:
-            lines.append(f"    {_xml_text(line)}")
-        lines.append("  </tool_result>")
-
-    if output.error is not None:
-        lines.append(
-            f'  <tool_error kind="{_xml_text(output.error.kind.value)}">{_xml_text(output.error.message)}</tool_error>'
-        )
-
-    lines.append("</tool_execution>")
-    lines.append("Continue the task with the tool execution result above.")
-    return "\n".join(lines)
-
-
-def _xml_text(value: object) -> str:
-    return escape(str(value), quote=True)
 
 
 def _runtime_contract() -> str:
