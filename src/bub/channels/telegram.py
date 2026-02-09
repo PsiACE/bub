@@ -92,7 +92,7 @@ class TelegramChannel(BaseChannel):
         self._app = Application.builder().token(self._config.token).build()
         self._app.add_handler(CommandHandler("start", self._on_start))
         self._app.add_handler(CommandHandler("help", self._on_help))
-        self._app.add_handler(MessageHandler(BubMessageFilter(), self._on_text))
+        self._app.add_handler(MessageHandler(BubMessageFilter(), self._on_text, block=False))
         await self._app.initialize()
         await self._app.start()
         updater = self._app.updater
