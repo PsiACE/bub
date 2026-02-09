@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 
+from loguru import logger
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
@@ -35,6 +36,7 @@ class TelegramChannel(BaseChannel):
     async def start(self) -> None:
         if not self._config.token:
             raise RuntimeError("telegram token is empty")
+        logger.info("telegram.channel.start allow_from_count={}", len(self._config.allow_from))
         self._running = True
         self._app = Application.builder().token(self._config.token).build()
         self._app.add_handler(CommandHandler("start", self._on_start))
@@ -46,6 +48,7 @@ class TelegramChannel(BaseChannel):
         if updater is None:
             return
         await updater.start_polling(drop_pending_updates=True, allowed_updates=["message"])
+        logger.info("telegram.channel.polling")
         while self._running:
             await asyncio.sleep(0.5)
 
@@ -62,6 +65,7 @@ class TelegramChannel(BaseChannel):
         await self._app.stop()
         await self._app.shutdown()
         self._app = None
+        logger.info("telegram.channel.stopped")
 
     async def send(self, message: OutboundMessage) -> None:
         if self._app is None:
@@ -127,4 +131,5 @@ class TelegramChannel(BaseChannel):
         except asyncio.CancelledError:
             return
         except Exception:
+            logger.exception("telegram.channel.typing_loop.error chat_id={}", chat_id)
             return

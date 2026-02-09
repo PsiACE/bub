@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -544,9 +543,3 @@ def register_builtin_tools(
                 source="skill",
             )
         )
-
-
-def shell_cmd_from_tokens(tokens: list[str]) -> str:
-    """Return shell command string preserving token quoting."""
-
-    return " ".join(shlex.quote(token) for token in tokens)

@@ -12,7 +12,7 @@ from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.patch_stdout import patch_stdout
-from rich.console import Console
+from rich import get_console
 
 from bub.app.runtime import AppRuntime
 from bub.cli.render import CliRenderer
@@ -25,7 +25,7 @@ class InteractiveCli:
         self._runtime = runtime
         self._session_id = session_id
         self._session = runtime.get_session(session_id)
-        self._renderer = CliRenderer(Console())
+        self._renderer = CliRenderer(get_console())
         self._mode = "agent"
         self._prompt = self._build_prompt()
 

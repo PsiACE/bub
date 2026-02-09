@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import builtins
+import textwrap
+import time
 from dataclasses import dataclass
 from typing import Any
 
+from loguru import logger
 from republic import Tool, ToolContext
 
 
@@ -58,6 +61,14 @@ class ToolRegistry:
             f"schema: {schema}"
         )
 
+    def _log_tool_call(self, name: str, kwargs: dict[str, Any], context: ToolContext | None) -> None:
+        params: list[str] = []
+        for key, value in kwargs.items():
+            value = textwrap.shorten(str(value), width=30, placeholder="...")
+            params.append(f"{key}={value}")
+        params_str = ", ".join(params)
+        logger.info("tool.call.start name={} {{ {} }}", name, params_str)
+
     def execute(
         self,
         name: str,
@@ -69,6 +80,15 @@ class ToolRegistry:
         if descriptor is None:
             raise KeyError(name)
 
-        if descriptor.tool.context:
-            return descriptor.tool.run(context=context, **kwargs)
-        return descriptor.tool.run(**kwargs)
+        self._log_tool_call(name, kwargs, context)
+        start = time.monotonic()
+        try:
+            if descriptor.tool.context:
+                return descriptor.tool.run(context=context, **kwargs)
+            return descriptor.tool.run(**kwargs)
+        except Exception:
+            logger.exception("tool.call.error name={}", name)
+            raise
+        finally:
+            duration = time.monotonic() - start
+            logger.info("tool.call.end name={} duration={:.3f}ms", name, duration * 1000)
