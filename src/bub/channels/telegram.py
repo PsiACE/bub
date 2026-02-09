@@ -153,13 +153,26 @@ class TelegramChannel(BaseChannel):
             return
 
         chat_id = str(update.message.chat_id)
+        text = update.message.text or ""
+        # Strip /bot prefix if present
+        if text.startswith("/bot "):
+            text = text[5:]
+
+        logger.info(
+            "telegram.channel.inbound chat_id={} sender_id={} username={} content={}",
+            chat_id,
+            user.id,
+            user.username or "",
+            text[:100],  # Log first 100 chars to avoid verbose logs
+        )
+
         self._start_typing(chat_id)
         self.publish_inbound(
             InboundMessage(
                 channel=self.name,
                 sender_id=str(user.id),
                 chat_id=chat_id,
-                content=update.message.text or "",
+                content=text,
                 metadata={
                     "username": user.username or "",
                     "first_name": user.first_name or "",
