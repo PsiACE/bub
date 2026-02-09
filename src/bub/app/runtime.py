@@ -73,6 +73,7 @@ class AppRuntime:
             tape=tape,
             router=router,
             tool_view=tool_view,
+            tools=[descriptor.tool for descriptor in registry.descriptors()],
             skills=self._skills,
             load_skill_body=self._load_skill_body,
             model=self.settings.model,

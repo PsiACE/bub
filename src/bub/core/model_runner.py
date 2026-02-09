@@ -7,10 +7,11 @@ import queue
 import re
 import threading
 from dataclasses import dataclass, field
+from html import escape
 from typing import Callable
 
 from loguru import logger
-from republic import StructuredOutput
+from republic import Tool, ToolAutoResult
 
 from bub.core.router import AssistantRouteResult, InputRouter
 from bub.skills.loader import SkillMetadata
@@ -52,6 +53,7 @@ class ModelRunner:
         tape: TapeService,
         router: InputRouter,
         tool_view: ProgressiveToolView,
+        tools: list[Tool],
         skills: list[SkillMetadata],
         load_skill_body: Callable[[str], str | None],
         model: str,
@@ -64,6 +66,7 @@ class ModelRunner:
         self._tape = tape
         self._router = router
         self._tool_view = tool_view
+        self._tools = tools
         self._skills = skills
         self._load_skill_body = load_skill_body
         self._model = model
@@ -99,6 +102,20 @@ class ModelRunner:
                     },
                 )
                 break
+
+            if response.followup_prompt:
+                self._tape.append_event(
+                    "loop.step.finish",
+                    {
+                        "step": state.step,
+                        "visible_text": False,
+                        "followup": True,
+                        "exit_requested": False,
+                    },
+                )
+                state.prompt = response.followup_prompt
+                state.followups += 1
+                continue
 
             assistant_text = response.text
             if not assistant_text.strip():
@@ -143,12 +160,13 @@ class ModelRunner:
     def _chat(self, prompt: str) -> _ChatResult:
         system_prompt = self._render_system_prompt()
         if self._model_timeout_seconds <= 0:
-            output = self._tape.tape.chat(
+            output = self._tape.tape.run_tools(
                 prompt=prompt,
                 system_prompt=system_prompt,
                 max_tokens=self._max_tokens,
+                tools=self._tools,
             )
-            return _ChatResult.from_structured(output)
+            return _ChatResult.from_tool_auto(output)
         return self._chat_with_timeout(prompt=prompt, system_prompt=system_prompt)
 
     def _chat_with_timeout(self, *, prompt: str, system_prompt: str) -> _ChatResult:
@@ -156,12 +174,13 @@ class ModelRunner:
 
         def _worker() -> None:
             try:
-                output = self._tape.tape.chat(
+                output = self._tape.tape.run_tools(
                     prompt=prompt,
                     system_prompt=system_prompt,
                     max_tokens=self._max_tokens,
+                    tools=self._tools,
                 )
-                result_queue.put(_ChatResult.from_structured(output))
+                result_queue.put(_ChatResult.from_tool_auto(output))
             except Exception as exc:
                 logger.exception("model.call.error")
                 result_queue.put(_ChatResult(text="", error=f"model_call_error: {exc!s}"))
@@ -219,29 +238,72 @@ class ModelRunner:
 class _ChatResult:
     text: str
     error: str | None = None
+    followup_prompt: str | None = None
 
     @classmethod
-    def from_structured(cls, output: StructuredOutput) -> _ChatResult:
-        if output.error is not None:
-            return cls(text="", error=f"{output.error.kind.value}: {output.error.message}")
-        value = output.value
-        if value is None:
-            return cls(text="")
-        if isinstance(value, str):
-            return cls(text=value)
-        return cls(text=json.dumps(value, ensure_ascii=False))
+    def from_tool_auto(cls, output: ToolAutoResult) -> _ChatResult:
+        if output.kind == "text":
+            return cls(text=output.text or "")
+        if output.kind == "tools":
+            return cls(text="", followup_prompt=_render_tool_followup_prompt(output))
+
+        if output.tool_calls or output.tool_results:
+            return cls(text="", followup_prompt=_render_tool_followup_prompt(output))
+
+        if output.error is None:
+            return cls(text="", error="tool_auto_error: unknown")
+        return cls(text="", error=f"{output.error.kind.value}: {output.error.message}")
+
+
+def _render_tool_followup_prompt(output: ToolAutoResult) -> str:
+    lines = ["<tool_execution>"]
+
+    for call in output.tool_calls:
+        function = call.get("function") if isinstance(call, dict) else None
+        name = function.get("name") if isinstance(function, dict) else "unknown"
+        arguments = function.get("arguments") if isinstance(function, dict) else None
+        lines.append(f'  <tool_call name="{_xml_text(name)}">')
+        if isinstance(arguments, str) and arguments.strip():
+            lines.append(f"    {_xml_text(arguments)}")
+        else:
+            lines.append("    {}")
+        lines.append("  </tool_call>")
+
+    for result in output.tool_results:
+        if isinstance(result, str):
+            rendered = result
+        else:
+            try:
+                rendered = json.dumps(result, ensure_ascii=False)
+            except TypeError:
+                rendered = str(result)
+        lines.append("  <tool_result>")
+        for line in rendered.splitlines() or [""]:
+            lines.append(f"    {_xml_text(line)}")
+        lines.append("  </tool_result>")
+
+    if output.error is not None:
+        lines.append(
+            f'  <tool_error kind="{_xml_text(output.error.kind.value)}">{_xml_text(output.error.message)}</tool_error>'
+        )
+
+    lines.append("</tool_execution>")
+    lines.append("Continue the task with the tool execution result above.")
+    return "\n".join(lines)
+
+
+def _xml_text(value: object) -> str:
+    return escape(str(value), quote=True)
 
 
 def _runtime_contract() -> str:
     return (
         "<runtime_contract>\n"
-        "1) All commands must start with ',' at line start.\n"
-        "2) Known command names are internal tools (for example ',help' or ',fs.read path=README.md').\n"
-        "3) Other comma-prefixed lines are shell commands (for example ',git status' or ', ls -la').\n"
-        "4) When executing commands, output raw command lines only: no markdown fences, no bullets, no XML tags.\n"
-        "5) If command output is needed before final answer, emit command lines first, then continue.\n"
-        "6) Never emit '<command ...>' blocks yourself; those are runtime-generated.\n"
-        "7) When enough evidence is collected, return plain natural language answer without command lines.\n"
-        "8) Use '$name' hints to request detail expansion for tools/skills when needed.\n"
+        "1) Use function calling tools for all actions (file ops, shell, web, tape, skills).\n"
+        "2) Do not emit comma-prefixed commands in normal flow; use tool calls instead.\n"
+        "3) If a compatibility fallback is required, runtime can still parse comma commands.\n"
+        "4) Never emit '<command ...>' blocks yourself; those are runtime-generated.\n"
+        "5) When enough evidence is collected, return plain natural language answer.\n"
+        "6) Use '$name' hints to request detail expansion for tools/skills when needed.\n"
         "</runtime_contract>"
     )
