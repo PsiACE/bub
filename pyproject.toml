@@ -27,7 +27,6 @@ dependencies = [
     "blinker>=1.8.2",
     "python-telegram-bot>=21.0",
     "html2markdown>=0.1.7",
-    "markdown>=3.4.0",
     "loguru>=0.7.2",
     "telegramify-markdown>=0.5.4",
 ]
@@ -45,7 +44,6 @@ dev = [
     "pytest>=7.2.0",
     "tox-uv>=1.11.3",
     "types-PyYAML>=6.0.12",
-    "types-Markdown>=3.4.0",
     "mypy>=0.991",
     "ruff>=0.11.5",
     "mkdocs>=1.4.2",

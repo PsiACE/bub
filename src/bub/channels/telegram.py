@@ -6,7 +6,6 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
-import markdown
 from loguru import logger
 from telegram import Message, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
@@ -124,32 +123,17 @@ class TelegramChannel(BaseChannel):
             return
         self._stop_typing(message.chat_id)
 
-        # Use expandable blockquote for long messages (over 140 chars)
-        MAX_COLLAPSE_LENGTH = 140
-        raw_content = message.content
-        if len(raw_content) > MAX_COLLAPSE_LENGTH:
-            # Long message: convert markdown to HTML and wrap in expandable blockquote
-            text = markdown.markdown(raw_content)
-            text = f"<blockquote expandable>{text}</blockquote>"
-            parse_mode = "HTML"
-        else:
-            # Short message: use MarkdownV2 format
-            text = md(raw_content)
-            parse_mode = "MarkdownV2"
-
         # In group chats, reply to the original message if reply_to_message_id is provided
         if message.reply_to_message_id is not None:
             await self._app.bot.send_message(
                 chat_id=int(message.chat_id),
-                text=text,
-                parse_mode=parse_mode,
+                text=md(message.content),
+                parse_mode="MarkdownV2",
                 reply_to_message_id=message.reply_to_message_id,
             )
         else:
             await self._app.bot.send_message(
-                chat_id=int(message.chat_id),
-                text=text,
-                parse_mode=parse_mode,
+                chat_id=int(message.chat_id), text=md(message.content), parse_mode="MarkdownV2"
             )
 
     async def _on_start(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:

@@ -51,7 +51,7 @@ def _build_registry(workspace: Path, settings: Settings) -> ToolRegistry:
 
 
 def test_web_search_default_returns_duckduckgo_url(tmp_path: Path) -> None:
-    settings = Settings(_env_file=None, model="openrouter:test", ollama_api_key=None)
+    settings = Settings(_env_file=None, model="openrouter:test")
     registry = _build_registry(tmp_path, settings)
     result = registry.execute("web.search", kwargs={"query": "psiace bub"})
     assert result == "https://duckduckgo.com/?q=psiace+bub"
