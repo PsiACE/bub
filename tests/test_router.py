@@ -2,11 +2,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from pydantic import BaseModel, Field
-from republic import tool_from_model
 
 from bub.core.router import InputRouter
 from bub.tools.progressive import ProgressiveToolView
 from bub.tools.registry import ToolDescriptor, ToolRegistry
+from republic import tool_from_model
 
 
 class BashInput(BaseModel):

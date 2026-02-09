@@ -6,11 +6,10 @@ import json
 from dataclasses import dataclass
 from typing import Any, cast
 
-from republic import LLM, TapeEntry
-from republic.tape import Tape
-
 from bub.tape.anchors import AnchorSummary
 from bub.tape.store import FileTapeStore
+from republic import LLM, TapeEntry
+from republic.tape import Tape
 
 
 @dataclass(frozen=True)

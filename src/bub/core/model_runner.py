@@ -9,7 +9,6 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from loguru import logger
-from republic import Tool, ToolAutoResult
 
 from bub.core.router import AssistantRouteResult, InputRouter
 from bub.skills.loader import SkillMetadata
@@ -17,6 +16,7 @@ from bub.skills.view import render_compact_skills
 from bub.tape.service import TapeService
 from bub.tools.progressive import ProgressiveToolView
 from bub.tools.view import render_tool_prompt_block
+from republic import Tool, ToolAutoResult
 
 HINT_RE = re.compile(r"\$([A-Za-z0-9_.-]+)")
 TOOL_CONTINUE_PROMPT = "Continue the task."
