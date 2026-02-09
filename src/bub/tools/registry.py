@@ -15,18 +15,18 @@ from republic import Tool, ToolContext
 
 def _shorten_text(text: str, width: int = 30, placeholder: str = "...") -> str:
     """Shorten text to width characters, cutting in the middle of words if needed.
-    
+
     Unlike textwrap.shorten, this function can cut in the middle of a word,
     ensuring long strings without spaces are still truncated properly.
     """
     if len(text) <= width:
         return text
-    
+
     # Reserve space for placeholder
     available = width - len(placeholder)
     if available <= 0:
         return placeholder
-    
+
     return text[:available] + placeholder
 
 
