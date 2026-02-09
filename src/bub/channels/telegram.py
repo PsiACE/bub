@@ -124,17 +124,17 @@ class TelegramChannel(BaseChannel):
             return
         self._stop_typing(message.chat_id)
 
-        text = md(message.content)
-
         # Use expandable blockquote for long messages
         MAX_MESSAGE_LENGTH = 4000
-        if len(text.encode("utf-8")) > MAX_MESSAGE_LENGTH:
-            # Wrap long message in expandable blockquote
-            # Convert markdown to HTML for HTML parse mode
-            text = markdown.markdown(message.content)
+        raw_content = message.content
+        if len(raw_content.encode("utf-8")) > MAX_MESSAGE_LENGTH:
+            # Long message: convert markdown to HTML and wrap in expandable blockquote
+            text = markdown.markdown(raw_content)
             text = f"<blockquote expandable>{text}</blockquote>"
             parse_mode = "HTML"
         else:
+            # Short message: use MarkdownV2 format
+            text = md(raw_content)
             parse_mode = "MarkdownV2"
 
         # In group chats, reply to the original message if reply_to_message_id is provided
