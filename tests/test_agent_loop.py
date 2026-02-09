@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+import pytest
+
 from bub.core.agent_loop import AgentLoop
 from bub.core.model_runner import ModelTurnResult
 from bub.core.router import UserRouteResult
@@ -17,7 +19,7 @@ class FakeRouter:
 class FakeRunner:
     result: ModelTurnResult
 
-    def run(self, _prompt: str) -> ModelTurnResult:
+    async def run(self, _prompt: str) -> ModelTurnResult:
         return self.result
 
 
@@ -29,7 +31,8 @@ class FakeTape:
         self.events.append((name, data))
 
 
-def test_loop_short_circuit_without_model() -> None:
+@pytest.mark.asyncio
+async def test_loop_short_circuit_without_model() -> None:
     loop = AgentLoop(
         router=FakeRouter(
             UserRouteResult(
@@ -42,12 +45,13 @@ def test_loop_short_circuit_without_model() -> None:
         model_runner=FakeRunner(ModelTurnResult("", False, 0)),  # type: ignore[arg-type]
         tape=FakeTape(),  # type: ignore[arg-type]
     )
-    result = loop.handle_input(",help")
+    result = await loop.handle_input(",help")
     assert result.immediate_output == "ok"
     assert result.assistant_output == ""
 
 
-def test_loop_runs_model_when_router_requests() -> None:
+@pytest.mark.asyncio
+async def test_loop_runs_model_when_router_requests() -> None:
     loop = AgentLoop(
         router=FakeRouter(
             UserRouteResult(
@@ -60,7 +64,7 @@ def test_loop_runs_model_when_router_requests() -> None:
         model_runner=FakeRunner(ModelTurnResult("answer", False, 2)),  # type: ignore[arg-type]
         tape=FakeTape(),  # type: ignore[arg-type]
     )
-    result = loop.handle_input("bad cmd")
+    result = await loop.handle_input("bad cmd")
     assert result.immediate_output == "cmd error"
     assert result.assistant_output == "answer"
     assert result.steps == 2

@@ -49,7 +49,7 @@ def test_chat_command_invokes_interactive_runner(monkeypatch, tmp_path: Path) ->
         def __init__(self, _runtime):
             pass
 
-        def run(self) -> None:
+        async def run(self) -> None:
             called["run"] = True
 
     monkeypatch.setattr(cli_app_module, "build_runtime", _fake_build_runtime)

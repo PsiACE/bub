@@ -42,7 +42,8 @@ def chat(
         max_tokens if max_tokens is not None else "<default>",
     )
     runtime = build_runtime(resolved_workspace, model=model, max_tokens=max_tokens)
-    InteractiveCli(runtime).run()
+    cli = InteractiveCli(runtime)
+    asyncio.run(cli.run())
 
 
 @app.command()
