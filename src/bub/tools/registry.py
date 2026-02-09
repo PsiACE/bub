@@ -6,6 +6,7 @@ import builtins
 import json
 import textwrap
 import time
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
@@ -49,25 +50,66 @@ class ToolRegistry:
     def descriptors(self) -> builtins.list[ToolDescriptor]:
         return sorted(self._tools.values(), key=lambda item: item.name)
 
-    def compact_rows(self) -> builtins.list[str]:
+    @staticmethod
+    def to_model_name(name: str) -> str:
+        return name.replace(".", "_")
+
+    def compact_rows(self, *, for_model: bool = False) -> builtins.list[str]:
         rows: builtins.list[str] = []
         for descriptor in self.descriptors():
-            rows.append(f"{descriptor.name}: {descriptor.short_description}")
+            display_name = self.to_model_name(descriptor.name) if for_model else descriptor.name
+            if for_model and display_name != descriptor.name:
+                rows.append(f"{display_name} (command: {descriptor.name}): {descriptor.short_description}")
+            else:
+                rows.append(f"{display_name}: {descriptor.short_description}")
         return rows
 
-    def detail(self, name: str) -> str:
+    def detail(self, name: str, *, for_model: bool = False) -> str:
         descriptor = self.get(name)
         if descriptor is None:
             raise KeyError(name)
 
         schema = descriptor.tool.schema()
+        display_name = descriptor.name
+        command_name_line = ""
+        if for_model:
+            schema = deepcopy(schema)
+            display_name = self.to_model_name(descriptor.name)
+            function = schema.get("function")
+            if isinstance(function, dict):
+                function["name"] = display_name
+            if display_name != descriptor.name:
+                command_name_line = f"command_name: {descriptor.name}\n"
+
         return (
-            f"name: {descriptor.name}\n"
+            f"name: {display_name}\n"
+            f"{command_name_line}"
             f"source: {descriptor.source}\n"
             f"description: {descriptor.short_description}\n"
             f"detail: {descriptor.detail}\n"
             f"schema: {schema}"
         )
+
+    def model_tools(self) -> builtins.list[Tool]:
+        tools: builtins.list[Tool] = []
+        seen_names: set[str] = set()
+        for descriptor in self.descriptors():
+            model_name = self.to_model_name(descriptor.name)
+            if model_name in seen_names:
+                raise ValueError(f"Duplicate model tool name after conversion: {model_name}")
+            seen_names.add(model_name)
+
+            base = descriptor.tool
+            tools.append(
+                Tool(
+                    name=model_name,
+                    description=base.description,
+                    parameters=base.parameters,
+                    handler=base.handler,
+                    context=base.context,
+                )
+            )
+        return tools
 
     def _log_tool_call(self, name: str, kwargs: dict[str, Any], context: ToolContext | None) -> None:
         params: list[str] = []

@@ -23,7 +23,8 @@ class ProgressiveToolView:
 
         normalized = hint.casefold()
         for descriptor in self.registry.descriptors():
-            if descriptor.name.casefold() != normalized:
+            model_name = self.registry.to_model_name(descriptor.name)
+            if descriptor.name.casefold() != normalized and model_name.casefold() != normalized:
                 continue
             self.expanded.add(descriptor.name)
             return True
@@ -31,7 +32,7 @@ class ProgressiveToolView:
 
     def compact_block(self) -> str:
         lines = ["<tool_view>"]
-        for row in self.registry.compact_rows():
+        for row in self.registry.compact_rows(for_model=True):
             lines.append(f"  - {row}")
         lines.append("</tool_view>")
         return "\n".join(lines)
@@ -42,11 +43,12 @@ class ProgressiveToolView:
 
         lines = ["<tool_details>"]
         for name in sorted(self.expanded):
+            model_name = self.registry.to_model_name(name)
             try:
-                detail = self.registry.detail(name)
+                detail = self.registry.detail(name, for_model=True)
             except KeyError:
                 continue
-            lines.append(f'  <tool name="{name}">')
+            lines.append(f'  <tool name="{model_name}">')
             for line in detail.splitlines():
                 lines.append(f"    {line}")
             lines.append("  </tool>")
