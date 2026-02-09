@@ -1,0 +1,43 @@
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+
+# Update system and install base dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    curl \
+    wget \
+    vim \
+    sudo \
+    openssh-client \
+    ca-certificates
+
+# Install development tools
+RUN apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    nodejs \
+    npm \
+    golang \
+    jq \
+    htop \
+    tree \
+    unzip \
+    protobuf-compiler \
+    zip fd-find gh
+
+# Install pnpm
+RUN npm install -g pnpm
+
+WORKDIR /app
+
+# Install Python dependencies first (cached layer)
+COPY pyproject.toml uv.lock README.md LICENSE ./
+
+# Copy the full source and install
+COPY src ./src
+RUN uv sync --no-dev && uv pip install "any-llm-sdk[anthropic,gemini]"
+
+WORKDIR /workspace
+
+CMD ["/app/.venv/bin/bub", "telegram"]
