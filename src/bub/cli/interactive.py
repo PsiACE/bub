@@ -29,12 +29,12 @@ class InteractiveCli:
         self._mode = "agent"
         self._prompt = self._build_prompt()
 
-    def run(self) -> None:
+    async def run(self) -> None:
         self._renderer.welcome(model=self._runtime.settings.model, workspace=str(self._runtime.workspace))
         while True:
             try:
                 with patch_stdout(raw=True):
-                    raw = self._prompt.prompt(self._prompt_message()).strip()
+                    raw = (await self._prompt.prompt_async(self._prompt_message())).strip()
             except KeyboardInterrupt:
                 self._renderer.info("Interrupted. Use ',quit' to exit.")
                 continue
@@ -46,7 +46,7 @@ class InteractiveCli:
 
             request = self._normalize_input(raw)
             with self._renderer.console.status("[cyan]Processing...[/cyan]", spinner="dots"):
-                result = self._runtime.handle_input(self._session_id, request)
+                result = await self._runtime.handle_input(self._session_id, request)
             if result.immediate_output:
                 self._renderer.command_output(result.immediate_output)
             if result.error:

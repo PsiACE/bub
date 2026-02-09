@@ -29,8 +29,8 @@ class BaseChannel(ABC):
     async def send(self, message: OutboundMessage) -> None:
         """Send one outbound message to external channel."""
 
-    def publish_inbound(self, message: InboundMessage) -> None:
-        self.bus.publish_inbound(message)
+    async def publish_inbound(self, message: InboundMessage) -> None:
+        await self.bus.publish_inbound(message)
 
     @property
     def is_running(self) -> bool:

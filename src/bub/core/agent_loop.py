@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 
 from bub.core.model_runner import ModelRunner, ModelTurnResult
@@ -28,8 +29,8 @@ class AgentLoop:
         self._model_runner = model_runner
         self._tape = tape
 
-    def handle_input(self, raw: str) -> LoopResult:
-        route = self._router.route_user(raw)
+    async def handle_input(self, raw: str) -> LoopResult:
+        route = await asyncio.get_event_loop().run_in_executor(None, self._router.route_user, raw)
         if route.exit_requested:
             return LoopResult(
                 immediate_output=route.immediate_output,
@@ -48,7 +49,7 @@ class AgentLoop:
                 error=None,
             )
 
-        model_result = self._model_runner.run(route.model_prompt)
+        model_result = await self._model_runner.run(route.model_prompt)
         self._record_result(model_result)
         return LoopResult(
             immediate_output=route.immediate_output,
