@@ -69,6 +69,41 @@ bub run --skills python,git "Analyze the Python project and create a README"
 bub run -w /tmp/test-workspace "Create a sample project structure"
 ```
 
+## Running Long Tasks
+
+For tasks that are expected to take a long time, run in background and schedule a check:
+
+### Pattern: Background Execution with Scheduled Result Check
+
+```bash
+# 1. Run task in background, redirect output to file
+nohup bub run "Perform extensive code analysis" > /tmp/bub_task_output.log 2>&1 &
+
+# 2. Use schedule tool to check result later
+# Schedule a reminder to check the output file after N seconds
+```
+
+### Example Workflow
+
+```bash
+# Step 1: Start long-running task in background
+nohup bub run -w /workspace/big-project "Analyze all modules and generate documentation" > /tmp/doc_gen.log 2>&1 &
+echo $! > /tmp/bub_task.pid
+
+# Step 2: Schedule a check (using schedule.add tool)
+# After 300 seconds, check if task is complete and report results
+
+# Step 3: Check results when scheduled reminder triggers
+cat /tmp/doc_gen.log
+```
+
+### Tips for Long Tasks
+
+- Always redirect output to a file for later inspection: `> output.log 2>&1`
+- Save the PID for process management: `echo $! > task.pid`
+- Use `nohup` to prevent task termination on session disconnect
+- Schedule result checks at reasonable intervals based on expected task duration
+
 ## Other Commands
 
 | Command | Description |
