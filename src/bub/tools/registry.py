@@ -71,6 +71,8 @@ class ToolRegistry:
             def handler(*args: Any, **kwargs: Any) -> T:
                 context_arg = kwargs.get("context") if context else None
                 call_kwargs = {key: value for key, value in kwargs.items() if key != "context"}
+                if args and isinstance(args[0], BaseModel):
+                    call_kwargs.update(args[0].model_dump())
                 self._log_tool_call(name, call_kwargs, context_arg)
 
                 start = time.monotonic()

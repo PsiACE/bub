@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from pathlib import Path
 from typing import Annotated
 
@@ -44,6 +45,33 @@ def chat(
     runtime = build_runtime(resolved_workspace, model=model, max_tokens=max_tokens)
     cli = InteractiveCli(runtime)
     asyncio.run(cli.run())
+
+
+@app.command()
+def run(
+    message: Annotated[str, typer.Argument()],
+    workspace: Annotated[Path | None, typer.Option("--workspace", "-w")] = None,
+    model: Annotated[str | None, typer.Option("--model")] = None,
+    max_tokens: Annotated[int | None, typer.Option("--max-tokens")] = None,
+    session_id: Annotated[str, typer.Option("--session-id")] = "cli",
+) -> None:
+    """Run a single message and exit, useful for quick testing or one-off commands."""
+    import rich
+
+    configure_logging(profile="chat")
+    resolved_workspace = (workspace or Path.cwd()).resolve()
+    logger.info(
+        "run.start workspace={} model={} max_tokens={}",
+        str(resolved_workspace),
+        model or "<default>",
+        max_tokens if max_tokens is not None else "<default>",
+    )
+    runtime = build_runtime(resolved_workspace, model=model, max_tokens=max_tokens)
+    result = asyncio.run(runtime.handle_input(session_id, message))
+    if result.error:
+        rich.print(f"[red]Error:[/red] {result.error}", file=sys.stderr)
+    else:
+        rich.print(result.assistant_output or result.immediate_output or "")
 
 
 @app.command()
@@ -104,3 +132,7 @@ async def _serve_channels(manager: ChannelManager) -> None:
     finally:
         await manager.stop()
         logger.info("channels.stop")
+
+
+if __name__ == "__main__":
+    app()
