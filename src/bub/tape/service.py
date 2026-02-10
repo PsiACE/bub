@@ -6,11 +6,11 @@ import json
 from dataclasses import dataclass
 from typing import Any, cast
 
+from bub.tape.anchors import AnchorSummary
+from bub.tape.memory import MemoryZone
+from bub.tape.store import FileTapeStore
 from republic import LLM, TapeEntry
 from republic.tape import Tape
-
-from bub.tape.anchors import AnchorSummary
-from bub.tape.store import FileTapeStore
 
 
 @dataclass(frozen=True)
@@ -29,6 +29,14 @@ class TapeService:
     def __init__(self, llm: LLM, tape_name: str, *, store: FileTapeStore | None = None) -> None:
         self._tape: Tape = llm.tape(tape_name)
         self._store = store
+        self._memory: MemoryZone | None = None
+
+    @property
+    def memory(self) -> MemoryZone:
+        """Access the memory zone for this tape."""
+        if self._memory is None:
+            self._memory = MemoryZone(self)
+        return self._memory
 
     @property
     def tape_name(self) -> str:

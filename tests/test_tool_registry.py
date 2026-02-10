@@ -1,7 +1,7 @@
 import pytest
-from republic import ToolContext
 
 from bub.tools.registry import ToolRegistry
+from republic import ToolContext
 
 
 def test_registry_logs_once_for_execute(monkeypatch) -> None:

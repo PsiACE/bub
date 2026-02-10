@@ -1,11 +1,11 @@
 from dataclasses import dataclass, field
 
 import pytest
-from republic import ToolAutoResult
 
 from bub.core.model_runner import TOOL_CONTINUE_PROMPT, ModelRunner
 from bub.core.router import AssistantRouteResult
 from bub.skills.loader import SkillMetadata
+from republic import ToolAutoResult
 
 
 class FakeRouter:
@@ -98,9 +98,16 @@ class FakeTapeImpl:
 
 
 @dataclass
+class FakeMemoryZone:
+    def get_context(self) -> str:
+        return ""
+
+
+@dataclass
 class FakeTapeService:
     tape: FakeTapeImpl
     events: list[tuple[str, dict[str, object]]] = field(default_factory=list)
+    memory: FakeMemoryZone = field(default_factory=FakeMemoryZone)
 
     def append_event(self, name: str, data: dict[str, object]) -> None:
         self.events.append((name, data))

@@ -13,6 +13,7 @@ from typing import Any, ParamSpec, TypeVar
 
 from loguru import logger
 from pydantic import BaseModel
+
 from republic import Tool, ToolContext, tool_from_model
 
 HandlerT = TypeVar("HandlerT", bound=Callable)

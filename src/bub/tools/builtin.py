@@ -100,6 +100,20 @@ class SkillNameInput(BaseModel):
     name: str = Field(..., description="Skill name")
 
 
+class MemorySaveInput(BaseModel):
+    content: str = Field(..., description="Content to remember long-term")
+
+
+class MemoryDailyInput(BaseModel):
+    content: str = Field(..., description="Content for today's notes")
+    date: str | None = Field(default=None, description="Date (YYYY-MM-DD), defaults to today")
+
+
+class MemoryRecallInput(BaseModel):
+    query: str | None = Field(default=None, description="Optional search query to filter memories")
+    days: int = Field(default=7, ge=1, description="Days to look back for daily notes")
+
+
 class EmptyInput(BaseModel):
     pass
 
@@ -535,6 +549,61 @@ def register_builtin_tools(
         if not body:
             raise RuntimeError(f"skill not found: {params.name}")
         return body
+
+    @register(name="memory.save", short_description="Save to long-term memory", model=MemorySaveInput)
+    def memory_save(params: MemorySaveInput) -> str:
+        """Save or replace long-term memory content."""
+        tape.memory.save_long_term(params.content)
+        return "saved to long-term memory"
+
+    @register(name="memory.daily", short_description="Append to daily notes", model=MemoryDailyInput)
+    def memory_daily(params: MemoryDailyInput) -> str:
+        """Append content to today's (or specified date's) daily notes."""
+        tape.memory.append_daily(params.content, date=params.date)
+        return f"appended to daily notes ({params.date or 'today'})"
+
+    @register(name="memory.recall", short_description="Recall memories", model=MemoryRecallInput)
+    def memory_recall(params: MemoryRecallInput) -> str:
+        """Recall long-term memory and recent daily notes."""
+        snap = tape.memory.read()
+        parts: list[str] = []
+        if snap.long_term:
+            parts.append(f"## Long-term Memory\n{snap.long_term}")
+        dailies = snap.recent_dailies(days=params.days)
+        if dailies:
+            lines = ["## Recent Daily Notes"]
+            for daily in dailies:
+                lines.append(f"### {daily.date}")
+                lines.append(daily.content)
+            parts.append("\n".join(lines))
+        if not parts:
+            return "(no memories stored)"
+        result = "\n\n".join(parts)
+        if params.query:
+            filtered = [line for line in result.splitlines() if params.query.lower() in line.lower()]
+            if filtered:
+                return "\n".join(filtered)
+            return f"(no matches for '{params.query}')\n\nFull memory:\n{result}"
+        return result
+
+    @register(name="memory.show", short_description="Show memory summary", model=EmptyInput)
+    def memory_show(_params: EmptyInput) -> str:
+        """Show current memory zone summary."""
+        snap = tape.memory.read()
+        long_term_preview = snap.long_term[:100] + "..." if len(snap.long_term) > 100 else snap.long_term
+        return (
+            f"version={snap.version}\n"
+            f"long_term={'yes' if snap.long_term else 'no'}"
+            + (f" ({long_term_preview})" if snap.long_term else "")
+            + f"\ndaily_notes={len(snap.dailies)}"
+            + (f" (latest: {snap.dailies[0].date})" if snap.dailies else "")
+        )
+
+    @register(name="memory.clear", short_description="Clear all memory", model=EmptyInput)
+    def memory_clear(_params: EmptyInput) -> str:
+        """Clear all memory (long-term and daily notes)."""
+        tape.memory.clear()
+        return "memory cleared"
 
     @register(name="quit", short_description="Exit program", model=EmptyInput)
     def quit_command(_params: EmptyInput) -> str:

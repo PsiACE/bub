@@ -8,7 +8,6 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from loguru import logger
-from republic import Tool, ToolAutoResult
 
 from bub.core.router import AssistantRouteResult, InputRouter
 from bub.skills.loader import SkillMetadata
@@ -16,6 +15,7 @@ from bub.skills.view import render_compact_skills
 from bub.tape.service import TapeService
 from bub.tools.progressive import ProgressiveToolView
 from bub.tools.view import render_tool_prompt_block
+from republic import Tool, ToolAutoResult
 
 HINT_RE = re.compile(r"\$([A-Za-z0-9_.-]+)")
 TOOL_CONTINUE_PROMPT = "Continue the task."
@@ -182,6 +182,9 @@ class ModelRunner:
             blocks.append(self._base_system_prompt)
         if self._workspace_system_prompt:
             blocks.append(self._workspace_system_prompt)
+        memory_context = self._tape.memory.get_context()
+        if memory_context:
+            blocks.append(f"<memory>\n{memory_context}\n</memory>")
         blocks.append(_runtime_contract())
         blocks.append(render_tool_prompt_block(self._tool_view))
 
@@ -237,13 +240,19 @@ class _ChatResult:
 
 
 def _runtime_contract() -> str:
+    from datetime import UTC, datetime
+
+    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC (%A)")
     return (
         "<runtime_contract>\n"
+        f"current_time: {now}\n"
         "1) Use function calling tools for all actions (file ops, shell, web, tape, skills).\n"
         "2) Do not emit comma-prefixed commands in normal flow; use tool calls instead.\n"
         "3) If a compatibility fallback is required, runtime can still parse comma commands.\n"
         "4) Never emit '<command ...>' blocks yourself; those are runtime-generated.\n"
         "5) When enough evidence is collected, return plain natural language answer.\n"
         "6) Use '$name' hints to request detail expansion for tools/skills when needed.\n"
+        "7) When the user shares a preference, project context, or important fact, "
+        "use `memory_save` to persist it. Use `memory_daily` to log work progress.\n"
         "</runtime_contract>"
     )

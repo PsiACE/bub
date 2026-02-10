@@ -79,6 +79,7 @@ class AppRuntime:
         tape_name = f"{self.settings.tape_name}:{_session_slug(session_id)}"
         tape = TapeService(self._llm, tape_name, store=self._store)
         tape.ensure_bootstrap_anchor()
+        tape.memory.ensure()
 
         registry = self.registry
         register_builtin_tools(
