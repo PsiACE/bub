@@ -29,6 +29,13 @@ def _session_slug(session_id: str) -> str:
     return md5(session_id.encode("utf-8")).hexdigest()[:16]  # noqa: S324
 
 
+def _running_loop() -> AbstractEventLoop | None:
+    try:
+        return asyncio.get_running_loop()
+    except RuntimeError:
+        return None
+
+
 @dataclass
 class SessionRuntime:
     """Runtime state for one deterministic session."""
@@ -86,9 +93,13 @@ class AppRuntime:
             return None
         return load_skill_body(skill_name, self.workspace)
 
+    def _sync_running_loop(self) -> None:
+        loop = _running_loop()
+        if loop is not None and loop is not self.loop:
+            self.loop = loop
+
     def get_session(self, session_id: str) -> SessionRuntime:
-        if self.loop is None:
-            self.loop = asyncio.get_event_loop()
+        self._sync_running_loop()
         existing = self._sessions.get(session_id)
         if existing is not None:
             return existing
@@ -127,6 +138,7 @@ class AppRuntime:
         return runtime
 
     async def handle_input(self, session_id: str, text: str) -> LoopResult:
+        self._sync_running_loop()
         session = self.get_session(session_id)
         return await session.handle_input(text)
 
