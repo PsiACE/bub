@@ -254,6 +254,9 @@ def _runtime_contract() -> str:
         "6) Use '$name' hints to request detail expansion for tools/skills when needed.\n"
         "7) When the user asks you to remember something, save their EXACT words verbatim "
         "using `memory.save` — do NOT paraphrase, summarize, or rewrite. "
-        "Use `memory.daily` for work progress, `memory.recall` / `memory.clear` to retrieve or remove.\n"
+        "For daily notes use `memory.daily` with the user's EXACT words as well. "
+        "When presenting recalled memories to the user, show the stored text EXACTLY as-is "
+        "without paraphrasing, translating, or rewriting. "
+        "Use `memory.recall` / `memory.clear` to retrieve or remove.\n"
         "</runtime_contract>"
     )

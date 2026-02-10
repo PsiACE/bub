@@ -17,6 +17,11 @@ class EmptyInput(BaseModel):
     pass
 
 
+class MemoryRecallInput(BaseModel):
+    query: str | None = Field(default=None)
+    days: int = Field(default=7)
+
+
 @dataclass
 class FakeTape:
     events: list[tuple[str, dict[str, object]]] = field(default_factory=list)
@@ -42,6 +47,9 @@ def _build_router(*, bash_error: bool = False) -> InputRouter:
     def memory_show(_params: EmptyInput) -> str:
         return "version=1\nlong_term=no\ndaily_notes=0"
 
+    def memory_recall(_params: MemoryRecallInput) -> str:
+        return "## Long-term Memory\ntest content"
+
     registry.register(
         name="bash",
         short_description="Run shell command",
@@ -66,6 +74,12 @@ def _build_router(*, bash_error: bool = False) -> InputRouter:
         detail="memory.show detail",
         model=EmptyInput,
     )(memory_show)
+    registry.register(
+        name="memory.recall",
+        short_description="Recall memories",
+        detail="memory.recall detail",
+        model=MemoryRecallInput,
+    )(memory_recall)
 
     view = ProgressiveToolView(registry)
     return InputRouter(registry, view, FakeTape(), Path.cwd())
@@ -196,3 +210,10 @@ def test_memory_alias_resolves_to_memory_show() -> None:
     result = router.route_user(",memory")
     assert result.enter_model is False
     assert "version=" in result.immediate_output
+
+
+def test_recall_alias_resolves_to_memory_recall() -> None:
+    router = _build_router()
+    result = router.route_user(",recall")
+    assert result.enter_model is False
+    assert "Long-term Memory" in result.immediate_output

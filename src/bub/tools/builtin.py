@@ -110,7 +110,11 @@ class MemorySaveInput(BaseModel):
 
 
 class MemoryDailyInput(BaseModel):
-    content: str = Field(..., description="Content for today's notes")
+    content: str = Field(
+        ...,
+        description="The exact text the user asked you to note — pass their words VERBATIM, "
+        "do NOT paraphrase, summarize, or rewrite. This is APPENDED to existing daily notes.",
+    )
     date: dt_date | None = Field(default=None, description="Date (YYYY-MM-DD), defaults to today")
 
 
@@ -493,6 +497,7 @@ def register_builtin_tools(
             "  ,tape.info\n"
             "  ,tape.search query=error\n"
             "  ,memory                              (show memory summary)\n"
+            "  ,recall                              (recall all memories, no LLM)\n"
             "  ,memory.save content='User prefers dark mode'\n"
             "  ,memory.daily content='Fixed tape reset bug'\n"
             "  ,memory.recall days=7\n"
@@ -584,7 +589,7 @@ def register_builtin_tools(
 
     @register(name="memory.recall", short_description="Recall memories", model=MemoryRecallInput)
     def memory_recall(params: MemoryRecallInput) -> str:
-        """Recall long-term memory and recent daily notes."""
+        """Recall long-term memory and recent daily notes. Present the content to the user EXACTLY as stored — do NOT paraphrase, translate, or rewrite."""
         snap = tape.memory.read()
         parts: list[str] = []
         if snap.long_term:
@@ -598,13 +603,14 @@ def register_builtin_tools(
             parts.append("\n".join(lines))
         if not parts:
             return "(no memories stored)"
+        preamble = "[VERBATIM RECORDS — present these to the user exactly as-is, do NOT paraphrase or rewrite]\n\n"
         result = "\n\n".join(parts)
         if params.query:
             filtered = [line for line in result.splitlines() if params.query.lower() in line.lower()]
             if filtered:
-                return "\n".join(filtered)
-            return f"(no matches for '{params.query}')\n\nFull memory:\n{result}"
-        return result
+                return preamble + "\n".join(filtered)
+            return f"(no matches for '{params.query}')\n\nFull memory:\n" + preamble + result
+        return preamble + result
 
     @register(name="memory.show", short_description="Show memory summary", model=EmptyInput)
     def memory_show(_params: EmptyInput) -> str:

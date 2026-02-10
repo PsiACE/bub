@@ -319,6 +319,7 @@ class InputRouter:
             "tape": "tape.info",
             "skill": "skills.describe",
             "memory": "memory.show",
+            "recall": "memory.recall",
         }
         return aliases.get(name, name)
 
