@@ -135,15 +135,15 @@ class TelegramChannel(BaseChannel):
             text = html.escape(raw_content)
             # Convert markdown-style bold/italic/code to HTML tags (basic support)
             # Bold: **text** or __text__
-            text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
-            text = re.sub(r'__(.+?)__', r'<b>\1</b>', text)
+            text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
+            text = re.sub(r"__(.+?)__", r"<b>\1</b>", text)
             # Italic: *text* or _text_
-            text = re.sub(r'\*(.+?)\*', r'<i>\1</i>', text)
-            text = re.sub(r'_(.+?)_', r'<i>\1</i>', text)
+            text = re.sub(r"\*(.+?)\*", r"<i>\1</i>", text)
+            text = re.sub(r"_(.+?)_", r"<i>\1</i>", text)
             # Inline code: `text`
-            text = re.sub(r'`(.+?)`', r'<code>\1</code>', text)
+            text = re.sub(r"`(.+?)`", r"<code>\1</code>", text)
             # Newlines to <br>
-            text = text.replace('\n', '<br>')
+            text = text.replace("\n", "<br>")
             text = f"<blockquote expandable>{text}</blockquote>"
             parse_mode = "HTML"
         else:
