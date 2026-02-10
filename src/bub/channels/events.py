@@ -24,7 +24,7 @@ class InboundMessage:
         return f"{self.channel}:{self.chat_id}"
 
     def render(self) -> str:
-        data = {"message": self.content, **self.metadata, "sender_id": self.sender_id}
+        data = {"message": self.content, **self.metadata, "sender_id": self.sender_id, "chat_id": self.chat_id}
         return json.dumps(data, ensure_ascii=False)
 
 
