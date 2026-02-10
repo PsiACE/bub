@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import shutil
 import subprocess
@@ -19,7 +18,6 @@ from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from loguru import logger
 from pydantic import BaseModel, Field
 from republic import ToolContext
 
@@ -176,13 +174,11 @@ def register_builtin_tools(
     session_id: str,
 ) -> None:
     """Register built-in tools and internal commands."""
+    from bub.tools.schedule import run_scheduled_reminder, set_runtime
 
-    register = registry.register
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
+    set_runtime(runtime)
     support_scheduling = runtime.scheduler.running
+    register = registry.register
 
     @register(name="bash", short_description="Run shell command", model=BashInput)
     def run_bash(params: BashInput) -> str:
@@ -276,28 +272,6 @@ def register_builtin_tools(
         """Fetch URL and convert HTML to markdown-like text."""
         return _fetch_markdown_from_url(params.url)
 
-    def _run_scheduled_reminder(message: str) -> None:
-        from bub.channels.events import InboundMessage
-
-        bus = runtime.bus
-        if bus is None:
-            logger.error("cannot send scheduled reminder: bus is not set")
-            return
-        channel, chat_id = session_id.split(":", 1)
-        inbound_message = InboundMessage(
-            channel=channel,
-            sender_id="scheduler",
-            chat_id=chat_id,
-            content=message,
-        )
-        logger.info("sending scheduled reminder to channel={} chat_id={} message={}", channel, chat_id, message)
-
-        if loop is not None and loop.is_running():
-            loop.call_soon_threadsafe(lambda: asyncio.create_task(bus.publish_inbound(inbound_message)))
-            return
-
-        asyncio.run(bus.publish_inbound(inbound_message))
-
     if support_scheduling:
 
         @register(name="schedule.add", short_description="Add a cron schedule", model=ScheduleAddInput, context=True)
@@ -316,10 +290,10 @@ def register_builtin_tools(
 
             try:
                 job = runtime.scheduler.add_job(
-                    _run_scheduled_reminder,
+                    run_scheduled_reminder,
                     trigger=trigger,
                     id=job_id,
-                    kwargs={"message": params.message},
+                    kwargs={"message": params.message, "session_id": session_id},
                     coalesce=True,
                     max_instances=1,
                 )

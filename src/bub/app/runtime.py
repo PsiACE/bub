@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+from asyncio import AbstractEventLoop
 from contextlib import suppress
 from dataclasses import dataclass
 from functools import partial
@@ -50,6 +52,7 @@ class AppRuntime:
         self.workspace_prompt = read_workspace_agents_prompt(self.workspace)
         self.load_skill_body = partial(load_skill_body, workspace_path=self.workspace)
         self.bus: MessageBus | None = None
+        self.loop: AbstractEventLoop | None = None
         self.registry = ToolRegistry()
         job_store = JSONJobStore(settings.resolve_home() / "jobs.json")
         self.scheduler = BackgroundScheduler(daemon=True, jobstores={"default": job_store})
@@ -72,6 +75,8 @@ class AppRuntime:
         return list(self._skills)
 
     def get_session(self, session_id: str) -> SessionRuntime:
+        if self.loop is None:
+            self.loop = asyncio.get_event_loop()
         existing = self._sessions.get(session_id)
         if existing is not None:
             return existing
