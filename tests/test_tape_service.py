@@ -23,6 +23,11 @@ class FakeTape:
         self.entries.append(entry)
         return [entry]
 
+    def append(self, entry: object) -> None:
+        kind = getattr(entry, "kind", "")
+        payload = getattr(entry, "payload", {})
+        self.entries.append(FakeEntry(str(kind), dict(payload)))
+
     def reset(self) -> None:
         self.reset_calls += 1
         self.entries = []
@@ -39,5 +44,7 @@ def test_reset_rebuilds_bootstrap_anchor() -> None:
     assert result == "ok"
     assert fake_tape.reset_calls == 1
     anchors = [entry for entry in fake_tape.entries if entry.kind == "anchor"]
-    assert len(anchors) == 1
-    assert anchors[0].payload["name"] == "session/start"
+    anchor_names = [entry.payload["name"] for entry in anchors]
+    assert "session/start" in anchor_names
+    assert "memory/open" in anchor_names
+    assert "memory/seal" in anchor_names

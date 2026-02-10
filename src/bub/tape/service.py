@@ -84,11 +84,15 @@ class TapeService:
         if archive and self._store is not None:
             archive_path = self._store.archive(self._tape.name)
             self._tape.reset()
+            self._memory = None
             self.ensure_bootstrap_anchor()
+            self.memory.ensure()
             if archive_path is not None:
                 return f"archived: {archive_path}"
         self._tape.reset()
+        self._memory = None
         self.ensure_bootstrap_anchor()
+        self.memory.ensure()
         return "ok"
 
     def anchors(self, *, limit: int = 20) -> list[AnchorSummary]:

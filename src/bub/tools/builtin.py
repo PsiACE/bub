@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import uuid
 from datetime import UTC, datetime, timedelta
+from datetime import date as dt_date
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib import error as urllib_error
@@ -110,7 +111,7 @@ class MemorySaveInput(BaseModel):
 
 class MemoryDailyInput(BaseModel):
     content: str = Field(..., description="Content for today's notes")
-    date: str | None = Field(default=None, description="Date (YYYY-MM-DD), defaults to today")
+    date: dt_date | None = Field(default=None, description="Date (YYYY-MM-DD), defaults to today")
 
 
 class MemoryRecallInput(BaseModel):
@@ -193,6 +194,15 @@ def _format_search_results(results: list[object]) -> str:
         if content:
             lines.append(f"   {content}")
     return "\n".join(lines) if lines else "none"
+
+
+def _preview_single_line(text: str, *, limit: int = 100) -> str:
+    if not text:
+        return ""
+    normalized = " ".join(text.split())
+    if len(normalized) > limit:
+        return normalized[:limit] + "..."
+    return normalized
 
 
 def register_builtin_tools(
@@ -565,14 +575,17 @@ def register_builtin_tools(
         previous = tape.memory.read().long_term
         tape.memory.save_long_term(params.content)
         if previous and previous not in params.content:
-            return f"saved to long-term memory (warning: previous content was replaced: {previous!r})"
+            return (
+                f"saved to long-term memory (warning: previous content was replaced; previous_length={len(previous)})"
+            )
         return "saved to long-term memory"
 
     @register(name="memory.daily", short_description="Append to daily notes", model=MemoryDailyInput)
     def memory_daily(params: MemoryDailyInput) -> str:
         """Append content to today's (or specified date's) daily notes."""
-        tape.memory.append_daily(params.content, date=params.date)
-        return f"appended to daily notes ({params.date or 'today'})"
+        date_value = params.date.isoformat() if params.date is not None else None
+        tape.memory.append_daily(params.content, date=date_value)
+        return f"appended to daily notes ({date_value or 'today'})"
 
     @register(name="memory.recall", short_description="Recall memories", model=MemoryRecallInput)
     def memory_recall(params: MemoryRecallInput) -> str:
@@ -602,7 +615,7 @@ def register_builtin_tools(
     def memory_show(_params: EmptyInput) -> str:
         """Show current memory zone summary."""
         snap = tape.memory.read()
-        long_term_preview = snap.long_term[:100] + "..." if len(snap.long_term) > 100 else snap.long_term
+        long_term_preview = _preview_single_line(snap.long_term, limit=100)
         return (
             f"version={snap.version}\n"
             f"long_term={'yes' if snap.long_term else 'no'}"
