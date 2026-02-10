@@ -16,6 +16,10 @@ from bub.channels.bus import MessageBus
 from bub.channels.events import InboundMessage, OutboundMessage
 
 
+def exclude_none(d: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in d.items() if v is not None}
+
+
 class BubMessageFilter(filters.MessageFilter):
     GROUP_CHAT_TYPES: ClassVar[set[str]] = {"group", "supergroup"}
 
@@ -183,11 +187,11 @@ class TelegramChannel(BaseChannel):
                 sender_id=str(user.id),
                 chat_id=chat_id,
                 content=text,
-                metadata={
-                    "username": user.username or "",
-                    "first_name": user.first_name or "",
+                metadata=exclude_none({
+                    "username": user.username,
+                    "full_name": user.full_name,
                     "message_id": update.message.message_id,
-                },
+                }),
             )
         )
 

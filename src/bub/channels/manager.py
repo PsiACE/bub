@@ -58,7 +58,7 @@ class ChannelManager:
             self._unsub_outbound = None
 
     async def _process_inbound(self, message: InboundMessage) -> None:
-        result = await self.runtime.handle_input(message.session_id, message.content)
+        result = await self.runtime.handle_input(message.session_id, message.render())
         parts = [part for part in (result.immediate_output, result.assistant_output) if part]
         if result.error:
             parts.append(f"error: {result.error}")

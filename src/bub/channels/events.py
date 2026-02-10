@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -21,6 +22,10 @@ class InboundMessage:
     @property
     def session_id(self) -> str:
         return f"{self.channel}:{self.chat_id}"
+
+    def render(self) -> str:
+        data = {"message": self.content, **self.metadata, "sender_id": self.sender_id}
+        return json.dumps(data, ensure_ascii=False)
 
 
 @dataclass(frozen=True)
