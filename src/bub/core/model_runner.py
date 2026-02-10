@@ -52,7 +52,7 @@ class ModelRunner:
         router: InputRouter,
         tool_view: ProgressiveToolView,
         tools: list[Tool],
-        skills: list[SkillMetadata],
+        list_skills: Callable[[], list[SkillMetadata]],
         load_skill_body: Callable[[str], str | None],
         model: str,
         max_steps: int,
@@ -65,7 +65,7 @@ class ModelRunner:
         self._router = router
         self._tool_view = tool_view
         self._tools = tools
-        self._skills = skills
+        self._list_skills = list_skills
         self._load_skill_body = load_skill_body
         self._model = model
         self._max_steps = max_steps
@@ -74,7 +74,6 @@ class ModelRunner:
         self._base_system_prompt = base_system_prompt.strip()
         self._workspace_system_prompt = workspace_system_prompt.strip()
         self._expanded_skills: dict[str, str] = {}
-        self._skill_index = {skill.name.casefold(): skill for skill in skills}
 
     async def run(self, prompt: str) -> ModelTurnResult:
         state = _PromptState(prompt=prompt)
@@ -185,7 +184,7 @@ class ModelRunner:
         blocks.append(_runtime_contract())
         blocks.append(render_tool_prompt_block(self._tool_view))
 
-        compact_skills = render_compact_skills(self._skills)
+        compact_skills = render_compact_skills(self._list_skills())
         if compact_skills:
             blocks.append(compact_skills)
 
@@ -201,11 +200,12 @@ class ModelRunner:
         return "\n\n".join(block for block in blocks if block.strip())
 
     def _activate_hints(self, text: str) -> None:
+        skill_index = self._build_skill_index()
         for match in HINT_RE.finditer(text):
             hint = match.group(1)
             self._tool_view.note_hint(hint)
 
-            skill = self._skill_index.get(hint.casefold())
+            skill = skill_index.get(hint.casefold())
             if skill is None:
                 continue
             if skill.name in self._expanded_skills:
@@ -213,6 +213,9 @@ class ModelRunner:
             body = self._load_skill_body(skill.name)
             if body:
                 self._expanded_skills[skill.name] = body
+
+    def _build_skill_index(self) -> dict[str, SkillMetadata]:
+        return {skill.name.casefold(): skill for skill in self._list_skills()}
 
 
 @dataclass(frozen=True)

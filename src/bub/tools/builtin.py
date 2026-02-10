@@ -463,9 +463,10 @@ def register_builtin_tools(
     @register(name="skills.list", short_description="List skills", model=EmptyInput)
     def list_skills(_params: EmptyInput) -> str:
         """List all discovered skills in compact form."""
-        if not runtime.skills:
+        skills = runtime.discover_skills()
+        if not skills:
             return "(no skills)"
-        return "\n".join(f"{skill.name}: {skill.description}" for skill in runtime.skills)
+        return "\n".join(f"{skill.name}: {skill.description}" for skill in skills)
 
     @register(name="skills.describe", short_description="Load skill body", model=SkillNameInput)
     def describe_skill(params: SkillNameInput) -> str:

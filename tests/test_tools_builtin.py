@@ -46,8 +46,11 @@ class _DummyRuntime:
     def __init__(self, settings: Settings, scheduler: BackgroundScheduler) -> None:
         self.settings = settings
         self.scheduler = scheduler
-        self.skills: list[object] = []
+        self._discovered_skills: list[object] = []
         self.bus = None
+
+    def discover_skills(self) -> list[object]:
+        return list(self._discovered_skills)
 
     @staticmethod
     def load_skill_body(_name: str) -> str | None:
@@ -280,3 +283,42 @@ def test_schedule_shared_scheduler_across_registries(tmp_path: Path, scheduler: 
     assert matched is not None
 
     assert matched.group("job_id") in registry_b.execute("schedule.list", kwargs={})
+
+
+def test_skills_list_uses_latest_runtime_skills(tmp_path: Path, scheduler: BackgroundScheduler) -> None:
+    @dataclass(frozen=True)
+    class _Skill:
+        name: str
+        description: str
+
+    class _Runtime:
+        def __init__(self, settings: Settings, scheduler: BackgroundScheduler) -> None:
+            self.settings = settings
+            self.scheduler = scheduler
+            self.bus = None
+            self._discovered_skills: list[_Skill] = [_Skill(name="alpha", description="first")]
+
+        def discover_skills(self) -> list[_Skill]:
+            return list(self._discovered_skills)
+
+        @staticmethod
+        def load_skill_body(_name: str) -> str | None:
+            return None
+
+    settings = Settings(_env_file=None, model="openrouter:test")
+    runtime = _Runtime(settings, scheduler)
+    registry = ToolRegistry()
+    register_builtin_tools(
+        registry,
+        workspace=tmp_path,
+        tape=_DummyTape(),  # type: ignore[arg-type]
+        runtime=runtime,  # type: ignore[arg-type]
+        session_id="cli:test",
+    )
+
+    assert registry.execute("skills.list", kwargs={}) == "alpha: first"
+
+    runtime._discovered_skills.append(_Skill(name="beta", description="second"))
+    second = registry.execute("skills.list", kwargs={})
+    assert "alpha: first" in second
+    assert "beta: second" in second

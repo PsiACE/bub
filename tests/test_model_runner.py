@@ -121,7 +121,7 @@ async def test_model_runner_follows_command_context_until_stop() -> None:
         router=FakeRouter(),  # type: ignore[arg-type]
         tool_view=FakeToolView(),  # type: ignore[arg-type]
         tools=[],
-        skills=[],
+        list_skills=lambda: [],
         load_skill_body=lambda name: None,
         model="openrouter:test",
         max_steps=5,
@@ -156,7 +156,7 @@ async def test_model_runner_continues_after_tool_execution() -> None:
         router=ToolFollowupRouter(),  # type: ignore[arg-type]
         tool_view=FakeToolView(),  # type: ignore[arg-type]
         tools=[],
-        skills=[],
+        list_skills=lambda: [],
         load_skill_body=lambda name: None,
         model="openrouter:test",
         max_steps=3,
@@ -198,7 +198,7 @@ async def test_model_runner_tool_followup_does_not_inline_tool_payload() -> None
         router=ToolFollowupRouter(),  # type: ignore[arg-type]
         tool_view=FakeToolView(),  # type: ignore[arg-type]
         tools=[],
-        skills=[],
+        list_skills=lambda: [],
         load_skill_body=lambda name: None,
         model="openrouter:test",
         max_steps=3,
@@ -227,7 +227,7 @@ async def test_model_runner_expands_skill_from_hint() -> None:
         router=AnySingleStepRouter(),  # type: ignore[arg-type]
         tool_view=FakeToolView(),  # type: ignore[arg-type]
         tools=[],
-        skills=[skill],
+        list_skills=lambda: [skill],
         load_skill_body=lambda name: f"body for {name}",
         model="openrouter:test",
         max_steps=1,
@@ -264,7 +264,7 @@ async def test_model_runner_expands_skill_from_assistant_hint() -> None:
         router=FollowupRouter(first="assistant mentions $friendly-python", second="assistant-second"),  # type: ignore[arg-type]
         tool_view=FakeToolView(),  # type: ignore[arg-type]
         tools=[],
-        skills=[skill],
+        list_skills=lambda: [skill],
         load_skill_body=lambda name: f"body for {name}",
         model="openrouter:test",
         max_steps=2,
@@ -289,7 +289,7 @@ async def test_model_runner_expands_tool_from_user_hint() -> None:
         router=AnySingleStepRouter(),  # type: ignore[arg-type]
         tool_view=tool_view,  # type: ignore[arg-type]
         tools=[],
-        skills=[],
+        list_skills=lambda: [],
         load_skill_body=lambda name: None,
         model="openrouter:test",
         max_steps=1,
@@ -321,7 +321,7 @@ async def test_model_runner_expands_tool_from_assistant_hint() -> None:
         router=FollowupRouter(first="assistant mentions $fs.read", second="assistant-second"),  # type: ignore[arg-type]
         tool_view=tool_view,  # type: ignore[arg-type]
         tools=[],
-        skills=[],
+        list_skills=lambda: [],
         load_skill_body=lambda name: None,
         model="openrouter:test",
         max_steps=2,
@@ -335,3 +335,43 @@ async def test_model_runner_expands_tool_from_assistant_hint() -> None:
     _, second_system_prompt, _ = tape.tape.calls[1]
     assert "<tool_details>" in second_system_prompt
     assert '<tool name="fs.read"/>' in second_system_prompt
+
+
+@pytest.mark.asyncio
+async def test_model_runner_refreshes_skills_from_provider_between_runs() -> None:
+    skill = SkillMetadata(
+        name="friendly-python",
+        description="style",
+        location=__file__,  # type: ignore[arg-type]
+        source="project",
+    )
+    all_skills: list[SkillMetadata] = []
+
+    tape = FakeTapeService(
+        FakeTapeImpl(
+            outputs=[ToolAutoResult.text_result("assistant-only"), ToolAutoResult.text_result("assistant-only")]
+        )
+    )
+    runner = ModelRunner(
+        tape=tape,  # type: ignore[arg-type]
+        router=AnySingleStepRouter(),  # type: ignore[arg-type]
+        tool_view=FakeToolView(),  # type: ignore[arg-type]
+        tools=[],
+        list_skills=lambda: list(all_skills),
+        load_skill_body=lambda name: f"body for {name}",
+        model="openrouter:test",
+        max_steps=1,
+        max_tokens=512,
+        model_timeout_seconds=90,
+        base_system_prompt="base",
+        workspace_system_prompt="",
+    )
+    await runner.run("first run")
+    _, first_system_prompt, _ = tape.tape.calls[0]
+    assert "friendly-python" not in first_system_prompt
+
+    all_skills.append(skill)
+    await runner.run("second run")
+    _, second_system_prompt, _ = tape.tape.calls[1]
+    assert "<skill_view>" in second_system_prompt
+    assert "friendly-python" in second_system_prompt

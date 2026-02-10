@@ -6,7 +6,6 @@ import asyncio
 from asyncio import AbstractEventLoop
 from contextlib import suppress
 from dataclasses import dataclass
-from functools import partial
 from hashlib import md5
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -50,13 +49,11 @@ class AppRuntime:
         self.settings = settings
         self._store = build_tape_store(settings, self.workspace)
         self.workspace_prompt = read_workspace_agents_prompt(self.workspace)
-        self.load_skill_body = partial(load_skill_body, workspace_path=self.workspace)
         self.bus: MessageBus | None = None
         self.loop: AbstractEventLoop | None = None
         self.registry = ToolRegistry()
         job_store = JSONJobStore(settings.resolve_home() / "jobs.json")
         self.scheduler = BackgroundScheduler(daemon=True, jobstores={"default": job_store})
-        self._skills = discover_skills(self.workspace)
         self._llm = build_llm(settings, self._store)
         self._sessions: dict[str, SessionRuntime] = {}
 
@@ -70,9 +67,11 @@ class AppRuntime:
             with suppress(Exception):
                 self.scheduler.shutdown()
 
-    @property
-    def skills(self) -> list[SkillMetadata]:
-        return list(self._skills)
+    def discover_skills(self) -> list[SkillMetadata]:
+        return discover_skills(self.workspace)
+
+    def load_skill_body(self, skill_name: str) -> str | None:
+        return load_skill_body(skill_name, self.workspace)
 
     def get_session(self, session_id: str) -> SessionRuntime:
         if self.loop is None:
@@ -100,7 +99,7 @@ class AppRuntime:
             router=router,
             tool_view=tool_view,
             tools=registry.model_tools(),
-            skills=self._skills,
+            list_skills=self.discover_skills,
             load_skill_body=self.load_skill_body,
             model=self.settings.model,
             max_steps=self.settings.max_steps,
