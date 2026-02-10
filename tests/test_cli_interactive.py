@@ -6,6 +6,7 @@ from bub.cli.interactive import InteractiveCli
 class _DummyRuntime:
     def __init__(self) -> None:
         self.workspace = Path.cwd()
+        self.registry = type("_Registry", (), {"descriptors": staticmethod(lambda: [])})()
 
         class _Settings:
             model = "openrouter:test"

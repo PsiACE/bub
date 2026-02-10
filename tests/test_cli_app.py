@@ -17,6 +17,17 @@ class DummyRuntime:
             telegram_allow_from = ()
 
         self.settings = _Settings()
+        self.registry = type("_Registry", (), {"descriptors": staticmethod(lambda: [])})()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        _ = (exc_type, exc, tb)
+        return None
+
+    def set_bus(self, _bus) -> None:
+        return None
 
     def get_session(self, _session_id: str):
         class _Tape:

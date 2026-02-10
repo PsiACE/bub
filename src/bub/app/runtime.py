@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 from dataclasses import dataclass
 from functools import partial
 from hashlib import md5
 from pathlib import Path
+from typing import TYPE_CHECKING
 
+from apscheduler.schedulers.background import BackgroundScheduler
+
+from bub.app.jobstore import JSONJobStore
 from bub.config.settings import Settings
 from bub.core import AgentLoop, InputRouter, LoopResult, ModelRunner
 from bub.integrations.republic_client import build_llm, build_tape_store, read_workspace_agents_prompt
@@ -14,6 +19,9 @@ from bub.skills import SkillMetadata, discover_skills, load_skill_body
 from bub.tape import TapeService
 from bub.tools import ProgressiveToolView, ToolRegistry
 from bub.tools.builtin import register_builtin_tools
+
+if TYPE_CHECKING:
+    from bub.channels.bus import MessageBus
 
 
 def _session_slug(session_id: str) -> str:
@@ -39,11 +47,25 @@ class AppRuntime:
         self.workspace = workspace.resolve()
         self.settings = settings
         self._store = build_tape_store(settings, self.workspace)
-        self._llm = build_llm(settings, self._store)
-        self._workspace_prompt = read_workspace_agents_prompt(self.workspace)
+        self.workspace_prompt = read_workspace_agents_prompt(self.workspace)
+        self.load_skill_body = partial(load_skill_body, workspace_path=self.workspace)
+        self.bus: MessageBus | None = None
+        self.registry = ToolRegistry()
+        job_store = JSONJobStore(settings.resolve_home() / "jobs.json")
+        self.scheduler = BackgroundScheduler(daemon=True, jobstores={"default": job_store})
         self._skills = discover_skills(self.workspace)
-        self._load_skill_body = partial(load_skill_body, workspace_path=self.workspace)
+        self._llm = build_llm(settings, self._store)
         self._sessions: dict[str, SessionRuntime] = {}
+
+    def __enter__(self) -> AppRuntime:
+        if not self.scheduler.running:
+            self.scheduler.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        if self.scheduler.running:
+            with suppress(Exception):
+                self.scheduler.shutdown()
 
     @property
     def skills(self) -> list[SkillMetadata]:
@@ -58,14 +80,13 @@ class AppRuntime:
         tape = TapeService(self._llm, tape_name, store=self._store)
         tape.ensure_bootstrap_anchor()
 
-        registry = ToolRegistry()
+        registry = self.registry
         register_builtin_tools(
             registry,
             workspace=self.workspace,
             tape=tape,
-            skills=self._skills,
-            load_skill_body=self._load_skill_body,
-            settings=self.settings,
+            runtime=self,
+            session_id=session_id,
         )
         tool_view = ProgressiveToolView(registry)
         router = InputRouter(registry, tool_view, tape, self.workspace)
@@ -75,13 +96,13 @@ class AppRuntime:
             tool_view=tool_view,
             tools=registry.model_tools(),
             skills=self._skills,
-            load_skill_body=self._load_skill_body,
+            load_skill_body=self.load_skill_body,
             model=self.settings.model,
             max_steps=self.settings.max_steps,
             max_tokens=self.settings.max_tokens,
             model_timeout_seconds=self.settings.model_timeout_seconds,
             base_system_prompt=self.settings.system_prompt,
-            workspace_system_prompt=self._workspace_prompt,
+            workspace_system_prompt=self.workspace_prompt,
         )
         loop = AgentLoop(router=router, model_runner=runner, tape=tape)
         runtime = SessionRuntime(session_id=session_id, loop=loop, tape=tape)
@@ -91,3 +112,6 @@ class AppRuntime:
     async def handle_input(self, session_id: str, text: str) -> LoopResult:
         session = self.get_session(session_id)
         return await session.handle_input(text)
+
+    def set_bus(self, bus: MessageBus) -> None:
+        self.bus = bus

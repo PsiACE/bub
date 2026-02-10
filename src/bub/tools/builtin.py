@@ -2,23 +2,32 @@
 
 from __future__ import annotations
 
-import functools
+import asyncio
 import json
 import shutil
 import subprocess
-from collections.abc import Callable
+import uuid
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib import error as urllib_error
 from urllib import parse as urllib_parse
 from urllib.request import Request, urlopen
 
 import html2markdown
+from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
+from apscheduler.triggers.interval import IntervalTrigger
+from loguru import logger
 from pydantic import BaseModel, Field
+from republic import ToolContext
 
-from bub.config.settings import Settings
-from bub.skills.loader import SkillMetadata
 from bub.tape.service import TapeService
 from bub.tools.registry import ToolRegistry
+
+if TYPE_CHECKING:
+    from bub.app.runtime import AppRuntime
 
 DEFAULT_OLLAMA_WEB_API_BASE = "https://ollama.com/api"
 WEB_REQUEST_TIMEOUT_SECONDS = 20
@@ -95,6 +104,19 @@ class EmptyInput(BaseModel):
     pass
 
 
+class ScheduleAddInput(BaseModel):
+    after_seconds: int | None = Field(None, description="If set, schedule to run after this many seconds from now")
+    interval_seconds: int | None = Field(None, description="If set, repeat at this interval")
+    cron: str | None = Field(
+        None, description="If set, run with cron expression in crontab format: minute hour day month day_of_week"
+    )
+    message: str = Field(..., description="Reminder message to send")
+
+
+class ScheduleRemoveInput(BaseModel):
+    job_id: str = Field(..., description="Job id to remove")
+
+
 def _resolve_path(workspace: Path, raw: str) -> Path:
     path = Path(raw).expanduser()
     if path.is_absolute():
@@ -160,13 +182,17 @@ def register_builtin_tools(
     *,
     workspace: Path,
     tape: TapeService,
-    skills: list[SkillMetadata],
-    load_skill_body: Callable[[str], str | None],
-    settings: Settings,
+    runtime: AppRuntime,
+    session_id: str,
 ) -> None:
     """Register built-in tools and internal commands."""
 
     register = registry.register
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+    support_scheduling = runtime.scheduler.running
 
     @register(name="bash", short_description="Run shell command", model=BashInput)
     def run_bash(params: BashInput) -> str:
@@ -284,15 +310,95 @@ def register_builtin_tools(
         """Fetch URL and convert HTML to markdown-like text."""
         return _fetch_markdown_from_url(params.url)
 
-    if settings.ollama_api_key:
+    def _run_scheduled_reminder(message: str) -> None:
+        from bub.channels.events import InboundMessage
+
+        bus = runtime.bus
+        if bus is None:
+            logger.error("cannot send scheduled reminder: bus is not set")
+            return
+        channel, chat_id = session_id.split(":", 1)
+        inbound_message = InboundMessage(
+            channel=channel,
+            sender_id="scheduler",
+            chat_id=chat_id,
+            content=message,
+        )
+        logger.info("sending scheduled reminder to channel={} chat_id={} message={}", channel, chat_id, message)
+
+        if loop is not None and loop.is_running():
+            loop.call_soon_threadsafe(lambda: asyncio.create_task(bus.publish_inbound(inbound_message)))
+            return
+
+        asyncio.run(bus.publish_inbound(inbound_message))
+
+    if support_scheduling:
+
+        @register(name="schedule.add", short_description="Add a cron schedule", model=ScheduleAddInput, context=True)
+        def schedule_add(params: ScheduleAddInput, context: ToolContext) -> str:
+            """Create or replace a cron-based scheduled shell command."""
+            job_id = str(uuid.uuid4())[:8]
+            if params.after_seconds is not None:
+                trigger = DateTrigger(run_date=datetime.now(UTC) + timedelta(seconds=params.after_seconds))
+            elif params.interval_seconds is not None:
+                trigger = IntervalTrigger(seconds=params.interval_seconds)
+            else:
+                try:
+                    trigger = CronTrigger.from_crontab(params.cron)
+                except ValueError as exc:
+                    raise RuntimeError(f"invalid cron expression: {params.cron}") from exc
+
+            try:
+                job = runtime.scheduler.add_job(
+                    _run_scheduled_reminder,
+                    trigger=trigger,
+                    id=job_id,
+                    kwargs={"message": params.message},
+                    coalesce=True,
+                    max_instances=1,
+                )
+            except ConflictingIdError as exc:
+                raise RuntimeError(f"job id already exists: {job_id}") from exc
+
+            next_run = "-"
+            if isinstance(job.next_run_time, datetime):
+                next_run = job.next_run_time.isoformat()
+            return f"scheduled: {job.id} next={next_run}"
+
+        @register(name="schedule.remove", short_description="Remove a scheduled job", model=ScheduleRemoveInput)
+        def schedule_remove(params: ScheduleRemoveInput) -> str:
+            """Remove one scheduled job by id."""
+            try:
+                runtime.scheduler.remove_job(params.job_id)
+            except JobLookupError as exc:
+                raise RuntimeError(f"job not found: {params.job_id}") from exc
+            return f"removed: {params.job_id}"
+
+        @register(name="schedule.list", short_description="List scheduled jobs", model=EmptyInput)
+        def schedule_list(_params: EmptyInput) -> str:
+            """List scheduled jobs for current workspace."""
+            jobs = runtime.scheduler.get_jobs()
+            if not jobs:
+                return "(no scheduled jobs)"
+
+            rows: list[str] = []
+            for job in jobs:
+                next_run = "-"
+                if isinstance(job.next_run_time, datetime):
+                    next_run = job.next_run_time.isoformat()
+                message = str(job.kwargs.get("message", ""))
+                rows.append(f"{job.id} next={next_run} msg={message}")
+            return "\n".join(rows)
+
+    if runtime.settings.ollama_api_key:
 
         @register(name="web.search", short_description="Search the web", model=SearchInput)
         def web_search_ollama(params: SearchInput) -> str:
-            api_key = settings.ollama_api_key
+            api_key = runtime.settings.ollama_api_key
             if not api_key:
                 return "error: ollama api key is not configured"
 
-            api_base = _normalize_api_base(settings.ollama_api_base or DEFAULT_OLLAMA_WEB_API_BASE)
+            api_base = _normalize_api_base(runtime.settings.ollama_api_base or DEFAULT_OLLAMA_WEB_API_BASE)
             if not api_base:
                 return "error: invalid ollama api base url"
 
@@ -358,6 +464,9 @@ def register_builtin_tools(
             "  ,tape.anchors\n"
             "  ,tape.info\n"
             "  ,tape.search query=error\n"
+            "  ,schedule.add cron='*/5 * * * *' message='echo hello'\n"
+            "  ,schedule.list\n"
+            "  ,schedule.remove job_id=my-job\n"
             "  ,skills.list\n"
             "  ,skills.describe name=friendly-python\n"
             "  ,quit\n"
@@ -415,14 +524,14 @@ def register_builtin_tools(
     @register(name="skills.list", short_description="List skills", model=EmptyInput)
     def list_skills(_params: EmptyInput) -> str:
         """List all discovered skills in compact form."""
-        if not skills:
+        if not runtime.skills:
             return "(no skills)"
-        return "\n".join(f"{skill.name}: {skill.description}" for skill in skills)
+        return "\n".join(f"{skill.name}: {skill.description}" for skill in runtime.skills)
 
     @register(name="skills.describe", short_description="Load skill body", model=SkillNameInput)
     def describe_skill(params: SkillNameInput) -> str:
         """Load full SKILL.md body for one skill name."""
-        body = load_skill_body(params.name)
+        body = runtime.load_skill_body(params.name)
         if not body:
             raise RuntimeError(f"skill not found: {params.name}")
         return body
@@ -431,22 +540,3 @@ def register_builtin_tools(
     def quit_command(_params: EmptyInput) -> str:
         """Request exit from interactive CLI."""
         return "exit"
-
-    def _skill_handler(_params: EmptyInput, *, skill_name: str) -> str:
-        body = load_skill_body(skill_name)
-        if not body:
-            raise RuntimeError(f"skill not found: {skill_name}")
-        return body
-
-    for skill in skills:
-        tool_name = f"skill.{skill.name}"
-        if registry.has(tool_name):
-            continue
-
-        registry.register(
-            name=tool_name,
-            short_description=skill.description,
-            detail=f"Load SKILL.md content for skill: {skill.name}",
-            model=EmptyInput,
-            source="skill",
-        )(functools.partial(_skill_handler, skill_name=skill.name))

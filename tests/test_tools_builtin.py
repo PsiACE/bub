@@ -1,7 +1,12 @@
 import json
+import re
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+import pytest
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from bub.config.settings import Settings
 from bub.tools.builtin import register_builtin_tools
@@ -37,27 +42,49 @@ class _DummyTape:
         return "reset"
 
 
-def _build_registry(workspace: Path, settings: Settings) -> ToolRegistry:
+class _DummyRuntime:
+    def __init__(self, settings: Settings, scheduler: BackgroundScheduler) -> None:
+        self.settings = settings
+        self.scheduler = scheduler
+        self.skills: list[object] = []
+        self.bus = None
+
+    @staticmethod
+    def load_skill_body(_name: str) -> str | None:
+        return None
+
+
+def _build_registry(workspace: Path, settings: Settings, scheduler: BackgroundScheduler) -> ToolRegistry:
     registry = ToolRegistry()
+    runtime = _DummyRuntime(settings, scheduler)
     register_builtin_tools(
         registry,
         workspace=workspace,
         tape=_DummyTape(),  # type: ignore[arg-type]
-        skills=[],
-        load_skill_body=lambda _name: None,
-        settings=settings,
+        runtime=runtime,  # type: ignore[arg-type]
+        session_id="cli:test",
     )
     return registry
 
 
-def test_web_search_default_returns_duckduckgo_url(tmp_path: Path) -> None:
+@pytest.fixture
+def scheduler() -> Iterator[BackgroundScheduler]:
+    scheduler = BackgroundScheduler(daemon=True)
+    scheduler.start()
+    yield scheduler
+    scheduler.shutdown(wait=False)
+
+
+def test_web_search_default_returns_duckduckgo_url(tmp_path: Path, scheduler: BackgroundScheduler) -> None:
     settings = Settings(_env_file=None, model="openrouter:test")
-    registry = _build_registry(tmp_path, settings)
+    registry = _build_registry(tmp_path, settings, scheduler)
     result = registry.execute("web.search", kwargs={"query": "psiace bub"})
     assert result == "https://duckduckgo.com/?q=psiace+bub"
 
 
-def test_web_fetch_default_normalizes_url_and_extracts_text(tmp_path: Path, monkeypatch: Any) -> None:
+def test_web_fetch_default_normalizes_url_and_extracts_text(
+    tmp_path: Path, monkeypatch: Any, scheduler: BackgroundScheduler
+) -> None:
     observed_urls: list[str] = []
 
     class _Headers:
@@ -86,7 +113,7 @@ def test_web_fetch_default_normalizes_url_and_extracts_text(tmp_path: Path, monk
     monkeypatch.setattr("bub.tools.builtin.urlopen", _fake_urlopen)
 
     settings = Settings(_env_file=None, model="openrouter:test")
-    registry = _build_registry(tmp_path, settings)
+    registry = _build_registry(tmp_path, settings, scheduler)
     result = registry.execute("web.fetch", kwargs={"url": "example.com"})
 
     assert observed_urls == ["https://example.com"]
@@ -94,7 +121,7 @@ def test_web_fetch_default_normalizes_url_and_extracts_text(tmp_path: Path, monk
     assert "Hello world." in result
 
 
-def test_web_search_ollama_mode_calls_api(tmp_path: Path, monkeypatch: Any) -> None:
+def test_web_search_ollama_mode_calls_api(tmp_path: Path, monkeypatch: Any, scheduler: BackgroundScheduler) -> None:
     observed_request: dict[str, str] = {}
 
     class _Response:
@@ -132,7 +159,7 @@ def test_web_search_ollama_mode_calls_api(tmp_path: Path, monkeypatch: Any) -> N
         ollama_api_key="ollama-test-key",
         ollama_api_base="https://search.ollama.test/api",
     )
-    registry = _build_registry(tmp_path, settings)
+    registry = _build_registry(tmp_path, settings, scheduler)
     result = registry.execute("web.search", kwargs={"query": "test query", "max_results": 3})
 
     assert observed_request["url"] == "https://search.ollama.test/api/web_search"
@@ -143,7 +170,9 @@ def test_web_search_ollama_mode_calls_api(tmp_path: Path, monkeypatch: Any) -> N
     assert "Example snippet" in result
 
 
-def test_web_fetch_ollama_mode_normalizes_url_and_extracts_text(tmp_path: Path, monkeypatch: Any) -> None:
+def test_web_fetch_ollama_mode_normalizes_url_and_extracts_text(
+    tmp_path: Path, monkeypatch: Any, scheduler: BackgroundScheduler
+) -> None:
     observed_urls: list[str] = []
 
     class _Headers:
@@ -176,7 +205,7 @@ def test_web_fetch_ollama_mode_normalizes_url_and_extracts_text(tmp_path: Path, 
         model="openrouter:test",
         ollama_api_key="ollama-test-key",
     )
-    registry = _build_registry(tmp_path, settings)
+    registry = _build_registry(tmp_path, settings, scheduler)
     result = registry.execute("web.fetch", kwargs={"url": "example.com"})
 
     assert observed_urls == ["https://example.com"]
@@ -184,7 +213,7 @@ def test_web_fetch_ollama_mode_normalizes_url_and_extracts_text(tmp_path: Path, 
     assert "Hello world." in result
 
 
-def test_fs_grep_skips_binary_files_and_still_matches_text(tmp_path: Path) -> None:
+def test_fs_grep_skips_binary_files_and_still_matches_text(tmp_path: Path, scheduler: BackgroundScheduler) -> None:
     (tmp_path / "docs").mkdir()
     text_file = tmp_path / "docs" / "guide.md"
     text_file.write_text("line1\nBUB_TELEGRAM_ENABLED=true\n", encoding="utf-8")
@@ -193,19 +222,88 @@ def test_fs_grep_skips_binary_files_and_still_matches_text(tmp_path: Path) -> No
     binary_file.write_bytes(b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR")
 
     settings = Settings(_env_file=None, model="openrouter:test")
-    registry = _build_registry(tmp_path, settings)
+    registry = _build_registry(tmp_path, settings, scheduler)
     result = registry.execute("fs.grep", kwargs={"pattern": "BUB_TELEGRAM", "path": "docs"})
 
     assert "guide.md:2:BUB_TELEGRAM_ENABLED=true" in result
     assert "image.png" not in result
 
 
-def test_fs_grep_returns_no_matches_for_binary_only_tree(tmp_path: Path) -> None:
+def test_fs_grep_returns_no_matches_for_binary_only_tree(tmp_path: Path, scheduler: BackgroundScheduler) -> None:
     (tmp_path / "bin").mkdir()
     (tmp_path / "bin" / "blob.dat").write_bytes(b"\x00\xf3\x89\x10\xff")
 
     settings = Settings(_env_file=None, model="openrouter:test")
-    registry = _build_registry(tmp_path, settings)
+    registry = _build_registry(tmp_path, settings, scheduler)
     result = registry.execute("fs.grep", kwargs={"pattern": "telegram", "path": "bin"})
 
     assert result == "(no matches)"
+
+
+def test_schedule_add_list_remove_roundtrip(tmp_path: Path, scheduler: BackgroundScheduler) -> None:
+    settings = Settings(_env_file=None, model="openrouter:test")
+    registry = _build_registry(tmp_path, settings, scheduler)
+
+    add_result = registry.execute(
+        "schedule.add",
+        kwargs={
+            "cron": "*/5 * * * *",
+            "message": "hello",
+        },
+    )
+    assert add_result.startswith("scheduled: ")
+    matched = re.match(r"^scheduled: (?P<job_id>[a-z0-9-]+) next=.*$", add_result)
+    assert matched is not None
+    job_id = matched.group("job_id")
+
+    list_result = registry.execute("schedule.list", kwargs={})
+    assert job_id in list_result
+    assert "msg=hello" in list_result
+
+    remove_result = registry.execute("schedule.remove", kwargs={"job_id": job_id})
+    assert remove_result == f"removed: {job_id}"
+
+    assert registry.execute("schedule.list", kwargs={}) == "(no scheduled jobs)"
+
+
+def test_schedule_add_rejects_invalid_cron(tmp_path: Path, scheduler: BackgroundScheduler) -> None:
+    settings = Settings(_env_file=None, model="openrouter:test")
+    registry = _build_registry(tmp_path, settings, scheduler)
+
+    try:
+        registry.execute(
+            "schedule.add",
+            kwargs={"cron": "* * *", "message": "bad"},
+        )
+        raise AssertionError("expected RuntimeError")
+    except RuntimeError as exc:
+        assert "invalid cron expression" in str(exc)
+
+
+def test_schedule_remove_missing_job_returns_error(tmp_path: Path, scheduler: BackgroundScheduler) -> None:
+    settings = Settings(_env_file=None, model="openrouter:test")
+    registry = _build_registry(tmp_path, settings, scheduler)
+
+    try:
+        registry.execute("schedule.remove", kwargs={"job_id": "missing"})
+        raise AssertionError("expected RuntimeError")
+    except RuntimeError as exc:
+        assert "job not found: missing" in str(exc)
+
+
+def test_schedule_shared_scheduler_across_registries(tmp_path: Path, scheduler: BackgroundScheduler) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    settings = Settings(_env_file=None, model="openrouter:test")
+    registry_a = _build_registry(workspace, settings, scheduler)
+    registry_b = _build_registry(workspace, settings, scheduler)
+
+    add_result = registry_a.execute(
+        "schedule.add",
+        kwargs={"cron": "*/5 * * * *", "message": "from-a"},
+    )
+    matched = re.match(r"^scheduled: (?P<job_id>[a-z0-9-]+) next=.*$", add_result)
+    assert matched is not None
+
+    assert matched.group("job_id") in registry_b.execute("schedule.list", kwargs={})

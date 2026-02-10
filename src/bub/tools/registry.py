@@ -172,7 +172,7 @@ class ToolRegistry:
                 rendered = json.dumps(value, ensure_ascii=False)
             except TypeError:
                 rendered = repr(value)
-            value = _shorten_text(rendered, width=30, placeholder="...")
+            value = _shorten_text(rendered, width=60, placeholder="...")
             if value.startswith('"') and not value.endswith('"'):
                 value = value + '"'
             if value.startswith("{") and not value.endswith("}"):
