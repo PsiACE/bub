@@ -7,6 +7,17 @@ from pathlib import Path
 from bub.app.runtime import AppRuntime
 from bub.config import load_settings
 
+# Global singleton runtime instance
+_runtime: AppRuntime | None = None
+
+
+def get_runtime() -> AppRuntime:
+    """Get or create the global app runtime."""
+    global _runtime
+    if _runtime is None:
+        raise RuntimeError("AppRuntime is not initialized. Call build_runtime() first.")
+    return _runtime
+
 
 def build_runtime(
     workspace: Path,
@@ -16,6 +27,7 @@ def build_runtime(
 ) -> AppRuntime:
     """Build app runtime for one workspace."""
 
+    global _runtime
     settings = load_settings(workspace)
     updates: dict[str, object] = {}
     if model:
@@ -24,4 +36,5 @@ def build_runtime(
         updates["max_tokens"] = max_tokens
     if updates:
         settings = settings.model_copy(update=updates)
-    return AppRuntime(workspace, settings)
+    _runtime = AppRuntime(workspace, settings)
+    return _runtime

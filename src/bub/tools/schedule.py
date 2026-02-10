@@ -1,23 +1,15 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
 
 from loguru import logger
 
-if TYPE_CHECKING:
-    from bub.app.runtime import AppRuntime
-
-runtime: AppRuntime | None = None
-
-
-def set_runtime(app_runtime: AppRuntime) -> None:
-    global runtime
-    runtime = app_runtime
-
 
 def run_scheduled_reminder(message: str, session_id: str) -> None:
+    from bub.app import get_runtime
     from bub.channels.events import InboundMessage
+
+    runtime = get_runtime()
 
     if runtime is None:
         logger.error("cannot send scheduled reminder: runtime is not set")

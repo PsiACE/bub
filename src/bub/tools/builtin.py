@@ -174,9 +174,8 @@ def register_builtin_tools(
     session_id: str,
 ) -> None:
     """Register built-in tools and internal commands."""
-    from bub.tools.schedule import run_scheduled_reminder, set_runtime
+    from bub.tools.schedule import run_scheduled_reminder
 
-    set_runtime(runtime)
     support_scheduling = runtime.scheduler.running
     register = registry.register
 
