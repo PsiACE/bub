@@ -169,14 +169,14 @@ class TestMemoryZone:
         assert snap.long_term == "User prefers Python 3.12"
         assert snap.version == 2
 
-    def test_save_long_term_replaces_previous(self) -> None:
+    def test_save_long_term_appends_to_previous(self) -> None:
         _, zone = self._make_zone()
         zone.ensure()
         zone.save_long_term("first")
         zone.save_long_term("second")
 
         snap = zone.read()
-        assert snap.long_term == "second"
+        assert snap.long_term == "first\nsecond"
         assert snap.version == 3
 
     def test_append_daily(self) -> None:
@@ -277,10 +277,11 @@ class TestMemoryZone:
         seal_count = sum(1 for e in fake.entries if e.kind == "anchor" and e.payload.get("name") == MEMORY_SEAL_ANCHOR)
         assert seal_count >= 2  # at least ensure + 2 saves = 3
 
-        # But reading should only return the latest
+        # Reading should return the latest (which has both appended)
         zone2 = MemoryZone(fake)  # type: ignore[arg-type]
         snap = zone2.read()
-        assert snap.long_term == "new memory"
+        assert "old memory" in snap.long_term
+        assert "new memory" in snap.long_term
 
     def test_tape_entries_structure(self) -> None:
         """Verify the actual JSONL entry structure written to tape."""

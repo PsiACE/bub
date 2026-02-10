@@ -104,8 +104,8 @@ class SkillNameInput(BaseModel):
 class MemorySaveInput(BaseModel):
     content: str = Field(
         ...,
-        description="Full long-term memory content. This REPLACES all existing long-term memory, "
-        "so always include previous memories you want to keep.",
+        description="The exact text the user asked you to remember — pass their words VERBATIM, "
+        "do NOT paraphrase, summarize, or rewrite. This is APPENDED to existing long-term memory.",
     )
 
 
@@ -571,14 +571,9 @@ def register_builtin_tools(
 
     @register(name="memory.save", short_description="Save to long-term memory", model=MemorySaveInput)
     def memory_save(params: MemorySaveInput) -> str:
-        """Replace entire long-term memory. Include all existing content you want to keep."""
-        previous = tape.memory.read().long_term
+        """Append to long-term memory. Content is stored verbatim."""
         tape.memory.save_long_term(params.content)
-        if previous and previous not in params.content:
-            return (
-                f"saved to long-term memory (warning: previous content was replaced; previous_length={len(previous)})"
-            )
-        return "saved to long-term memory"
+        return "appended to long-term memory"
 
     @register(name="memory.daily", short_description="Append to daily notes", model=MemoryDailyInput)
     def memory_daily(params: MemoryDailyInput) -> str:

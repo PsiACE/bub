@@ -252,8 +252,8 @@ def _runtime_contract() -> str:
         "4) Never emit '<command ...>' blocks yourself; those are runtime-generated.\n"
         "5) When enough evidence is collected, return plain natural language answer.\n"
         "6) Use '$name' hints to request detail expansion for tools/skills when needed.\n"
-        "7) When the user shares a preference, project context, or important fact, "
-        "use `memory.save` to persist it, `memory.daily` to log work progress, and "
-        "`memory.recall` / `memory.clear` to retrieve or remove stored items when appropriate.\n"
+        "7) When the user asks you to remember something, save their EXACT words verbatim "
+        "using `memory.save` — do NOT paraphrase, summarize, or rewrite. "
+        "Use `memory.daily` for work progress, `memory.recall` / `memory.clear` to retrieve or remove.\n"
         "</runtime_contract>"
     )

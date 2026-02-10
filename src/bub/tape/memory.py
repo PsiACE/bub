@@ -132,7 +132,7 @@ class MemoryZone:
 
         # Add usage hint so the LLM knows how to interact with memory
         header = (
-            "Use `memory.save` to update long-term memory, "
+            "Use `memory.save` to append to long-term memory (pass the user's exact words, never paraphrase), "
             "`memory.daily` to append to daily notes, "
             "and `memory.recall` to search past memories."
         )
@@ -143,9 +143,12 @@ class MemoryZone:
     # ------------------------------------------------------------------
 
     def save_long_term(self, content: str) -> None:
-        """Replace the long-term memory content and rewrite the zone."""
+        """Append *content* to long-term memory (creates if empty)."""
         snap = self.read()
-        snap.long_term = content
+        if snap.long_term:
+            snap.long_term = snap.long_term + "\n" + content
+        else:
+            snap.long_term = content
         self._bump_and_write(snap)
         logger.info("memory.long_term.saved version={}", snap.version)
 
