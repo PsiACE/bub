@@ -13,7 +13,6 @@ _runtime: AppRuntime | None = None
 
 def get_runtime() -> AppRuntime:
     """Get or create the global app runtime."""
-    global _runtime
     if _runtime is None:
         raise RuntimeError("AppRuntime is not initialized. Call build_runtime() first.")
     return _runtime
@@ -24,6 +23,8 @@ def build_runtime(
     *,
     model: str | None = None,
     max_tokens: int | None = None,
+    allowed_tools: set[str] | None = None,
+    allowed_skills: set[str] | None = None,
 ) -> AppRuntime:
     """Build app runtime for one workspace."""
 
@@ -36,5 +37,10 @@ def build_runtime(
         updates["max_tokens"] = max_tokens
     if updates:
         settings = settings.model_copy(update=updates)
-    _runtime = AppRuntime(workspace, settings)
+    _runtime = AppRuntime(
+        workspace,
+        settings,
+        allowed_tools=allowed_tools,
+        allowed_skills=allowed_skills,
+    )
     return _runtime

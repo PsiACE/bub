@@ -81,3 +81,104 @@ def test_telegram_command_validates_enabled(monkeypatch, tmp_path: Path) -> None
     result = runner.invoke(cli_app_module.app, ["telegram", "--workspace", str(tmp_path)])
     assert result.exit_code != 0
     assert "telegram is disabled" in result.output
+
+
+def test_run_command_forwards_allowed_tools_and_skills(monkeypatch, tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    class _RunRuntime(DummyRuntime):
+        async def handle_input(self, _session_id: str, _text: str):
+            class _Result:
+                error = None
+                assistant_output = "ok"
+                immediate_output = ""
+
+            return _Result()
+
+    def _fake_build_runtime(
+        workspace: Path,
+        *,
+        model=None,
+        max_tokens=None,
+        allowed_tools=None,
+        allowed_skills=None,
+    ):
+        captured["workspace"] = workspace
+        captured["model"] = model
+        captured["max_tokens"] = max_tokens
+        captured["allowed_tools"] = allowed_tools
+        captured["allowed_skills"] = allowed_skills
+        return _RunRuntime(workspace)
+
+    monkeypatch.setattr(cli_app_module, "build_runtime", _fake_build_runtime)
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_app_module.app,
+        [
+            "run",
+            "ping",
+            "--workspace",
+            str(tmp_path),
+            "--tools",
+            "fs.read, web.search",
+            "--tools",
+            "bash",
+            "--skills",
+            "skill-a, skill-b",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "ok" in result.output
+    assert captured["workspace"] == tmp_path
+    assert captured["allowed_tools"] == {"fs.read", "web.search", "bash"}
+    assert captured["allowed_skills"] == {"skill-a", "skill-b"}
+
+
+def test_run_command_uses_env_session_id_by_default(monkeypatch, tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    class _RunRuntime(DummyRuntime):
+        async def handle_input(self, session_id: str, _text: str):
+            captured["session_id"] = session_id
+
+            class _Result:
+                error = None
+                assistant_output = "ok"
+                immediate_output = ""
+
+            return _Result()
+
+    monkeypatch.setenv("BUB_SESSION_ID", "parent-session")
+    monkeypatch.setattr(cli_app_module, "build_runtime", lambda workspace, **_: _RunRuntime(workspace))
+    runner = CliRunner()
+    result = runner.invoke(cli_app_module.app, ["run", "ping", "--workspace", str(tmp_path)])
+
+    assert result.exit_code == 0
+    assert captured["session_id"] == "parent-session"
+
+
+def test_run_command_session_id_option_overrides_env(monkeypatch, tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    class _RunRuntime(DummyRuntime):
+        async def handle_input(self, session_id: str, _text: str):
+            captured["session_id"] = session_id
+
+            class _Result:
+                error = None
+                assistant_output = "ok"
+                immediate_output = ""
+
+            return _Result()
+
+    monkeypatch.setenv("BUB_SESSION_ID", "parent-session")
+    monkeypatch.setattr(cli_app_module, "build_runtime", lambda workspace, **_: _RunRuntime(workspace))
+    runner = CliRunner()
+    result = runner.invoke(
+        cli_app_module.app,
+        ["run", "ping", "--workspace", str(tmp_path), "--session-id", "explicit-session"],
+    )
+
+    assert result.exit_code == 0
+    assert captured["session_id"] == "explicit-session"

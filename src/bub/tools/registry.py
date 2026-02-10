@@ -51,8 +51,9 @@ class ToolDescriptor:
 class ToolRegistry:
     """Registry for built-in tools, internal commands, and skill-backed tools."""
 
-    def __init__(self) -> None:
+    def __init__(self, allowed_tools: set[str] | None = None) -> None:
         self._tools: dict[str, ToolDescriptor] = {}
+        self._allowed_tools = allowed_tools
 
     def register(
         self,
@@ -63,9 +64,15 @@ class ToolRegistry:
         model: type[BaseModel] | None = None,
         context: bool = False,
         source: str = "builtin",
-    ) -> Callable[[Callable], ToolDescriptor]:
-        def decorator(func: Callable[P, T]) -> ToolDescriptor:
+    ) -> Callable[[Callable], ToolDescriptor | None]:
+        def decorator(func: Callable[P, T]) -> ToolDescriptor | None:
             tool_detail = detail or func.__doc__ or ""
+            if (
+                self._allowed_tools is not None
+                and name.casefold() not in self._allowed_tools
+                and self.to_model_name(name).casefold() not in self._allowed_tools
+            ):
+                return None
 
             @wraps(func)
             def handler(*args: Any, **kwargs: Any) -> T:

@@ -44,14 +44,22 @@ class SessionRuntime:
 class AppRuntime:
     """Global runtime that manages multiple session loops."""
 
-    def __init__(self, workspace: Path, settings: Settings) -> None:
+    def __init__(
+        self,
+        workspace: Path,
+        settings: Settings,
+        *,
+        allowed_tools: set[str] | None = None,
+        allowed_skills: set[str] | None = None,
+    ) -> None:
         self.workspace = workspace.resolve()
         self.settings = settings
+        self._allowed_skills = _normalize_name_set(allowed_skills)
         self._store = build_tape_store(settings, self.workspace)
         self.workspace_prompt = read_workspace_agents_prompt(self.workspace)
         self.bus: MessageBus | None = None
         self.loop: AbstractEventLoop | None = None
-        self.registry = ToolRegistry()
+        self.registry = ToolRegistry(_normalize_name_set(allowed_tools))
         job_store = JSONJobStore(settings.resolve_home() / "jobs.json")
         self.scheduler = BackgroundScheduler(daemon=True, jobstores={"default": job_store})
         self._llm = build_llm(settings, self._store)
@@ -68,9 +76,14 @@ class AppRuntime:
                 self.scheduler.shutdown()
 
     def discover_skills(self) -> list[SkillMetadata]:
-        return discover_skills(self.workspace)
+        discovered = discover_skills(self.workspace)
+        if self._allowed_skills is None:
+            return discovered
+        return [skill for skill in discovered if skill.name.casefold() in self._allowed_skills]
 
     def load_skill_body(self, skill_name: str) -> str | None:
+        if self._allowed_skills is not None and skill_name.casefold() not in self._allowed_skills:
+            return None
         return load_skill_body(skill_name, self.workspace)
 
     def get_session(self, session_id: str) -> SessionRuntime:
@@ -119,3 +132,11 @@ class AppRuntime:
 
     def set_bus(self, bus: MessageBus) -> None:
         self.bus = bus
+
+
+def _normalize_name_set(raw: set[str] | None) -> set[str] | None:
+    if raw is None:
+        return None
+
+    normalized = {name.strip().casefold() for name in raw if name.strip()}
+    return normalized or None

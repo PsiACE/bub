@@ -322,3 +322,30 @@ def test_skills_list_uses_latest_runtime_skills(tmp_path: Path, scheduler: Backg
     second = registry.execute("skills.list", kwargs={})
     assert "alpha: first" in second
     assert "beta: second" in second
+
+
+def test_bash_tool_inherits_runtime_session_id(
+    tmp_path: Path, monkeypatch: Any, scheduler: BackgroundScheduler
+) -> None:
+    observed: dict[str, object] = {}
+
+    class _Completed:
+        returncode = 0
+        stdout = "ok"
+        stderr = ""
+
+    def _fake_run(*args: Any, **kwargs: Any) -> _Completed:
+        observed["args"] = args
+        observed["kwargs"] = kwargs
+        return _Completed()
+
+    monkeypatch.setattr("bub.tools.builtin.subprocess.run", _fake_run)
+
+    settings = Settings(_env_file=None, model="openrouter:test")
+    registry = _build_registry(tmp_path, settings, scheduler)
+    result = registry.execute("bash", kwargs={"cmd": "echo hi"})
+
+    assert result == "ok"
+    kwargs = observed["kwargs"]
+    assert isinstance(kwargs, dict)
+    assert kwargs["env"]["BUB_SESSION_ID"] == "cli:test"

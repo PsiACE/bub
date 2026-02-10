@@ -20,6 +20,19 @@ TELEGRAM_DISABLED_ERROR = "telegram is disabled; set BUB_TELEGRAM_ENABLED=true"
 TELEGRAM_TOKEN_ERROR = "missing telegram token; set BUB_TELEGRAM_TOKEN"  # noqa: S105
 
 
+def _parse_subset(values: list[str] | None) -> set[str] | None:
+    if values is None:
+        return None
+
+    names: set[str] = set()
+    for raw in values:
+        for part in raw.split(","):
+            name = part.strip()
+            if name:
+                names.add(name)
+    return names or None
+
+
 @app.callback(invoke_without_command=True)
 def _default(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is None:
@@ -53,20 +66,44 @@ def run(
     workspace: Annotated[Path | None, typer.Option("--workspace", "-w")] = None,
     model: Annotated[str | None, typer.Option("--model")] = None,
     max_tokens: Annotated[int | None, typer.Option("--max-tokens")] = None,
-    session_id: Annotated[str, typer.Option("--session-id")] = "cli",
+    session_id: Annotated[str, typer.Option("--session-id", envvar="BUB_SESSION_ID")] = "cli",
+    tools: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--tools",
+            help="Allowed tool names (repeatable or comma-separated, supports command and model names).",
+        ),
+    ] = None,
+    skills: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--skills",
+            help="Allowed skill names (repeatable or comma-separated).",
+        ),
+    ] = None,
 ) -> None:
     """Run a single message and exit, useful for quick testing or one-off commands."""
     import rich
 
     configure_logging(profile="chat")
     resolved_workspace = (workspace or Path.cwd()).resolve()
+    allowed_tools = _parse_subset(tools)
+    allowed_skills = _parse_subset(skills)
     logger.info(
-        "run.start workspace={} model={} max_tokens={}",
+        "run.start workspace={} model={} max_tokens={} allowed_tools={} allowed_skills={}",
         str(resolved_workspace),
         model or "<default>",
         max_tokens if max_tokens is not None else "<default>",
+        ",".join(sorted(allowed_tools)) if allowed_tools else "<all>",
+        ",".join(sorted(allowed_skills)) if allowed_skills else "<all>",
     )
-    runtime = build_runtime(resolved_workspace, model=model, max_tokens=max_tokens)
+    runtime = build_runtime(
+        resolved_workspace,
+        model=model,
+        max_tokens=max_tokens,
+        allowed_tools=allowed_tools,
+        allowed_skills=allowed_skills,
+    )
     result = asyncio.run(runtime.handle_input(session_id, message))
     if result.error:
         rich.print(f"[red]Error:[/red] {result.error}", file=sys.stderr)

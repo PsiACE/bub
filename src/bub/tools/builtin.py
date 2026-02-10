@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import uuid
@@ -31,6 +32,7 @@ DEFAULT_OLLAMA_WEB_API_BASE = "https://ollama.com/api"
 WEB_REQUEST_TIMEOUT_SECONDS = 20
 MAX_FETCH_BYTES = 1_000_000
 WEB_USER_AGENT = "bub-web-tools/1.0"
+SESSION_ID_ENV_VAR = "BUB_SESSION_ID"
 
 
 class BashInput(BaseModel):
@@ -184,11 +186,14 @@ def register_builtin_tools(
         """Execute bash in workspace. Non-zero exit raises an error."""
         cwd = params.cwd or str(workspace)
         executable = shutil.which("bash") or "bash"
+        env = dict(os.environ)
+        env[SESSION_ID_ENV_VAR] = session_id
         completed = subprocess.run(  # noqa: S603
             [executable, "-lc", params.cmd],
             cwd=cwd,
             capture_output=True,
             text=True,
+            env=env,
         )
         stdout = (completed.stdout or "").strip()
         stderr = (completed.stderr or "").strip()

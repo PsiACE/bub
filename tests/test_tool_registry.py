@@ -72,3 +72,13 @@ def test_registry_model_tool_name_conflict_raises_error() -> None:
 
     with pytest.raises(ValueError, match="Duplicate model tool name"):
         registry.model_tools()
+
+
+def test_registry_restrict_to_matches_command_and_model_names() -> None:
+    registry = ToolRegistry({"fs_read"})
+
+    registry.register(name="fs.read", short_description="read", detail="read")(lambda: "read")
+    registry.register(name="web.search", short_description="search", detail="search")(lambda: "search")
+
+    assert registry.get("fs.read") is not None
+    assert registry.get("web.search") is None
