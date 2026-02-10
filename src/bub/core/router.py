@@ -67,8 +67,13 @@ class InputRouter:
         stripped = raw.strip()
         if not stripped:
             return UserRouteResult(enter_model=False, model_prompt="", immediate_output="", exit_requested=False)
-
-        command = self._detect_user_command(stripped)
+        try:
+            # For telegram wrapped messages
+            parsed = json.loads(stripped)
+            text = parsed.get("message", stripped)
+        except json.JSONDecodeError:
+            text = stripped
+        command = self._detect_user_command(text)
         if command is None:
             return UserRouteResult(enter_model=True, model_prompt=stripped, immediate_output="", exit_requested=False)
 
