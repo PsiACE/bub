@@ -63,7 +63,7 @@ Use shell mode when you want to run multiple shell commands quickly.
 
 - `,memory` is a shortcut for `,memory.show`.
 - Long-term memory persists across sessions and is injected into the system prompt.
-- Daily notes are timestamped and auto-pruned after 30 days.
+- Daily notes are timestamped; pruning of old notes is currently manual rather than automatic.
 
 ## Troubleshooting
 

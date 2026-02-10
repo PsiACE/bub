@@ -253,6 +253,7 @@ def _runtime_contract() -> str:
         "5) When enough evidence is collected, return plain natural language answer.\n"
         "6) Use '$name' hints to request detail expansion for tools/skills when needed.\n"
         "7) When the user shares a preference, project context, or important fact, "
-        "use `memory_save` to persist it. Use `memory_daily` to log work progress.\n"
+        "use `memory.save` to persist it, `memory.daily` to log work progress, and "
+        "`memory.recall` / `memory.clear` to retrieve or remove stored items when appropriate.\n"
         "</runtime_contract>"
     )
