@@ -43,9 +43,7 @@ class _DummyTape:
 
 
 class _DummyRuntime:
-    def __init__(
-        self, settings: Settings, scheduler: BackgroundScheduler, session_id: str = "cli:test"
-    ) -> None:
+    def __init__(self, settings: Settings, scheduler: BackgroundScheduler, session_id: str = "cli:test") -> None:
         self.settings = settings
         self.scheduler = scheduler
         self._discovered_skills: list[object] = []
@@ -57,9 +55,11 @@ class _DummyRuntime:
         }
         # Add a jobstore for this session if not exists
         if jobstore_alias not in scheduler._jobstores:
+            import tempfile
+
             from bub.app.jobstore import JSONJobStore
 
-            jobstore_path = Path(f"/tmp/bub_test_jobs_{session_id.replace(':', '_')}.json")
+            jobstore_path = Path(tempfile.gettempdir()) / f"bub_test_jobs_{session_id.replace(':', '_')}.json"
             scheduler.add_jobstore(JSONJobStore(jobstore_path), alias=jobstore_alias)
 
     def discover_skills(self) -> list[object]:
