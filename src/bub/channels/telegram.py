@@ -144,10 +144,10 @@ class TelegramChannel(BaseChannel):
             # Italic: *text* or _text_
             text = re.sub(r"\*(.+?)\*", r"<i>\1</i>", text)
             text = re.sub(r"_(.+?)_", r"<i>\1</i>", text)
+            # Code block
+            text = re.sub(r"```(.+?)```", r"<pre>\1</pre>", text, flags=re.DOTALL)
             # Inline code: `text`
             text = re.sub(r"`(.+?)`", r"<code>\1</code>", text)
-            # Newlines to <br>
-            text = text.replace("\n", "<br>")
             text = f"<blockquote expandable>{text}</blockquote>"
             parse_mode = "HTML"
         else:
