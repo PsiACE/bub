@@ -36,6 +36,15 @@ class FakeTapeService:
     def read_entries(self) -> list[FakeEntry]:
         return list(self.entries)
 
+    def append_anchor(self, name: str, *, state: dict[str, Any] | None = None) -> None:
+        entry = FakeEntry(
+            id=self._next_id,
+            kind="anchor",
+            payload={"name": name, "state": state or {}},
+        )
+        self._next_id += 1
+        self.entries.append(entry)
+
     def handoff(self, name: str, *, state: dict[str, Any] | None = None) -> list[FakeEntry]:
         entry = FakeEntry(
             id=self._next_id,

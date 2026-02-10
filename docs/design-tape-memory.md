@@ -27,15 +27,15 @@ TapeEntry(id, kind, payload, meta)
 
 ### 2.2 TapeService Key Capabilities
 
-| Method | Purpose |
-|---|---|
-| `append_event(name, data)` | Append an event entry |
-| `append_system(content)` | Append a system message |
-| `handoff(name, state)` | Write an anchor with optional state |
-| `from_last_anchor(kinds)` | Query from the last anchor forward |
-| `after_anchor(name, kinds)` | Query after a named anchor |
-| `between_anchors(start, end, kinds)` | Query between two anchors |
-| `search(query, limit)` | Full-text search across entries |
+| Method                               | Purpose                             |
+|--------------------------------------|-------------------------------------|
+| `append_event(name, data)`           | Append an event entry               |
+| `append_system(content)`             | Append a system message             |
+| `handoff(name, state)`               | Write an anchor with optional state |
+| `from_last_anchor(kinds)`            | Query from the last anchor forward  |
+| `after_anchor(name, kinds)`          | Query after a named anchor          |
+| `between_anchors(start, end, kinds)` | Query between two anchors           |
+| `search(query, limit)`               | Full-text search across entries     |
 
 ### 2.3 Context Selection (used by ModelRunner)
 
@@ -60,7 +60,7 @@ AppRuntime.get_session(session_id)
 
 A pair of special anchors marks the memory zone inside the tape:
 
-```
+```cli
 ┌──────────────────────────────────────────────────────────┐
 │  tape (append-only JSONL)                                │
 │                                                          │
@@ -236,15 +236,16 @@ Key design choices influenced by nanobot's `ContextBuilder`:
 
 ### 4.1 Files
 
-| File | Contents |
-|---|---|
-| `src/bub/tape/memory.py` | `MemoryZone`, `MemorySnapshot`, `DailyNote` |
-| `src/bub/tape/service.py` | `TapeService.memory` property (lazy init) |
-| `src/bub/tape/__init__.py` | Re-exports `MemoryZone`, `MemorySnapshot`, `DailyNote` |
-| `src/bub/tools/builtin.py` | 5 tools: `memory.save`, `.daily`, `.recall`, `.show`, `.clear` |
-| `src/bub/core/model_runner.py` | `<memory>` block injection + date in runtime contract |
-| `src/bub/app/runtime.py` | `tape.memory.ensure()` on session start |
-| `tests/test_tape_memory.py` | 21 tests covering snapshot ops and zone lifecycle |
+| File                           | Contents                                                       |
+|--------------------------------|----------------------------------------------------------------|
+| `src/bub/tape/memory.py`       | `MemoryZone`, `MemorySnapshot`, `DailyNote`                    |
+| `src/bub/tape/service.py`      | `TapeService.memory` property + `append_anchor()`              |
+| `src/bub/tape/__init__.py`     | Re-exports `MemoryZone`, `MemorySnapshot`, `DailyNote`         |
+| `src/bub/tools/builtin.py`     | 5 tools: `memory.save`, `.daily`, `.recall`, `.show`, `.clear` |
+| `src/bub/core/model_runner.py` | `<memory>` block injection + date in runtime contract          |
+| `src/bub/core/router.py`       | `,memory` alias → `memory.show`                               |
+| `src/bub/app/runtime.py`       | `tape.memory.ensure()` on session start                        |
+| `tests/test_tape_memory.py`    | 21 tests covering snapshot ops and zone lifecycle              |
 
 ### 4.2 MemoryZone API
 
@@ -266,13 +267,28 @@ class MemoryZone:
 
 ### 4.3 Registered Tools
 
-| Tool | Description | Input |
-|---|---|---|
-| `memory.save` | Replace long-term memory | `content: str` |
-| `memory.daily` | Append to daily notes | `content: str`, `date?: str` |
+| Tool            | Description                          | Input                          |
+|-----------------|--------------------------------------|--------------------------------|
+| `memory.save`   | Replace long-term memory             | `content: str`                 |
+| `memory.daily`  | Append to daily notes                | `content: str`, `date?: str`   |
 | `memory.recall` | Recall memories with optional search | `query?: str`, `days: int = 7` |
-| `memory.show` | Show memory zone summary | _(none)_ |
-| `memory.clear` | Clear all memory | _(none)_ |
+| `memory.show`   | Show memory zone summary             | *(none)*                       |
+| `memory.clear`  | Clear all memory                     | *(none)*                       |
+
+### 4.4 CLI Shortcut Commands
+
+All memory tools are available as comma-prefixed CLI commands:
+
+```text
+,memory                                    # alias for ,memory.show
+,memory.save content='User prefers dark mode'
+,memory.daily content='Fixed tape reset bug'
+,memory.recall days=7
+,memory.recall query=python
+,memory.clear
+```
+
+The `,memory` shortcut is registered as an alias in `InputRouter._resolve_internal_name()`, mapping to `memory.show`.
 
 ---
 
@@ -280,7 +296,7 @@ class MemoryZone:
 
 ### 5.1 Initial State (empty memory)
 
-```
+```cli
 #0  [anchor] session/start  state={"owner": "human"}
 #1  [anchor] memory/open    state={"version": 1}
 #2  [anchor] memory/seal    state={"version": 1}
@@ -290,7 +306,7 @@ class MemoryZone:
 
 ### 5.2 User says "remember: I like Python"
 
-```
+```cli
 #0  [anchor] session/start
 #1  [anchor] memory/open    state={"version": 1}   ← old zone (ignored)
 #2  [anchor] memory/seal    state={"version": 1}   ← old zone (ignored)
@@ -307,7 +323,7 @@ class MemoryZone:
 
 ### 5.3 Next day: appending a daily note
 
-```
+```cli
 ... (previous entries) ...
 #20 [anchor] memory/open    state={"version": 3}
 #21 [event]  memory.long_term {content: "User likes Python"}
@@ -320,18 +336,18 @@ class MemoryZone:
 
 ## 6. Comparison with nanobot MemoryStore
 
-| Dimension | nanobot MemoryStore | Bub MemoryZone |
-|---|---|---|
-| Storage | Separate filesystem (`memory/*.md`) | Tape-embedded zone (JSONL entries) |
-| Consistency | Disconnected from conversation | Same tape — auditable and replayable |
-| Addressing | File paths | Anchor pointers + version matching |
-| Mutation | In-place file writes | Append-only zone rewrite |
-| Context injection | Manual system prompt assembly | Automatic `<memory>` block with usage hints |
-| Persistence | Filesystem | Tape (JSONL file) |
-| Cross-session | Requires manual management | Native — same tape across sessions |
-| Search | None | Reuses `tape.search` |
-| LLM guidance | Embeds memory path in identity prompt | Runtime contract rule 7 + usage hints in `<memory>` |
-| Today vs history | `read_today()` separate method | `get_context()` splits Today's Notes / Recent Notes |
+| Dimension         | nanobot MemoryStore                   | Bub MemoryZone                                      |
+|-------------------|---------------------------------------|-----------------------------------------------------|
+| Storage           | Separate filesystem (`memory/*.md`)   | Tape-embedded zone (JSONL entries)                  |
+| Consistency       | Disconnected from conversation        | Same tape — auditable and replayable                |
+| Addressing        | File paths                            | Anchor pointers + version matching                  |
+| Mutation          | In-place file writes                  | Append-only zone rewrite                            |
+| Context injection | Manual system prompt assembly         | Automatic `<memory>` block with usage hints         |
+| Persistence       | Filesystem                            | Tape (JSONL file)                                   |
+| Cross-session     | Requires manual management            | Native — same tape across sessions                  |
+| Search            | None                                  | Reuses `tape.search`                                |
+| LLM guidance      | Embeds memory path in identity prompt | Runtime contract rule 7 + usage hints in `<memory>` |
+| Today vs history  | `read_today()` separate method        | `get_context()` splits Today's Notes / Recent Notes |
 
 ---
 
@@ -372,17 +388,17 @@ class MemoryZone:
 
 ### Phase 2: Tool & Prompt Integration ✅
 
-5. `builtin.py` — `memory.save`, `memory.daily`, `memory.recall`, `memory.show`, `memory.clear`
-6. `model_runner.py` — `<memory>` block injection with usage hints, today/history split
-7. `_runtime_contract()` — current date/time injection + rule 7 (proactive memory saving)
-8. Model runner tests updated for `FakeMemoryZone`
+1. `builtin.py` — `memory.save`, `memory.daily`, `memory.recall`, `memory.show`, `memory.clear`
+2. `model_runner.py` — `<memory>` block injection with usage hints, today/history split
+3. `_runtime_contract()` — current date/time injection + rule 7 (proactive memory saving)
+4. Model runner tests updated for `FakeMemoryZone`
 
 ### Phase 3: Future Enhancements 🔜
 
-9. Auto-prune on session start (call `zone.prune()` in `ensure()`)
-10. Memory export before `tape.reset` (backup to standalone file)
-11. `memory.forget` tool — remove specific entries by rewriting without them
-12. Cross-session shared memory (workspace-level "shared memory tape")
+1. Auto-prune on session start (call `zone.prune()` in `ensure()`)
+2. Memory export before `tape.reset` (backup to standalone file)
+3. `memory.forget` tool — remove specific entries by rewriting without them
+4. Cross-session shared memory (workspace-level "shared memory tape")
 
 ---
 

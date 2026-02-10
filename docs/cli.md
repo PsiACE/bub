@@ -50,6 +50,21 @@ Use shell mode when you want to run multiple shell commands quickly.
 - `,tape.reset archive=true` archives then clears current tape.
 - `,anchors` shows phase boundaries.
 
+## Memory Commands
+
+```text
+,memory                                    Show memory summary
+,memory.save content='User prefers dark mode'
+,memory.daily content='Fixed tape reset bug'
+,memory.recall days=7
+,memory.recall query=python
+,memory.clear
+```
+
+- `,memory` is a shortcut for `,memory.show`.
+- Long-term memory persists across sessions and is injected into the system prompt.
+- Daily notes are timestamped and auto-pruned after 30 days.
+
 ## Troubleshooting
 
 - `command not found`: verify whether it should be an internal command (`,help` for list).

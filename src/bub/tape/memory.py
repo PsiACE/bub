@@ -188,7 +188,7 @@ class MemoryZone:
 
     def _write_zone(self, snap: MemorySnapshot) -> None:
         """Append a new versioned memory zone to the tape."""
-        self._tape.handoff(MEMORY_OPEN_ANCHOR, state={"version": snap.version})
+        self._tape.append_anchor(MEMORY_OPEN_ANCHOR, state={"version": snap.version})
 
         if snap.long_term:
             self._tape.append_event(
@@ -209,7 +209,7 @@ class MemoryZone:
                 },
             )
 
-        self._tape.handoff(MEMORY_SEAL_ANCHOR, state={"version": snap.version})
+        self._tape.append_anchor(MEMORY_SEAL_ANCHOR, state={"version": snap.version})
 
     def _load_snapshot(self) -> MemorySnapshot | None:
         """Scan tape anchors and load the latest memory zone."""

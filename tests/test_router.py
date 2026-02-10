@@ -39,6 +39,9 @@ def _build_router(*, bash_error: bool = False) -> InputRouter:
     def quit_command(_params: EmptyInput) -> str:
         return "exit"
 
+    def memory_show(_params: EmptyInput) -> str:
+        return "version=1\nlong_term=no\ndaily_notes=0"
+
     registry.register(
         name="bash",
         short_description="Run shell command",
@@ -57,6 +60,12 @@ def _build_router(*, bash_error: bool = False) -> InputRouter:
         detail="quit detail",
         model=EmptyInput,
     )(quit_command)
+    registry.register(
+        name="memory.show",
+        short_description="Show memory summary",
+        detail="memory.show detail",
+        model=EmptyInput,
+    )(memory_show)
 
     view = ProgressiveToolView(registry)
     return InputRouter(registry, view, FakeTape(), Path.cwd())
@@ -180,3 +189,10 @@ def test_assistant_fenced_plain_text_is_not_executed() -> None:
     result = router.route_assistant("```\necho hi\n```")
     assert result.visible_text == "echo hi"
     assert result.next_prompt == ""
+
+
+def test_memory_alias_resolves_to_memory_show() -> None:
+    router = _build_router()
+    result = router.route_user(",memory")
+    assert result.enter_model is False
+    assert "version=" in result.immediate_output

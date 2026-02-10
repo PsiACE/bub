@@ -25,7 +25,16 @@ Why it matters: the assistant can debug based on real command output instead of 
 
 Why it matters: long tasks stay traceable and easier to resume.
 
-## 4. Unified Tool + Skill View
+## 4. Persistent Memory Zone
+
+- Long-term memory and daily notes live inside the tape as a versioned zone.
+- Memory is automatically injected into the system prompt.
+- Quick access via shortcuts: `,memory`, `,memory.save`, `,memory.daily`, `,memory.recall`, `,memory.clear`.
+- The LLM proactively saves user preferences and logs work progress.
+
+Why it matters: the assistant remembers context across sessions without manual configuration.
+
+## 5. Unified Tool + Skill View
 
 - Built-in tools and skills share one registry.
 - Prompt includes compact tool descriptions first.
@@ -35,7 +44,7 @@ Why it matters: long tasks stay traceable and easier to resume.
 
 Why it matters: prompt stays focused while advanced capabilities remain available on demand.
 
-## 5. Interactive CLI Focused on Real Work
+## 6. Interactive CLI Focused on Real Work
 
 - Rich interactive shell with history and completions.
 - `Ctrl-X` toggles shell mode for faster command execution.
@@ -43,7 +52,7 @@ Why it matters: prompt stays focused while advanced capabilities remain availabl
 
 Why it matters: local debugging and implementation loops are fast and consistent.
 
-## 6. Telegram Channel Integration
+## 7. Telegram Channel Integration
 
 - Optional long-polling Telegram adapter.
 - Per-chat session isolation (`telegram:<chat_id>`).

@@ -21,10 +21,10 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from loguru import logger
 from pydantic import BaseModel, Field
-from republic import ToolContext
 
 from bub.tape.service import TapeService
 from bub.tools.registry import ToolRegistry
+from republic import ToolContext
 
 if TYPE_CHECKING:
     from bub.app.runtime import AppRuntime
@@ -101,7 +101,11 @@ class SkillNameInput(BaseModel):
 
 
 class MemorySaveInput(BaseModel):
-    content: str = Field(..., description="Content to remember long-term")
+    content: str = Field(
+        ...,
+        description="Full long-term memory content. This REPLACES all existing long-term memory, "
+        "so always include previous memories you want to keep.",
+    )
 
 
 class MemoryDailyInput(BaseModel):
@@ -478,6 +482,11 @@ def register_builtin_tools(
             "  ,tape.anchors\n"
             "  ,tape.info\n"
             "  ,tape.search query=error\n"
+            "  ,memory                              (show memory summary)\n"
+            "  ,memory.save content='User prefers dark mode'\n"
+            "  ,memory.daily content='Fixed tape reset bug'\n"
+            "  ,memory.recall days=7\n"
+            "  ,memory.clear\n"
             "  ,schedule.add cron='*/5 * * * *' message='echo hello'\n"
             "  ,schedule.list\n"
             "  ,schedule.remove job_id=my-job\n"
@@ -552,8 +561,11 @@ def register_builtin_tools(
 
     @register(name="memory.save", short_description="Save to long-term memory", model=MemorySaveInput)
     def memory_save(params: MemorySaveInput) -> str:
-        """Save or replace long-term memory content."""
+        """Replace entire long-term memory. Include all existing content you want to keep."""
+        previous = tape.memory.read().long_term
         tape.memory.save_long_term(params.content)
+        if previous and previous not in params.content:
+            return f"saved to long-term memory (warning: previous content was replaced: {previous!r})"
         return "saved to long-term memory"
 
     @register(name="memory.daily", short_description="Append to daily notes", model=MemoryDailyInput)
