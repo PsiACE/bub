@@ -58,16 +58,6 @@ class EditInput(BaseModel):
     replace_all: bool = Field(default=False, description="Replace all occurrences")
 
 
-class GlobInput(BaseModel):
-    pattern: str = Field(..., description="Glob pattern")
-    path: str = Field(default=".", description="Base path")
-
-
-class GrepInput(BaseModel):
-    pattern: str = Field(..., description="Substring pattern")
-    path: str = Field(default=".", description="Base path")
-
-
 class FetchInput(BaseModel):
     url: str = Field(..., description="URL")
 
@@ -248,30 +238,6 @@ def register_builtin_tools(
         updated = text.replace(params.old, params.new, 1)
         file_path.write_text(updated, encoding="utf-8")
         return f"updated: {file_path} occurrences=1"
-
-    @register(name="fs.glob", short_description="Glob files", model=GlobInput)
-    def fs_glob(params: GlobInput) -> str:
-        """Glob files under a base path."""
-        base = _resolve_path(workspace, params.path)
-        matches = sorted(base.glob(params.pattern))
-        return "\n".join(str(path) for path in matches) or "(no matches)"
-
-    @register(name="fs.grep", short_description="Grep files", model=GrepInput)
-    def fs_grep(params: GrepInput) -> str:
-        """Scan files recursively and return matching lines."""
-        base = _resolve_path(workspace, params.path)
-        rows: list[str] = []
-        for path in sorted(base.rglob("*")):
-            if not path.is_file():
-                continue
-            try:
-                content = path.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
-                continue
-            for idx, line in enumerate(content.splitlines(), start=1):
-                if params.pattern in line:
-                    rows.append(f"{path}:{idx}:{line}")
-        return "\n".join(rows) if rows else "(no matches)"
 
     def _fetch_markdown_from_url(raw_url: str) -> str:
         url = _normalize_url(raw_url)
