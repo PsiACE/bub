@@ -36,6 +36,7 @@ class SessionRuntime:
     session_id: str
     loop: AgentLoop
     tape: TapeService
+    jobstore_alias: str
 
     async def handle_input(self, text: str) -> LoopResult:
         return await self.loop.handle_input(text)
@@ -60,10 +61,30 @@ class AppRuntime:
         self.bus: MessageBus | None = None
         self.loop: AbstractEventLoop | None = None
         self.registry = ToolRegistry(_normalize_name_set(allowed_tools))
+        # Global scheduler with default jobstore (for backwards compatibility)
         job_store = JSONJobStore(settings.resolve_home() / "jobs.json")
         self.scheduler = BackgroundScheduler(daemon=True, jobstores={"default": job_store})
         self._llm = build_llm(settings, self._store)
         self._sessions: dict[str, SessionRuntime] = {}
+        # Session-specific jobstores
+        self._session_jobstores: dict[str, str] = {}  # session_id -> jobstore_alias
+
+    def _get_jobstore_path(self, session_id: str) -> Path:
+        """Get the jobstore file path for a session."""
+        slug = _session_slug(session_id)
+        return self.settings.resolve_home() / "jobs" / f"{slug}.json"
+
+    def _create_session_jobstore(self, session_id: str) -> str:
+        """Create or get a session-specific jobstore. Returns the jobstore alias."""
+        if session_id in self._session_jobstores:
+            return self._session_jobstores[session_id]
+
+        jobstore_alias = f"session_{_session_slug(session_id)}"
+        jobstore_path = self._get_jobstore_path(session_id)
+        job_store = JSONJobStore(jobstore_path)
+        self.scheduler.add_jobstore(job_store, alias=jobstore_alias)
+        self._session_jobstores[session_id] = jobstore_alias
+        return jobstore_alias
 
     def __enter__(self) -> AppRuntime:
         if not self.scheduler.running:
@@ -97,6 +118,9 @@ class AppRuntime:
         tape = TapeService(self._llm, tape_name, store=self._store)
         tape.ensure_bootstrap_anchor()
 
+        # Create session-specific jobstore
+        jobstore_alias = self._create_session_jobstore(session_id)
+
         registry = self.registry
         register_builtin_tools(
             registry,
@@ -122,7 +146,7 @@ class AppRuntime:
             workspace_system_prompt=self.workspace_prompt,
         )
         loop = AgentLoop(router=router, model_runner=runner, tape=tape)
-        runtime = SessionRuntime(session_id=session_id, loop=loop, tape=tape)
+        runtime = SessionRuntime(session_id=session_id, loop=loop, tape=tape, jobstore_alias=jobstore_alias)
         self._sessions[session_id] = runtime
         return runtime
 

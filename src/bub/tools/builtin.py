@@ -179,6 +179,9 @@ def register_builtin_tools(
     from bub.tools.schedule import run_scheduled_reminder
 
     support_scheduling = runtime.scheduler.running
+    # Get session-specific jobstore alias
+    session_runtime = getattr(runtime, "_sessions", {}).get(session_id)
+    jobstore_alias = getattr(session_runtime, "jobstore_alias", "default") if session_runtime else "default"
     register = registry.register
 
     @register(name="bash", short_description="Run shell command", model=BashInput)
@@ -300,6 +303,7 @@ def register_builtin_tools(
                     kwargs={"message": params.message, "session_id": session_id},
                     coalesce=True,
                     max_instances=1,
+                    jobstore=jobstore_alias,
                 )
             except ConflictingIdError as exc:
                 raise RuntimeError(f"job id already exists: {job_id}") from exc
@@ -313,15 +317,15 @@ def register_builtin_tools(
         def schedule_remove(params: ScheduleRemoveInput) -> str:
             """Remove one scheduled job by id."""
             try:
-                runtime.scheduler.remove_job(params.job_id)
+                runtime.scheduler.remove_job(params.job_id, jobstore=jobstore_alias)
             except JobLookupError as exc:
                 raise RuntimeError(f"job not found: {params.job_id}") from exc
             return f"removed: {params.job_id}"
 
         @register(name="schedule.list", short_description="List scheduled jobs", model=EmptyInput)
         def schedule_list(_params: EmptyInput) -> str:
-            """List scheduled jobs for current workspace."""
-            jobs = runtime.scheduler.get_jobs()
+            """List scheduled jobs for current session."""
+            jobs = runtime.scheduler.get_jobs(jobstore=jobstore_alias)
             if not jobs:
                 return "(no scheduled jobs)"
 

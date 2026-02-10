@@ -43,11 +43,24 @@ class _DummyTape:
 
 
 class _DummyRuntime:
-    def __init__(self, settings: Settings, scheduler: BackgroundScheduler) -> None:
+    def __init__(
+        self, settings: Settings, scheduler: BackgroundScheduler, session_id: str = "cli:test"
+    ) -> None:
         self.settings = settings
         self.scheduler = scheduler
         self._discovered_skills: list[object] = []
         self.bus = None
+        # Simulate session-specific jobstore
+        jobstore_alias = f"session_{session_id.replace(':', '_')}"
+        self._sessions: dict[str, object] = {
+            session_id: type("_DummySession", (), {"jobstore_alias": jobstore_alias})()
+        }
+        # Add a jobstore for this session if not exists
+        if jobstore_alias not in scheduler._jobstores:
+            from bub.app.jobstore import JSONJobStore
+
+            jobstore_path = Path(f"/tmp/bub_test_jobs_{session_id.replace(':', '_')}.json")
+            scheduler.add_jobstore(JSONJobStore(jobstore_path), alias=jobstore_alias)
 
     def discover_skills(self) -> list[object]:
         return list(self._discovered_skills)
@@ -57,15 +70,17 @@ class _DummyRuntime:
         return None
 
 
-def _build_registry(workspace: Path, settings: Settings, scheduler: BackgroundScheduler) -> ToolRegistry:
+def _build_registry(
+    workspace: Path, settings: Settings, scheduler: BackgroundScheduler, session_id: str = "cli:test"
+) -> ToolRegistry:
     registry = ToolRegistry()
-    runtime = _DummyRuntime(settings, scheduler)
+    runtime = _DummyRuntime(settings, scheduler, session_id)
     register_builtin_tools(
         registry,
         workspace=workspace,
         tape=_DummyTape(),  # type: ignore[arg-type]
         runtime=runtime,  # type: ignore[arg-type]
-        session_id="cli:test",
+        session_id=session_id,
     )
     return registry
 
@@ -267,13 +282,15 @@ def test_schedule_remove_missing_job_returns_error(tmp_path: Path, scheduler: Ba
         assert "job not found: missing" in str(exc)
 
 
-def test_schedule_shared_scheduler_across_registries(tmp_path: Path, scheduler: BackgroundScheduler) -> None:
+def test_schedule_isolated_per_session(tmp_path: Path, scheduler: BackgroundScheduler) -> None:
+    """Test that schedule jobs are isolated per session."""
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
     settings = Settings(_env_file=None, model="openrouter:test")
-    registry_a = _build_registry(workspace, settings, scheduler)
-    registry_b = _build_registry(workspace, settings, scheduler)
+    # Different session IDs should have isolated jobstores
+    registry_a = _build_registry(workspace, settings, scheduler, session_id="cli:session-a")
+    registry_b = _build_registry(workspace, settings, scheduler, session_id="cli:session-b")
 
     add_result = registry_a.execute(
         "schedule.add",
@@ -282,7 +299,13 @@ def test_schedule_shared_scheduler_across_registries(tmp_path: Path, scheduler: 
     matched = re.match(r"^scheduled: (?P<job_id>[a-z0-9-]+) next=.*$", add_result)
     assert matched is not None
 
-    assert matched.group("job_id") in registry_b.execute("schedule.list", kwargs={})
+    # Job from session-a should NOT appear in session-b's list
+    list_b = registry_b.execute("schedule.list", kwargs={})
+    assert "(no scheduled jobs)" in list_b
+
+    # But it should appear in session-a's list
+    list_a = registry_a.execute("schedule.list", kwargs={})
+    assert matched.group("job_id") in list_a
 
 
 def test_skills_list_uses_latest_runtime_skills(tmp_path: Path, scheduler: BackgroundScheduler) -> None:
