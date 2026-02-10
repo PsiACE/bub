@@ -291,7 +291,7 @@ Examples:
 scripts/init_skill.py my-skill --path "$workspace/.agent/skills"
 scripts/init_skill.py my-skill --path "$workspace/.agent/skills" --resources scripts,references
 scripts/init_skill.py my-skill --path "$workspace/.agent/skills" --resources scripts --examples
-scripts/init_skill.py my-skill --path "~/.agent/skills"
+scripts/init_skill.py my-skill --path "$HOME/.agent/skills"
 ```
 
 The script:

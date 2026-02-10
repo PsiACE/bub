@@ -18,7 +18,6 @@ import re
 import sys
 from pathlib import Path
 
-
 MAX_SKILL_NAME_LENGTH = 64
 ALLOWED_RESOURCES = {"scripts", "references", "assets"}
 
@@ -268,7 +267,7 @@ def init_skill(skill_name, path, resources, include_examples, interface_override
         Path to created skill directory, or None if error
     """
     # Determine skill directory path
-    skill_dir = Path(path).resolve() / skill_name
+    skill_dir = Path(path).expanduser().resolve() / skill_name
 
     # Check if directory already exists
     if skill_dir.exists():
