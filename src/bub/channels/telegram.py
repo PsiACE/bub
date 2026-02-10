@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import html
+import re
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
@@ -127,17 +129,45 @@ class TelegramChannel(BaseChannel):
             return
         self._stop_typing(message.chat_id)
 
+        # Use expandable blockquote for long messages (over 140 chars)
+        MAX_COLLAPSE_LENGTH = 140
+        raw_content = message.content
+        if len(raw_content) > MAX_COLLAPSE_LENGTH:
+            # Long message: wrap in expandable blockquote
+            # Telegram HTML mode only supports limited tags: b, strong, i, em, u, ins, s, strike, del, code, pre, a, blockquote
+            # For simplicity, escape HTML special chars and use plain text in blockquote
+            text = html.escape(raw_content)
+            # Convert markdown-style bold/italic/code to HTML tags (basic support)
+            # Bold: **text** or __text__
+            text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
+            text = re.sub(r"__(.+?)__", r"<b>\1</b>", text)
+            # Italic: *text* or _text_
+            text = re.sub(r"\*(.+?)\*", r"<i>\1</i>", text)
+            text = re.sub(r"_(.+?)_", r"<i>\1</i>", text)
+            # Inline code: `text`
+            text = re.sub(r"`(.+?)`", r"<code>\1</code>", text)
+            # Newlines to <br>
+            text = text.replace("\n", "<br>")
+            text = f"<blockquote expandable>{text}</blockquote>"
+            parse_mode = "HTML"
+        else:
+            # Short message: use MarkdownV2 format
+            text = md(raw_content)
+            parse_mode = "MarkdownV2"
+
         # In group chats, reply to the original message if reply_to_message_id is provided
         if message.reply_to_message_id is not None:
             await self._app.bot.send_message(
                 chat_id=int(message.chat_id),
-                text=md(message.content),
-                parse_mode="MarkdownV2",
+                text=text,
+                parse_mode=parse_mode,
                 reply_to_message_id=message.reply_to_message_id,
             )
         else:
             await self._app.bot.send_message(
-                chat_id=int(message.chat_id), text=md(message.content), parse_mode="MarkdownV2"
+                chat_id=int(message.chat_id),
+                text=text,
+                parse_mode=parse_mode,
             )
 
     async def _on_start(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
