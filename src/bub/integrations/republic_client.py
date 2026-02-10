@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from republic import LLM
+
 from bub.config.settings import Settings
 from bub.tape.context import default_tape_context
 from bub.tape.store import FileTapeStore
-from republic import LLM
 
 AGENTS_FILE = "AGENTS.md"
 

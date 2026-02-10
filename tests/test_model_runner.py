@@ -1,11 +1,11 @@
 from dataclasses import dataclass, field
 
 import pytest
+from republic import ToolAutoResult
 
 from bub.core.model_runner import TOOL_CONTINUE_PROMPT, ModelRunner
 from bub.core.router import AssistantRouteResult
 from bub.skills.loader import SkillMetadata
-from republic import ToolAutoResult
 
 
 class FakeRouter:

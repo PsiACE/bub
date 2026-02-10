@@ -1,5 +1,6 @@
-from bub.tape.context import default_tape_context
 from republic import TapeEntry
+
+from bub.tape.context import default_tape_context
 
 
 def test_default_tape_context_includes_tool_messages() -> None:
