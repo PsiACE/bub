@@ -129,11 +129,10 @@ def telegram(
     )
 
     with build_runtime(resolved_workspace, model=model, max_tokens=max_tokens) as runtime:
-        token = runtime.settings.telegram_token
         if not runtime.settings.telegram_enabled:
             logger.error("telegram.disabled workspace={}", str(resolved_workspace))
             raise typer.BadParameter(TELEGRAM_DISABLED_ERROR)
-        if not token:
+        if not runtime.settings.telegram_token:
             logger.error("telegram.missing_token workspace={}", str(resolved_workspace))
             raise typer.BadParameter(TELEGRAM_TOKEN_ERROR)
 
@@ -144,7 +143,7 @@ def telegram(
             TelegramChannel(
                 bus,
                 TelegramConfig(
-                    token=token,
+                    token=runtime.settings.telegram_token,
                     allow_from=set(runtime.settings.telegram_allow_from),
                 ),
             )

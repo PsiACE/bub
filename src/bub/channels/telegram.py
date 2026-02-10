@@ -117,7 +117,7 @@ class TelegramChannel(BaseChannel):
         if self._app is None:
             return
         updater = self._app.updater
-        if updater is not None:
+        if updater is not None and updater.running:
             await updater.stop()
         await self._app.stop()
         await self._app.shutdown()
