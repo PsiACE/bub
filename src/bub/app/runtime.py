@@ -66,7 +66,6 @@ class AppRuntime:
         *,
         allowed_tools: set[str] | None = None,
         allowed_skills: set[str] | None = None,
-        scheduler: BaseScheduler | None = None,
     ) -> None:
         self.workspace = workspace.resolve()
         self.settings = settings
@@ -76,9 +75,7 @@ class AppRuntime:
         self.workspace_prompt = read_workspace_agents_prompt(self.workspace)
         self.bus: MessageBus | None = None
         self.loop: AbstractEventLoop | None = None
-        if scheduler is None:
-            scheduler = self._default_scheduler()
-        self.scheduler = scheduler
+        self.scheduler = self._default_scheduler()
         self._llm = build_llm(settings, self._store)
         self._sessions: dict[str, SessionRuntime] = {}
 

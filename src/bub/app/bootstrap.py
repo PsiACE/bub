@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from apscheduler.schedulers.base import BaseScheduler
-
 from bub.app.runtime import AppRuntime
 from bub.config import load_settings
 
@@ -27,7 +25,6 @@ def build_runtime(
     max_tokens: int | None = None,
     allowed_tools: set[str] | None = None,
     allowed_skills: set[str] | None = None,
-    scheduler: BaseScheduler | None = None,
 ) -> AppRuntime:
     """Build app runtime for one workspace."""
 
@@ -45,6 +42,5 @@ def build_runtime(
         settings,
         allowed_tools=allowed_tools,
         allowed_skills=allowed_skills,
-        scheduler=scheduler,
     )
     return _runtime
