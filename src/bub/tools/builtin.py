@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
 DEFAULT_OLLAMA_WEB_API_BASE = "https://ollama.com/api"
 WEB_REQUEST_TIMEOUT_SECONDS = 20
+SUBPROCESS_TIMEOUT_SECONDS = 30
 MAX_FETCH_BYTES = 1_000_000
 WEB_USER_AGENT = "bub-web-tools/1.0"
 SESSION_ID_ENV_VAR = "BUB_SESSION_ID"
@@ -193,6 +194,7 @@ def register_builtin_tools(
             capture_output=True,
             text=True,
             env=env,
+            timeout=WEB_REQUEST_TIMEOUT_SECONDS,
         )
         stdout = (completed.stdout or "").strip()
         stderr = (completed.stderr or "").strip()
