@@ -24,6 +24,7 @@ class TapeInfo:
     entries: int
     anchors: int
     last_anchor: str | None
+    entries_since_last_anchor: int
 
 
 _tape_context: ContextVar[Tape] = ContextVar("tape")
@@ -81,11 +82,16 @@ class TapeService:
         entries = self.read_entries()
         anchors = [entry for entry in entries if entry.kind == "anchor"]
         last_anchor = anchors[-1].payload.get("name") if anchors else None
+        if last_anchor is not None:
+            entries_since_last_anchor = sum(1 for entry in entries if entry.id > anchors[-1].id)
+        else:
+            entries_since_last_anchor = len(entries)
         return TapeInfo(
             name=self.tape.name,
             entries=len(entries),
             anchors=len(anchors),
             last_anchor=str(last_anchor) if last_anchor else None,
+            entries_since_last_anchor=entries_since_last_anchor,
         )
 
     def reset(self, *, archive: bool = False) -> str:
