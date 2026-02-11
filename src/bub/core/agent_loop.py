@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+from contextvars import copy_context
 from dataclasses import dataclass
+from functools import partial
 
 from bub.core.model_runner import ModelRunner, ModelTurnResult
 from bub.core.router import InputRouter
@@ -30,34 +32,36 @@ class AgentLoop:
         self._tape = tape
 
     async def handle_input(self, raw: str) -> LoopResult:
-        route = await asyncio.get_event_loop().run_in_executor(None, self._router.route_user, raw)
-        if route.exit_requested:
+        with self._tape.fork_tape():
+            ctx = copy_context()
+            route = await asyncio.get_event_loop().run_in_executor(None, ctx.run, partial(self._router.route_user, raw))
+            if route.exit_requested:
+                return LoopResult(
+                    immediate_output=route.immediate_output,
+                    assistant_output="",
+                    exit_requested=True,
+                    steps=0,
+                    error=None,
+                )
+
+            if not route.enter_model:
+                return LoopResult(
+                    immediate_output=route.immediate_output,
+                    assistant_output="",
+                    exit_requested=False,
+                    steps=0,
+                    error=None,
+                )
+
+            model_result = await self._model_runner.run(route.model_prompt)
+            self._record_result(model_result)
             return LoopResult(
                 immediate_output=route.immediate_output,
-                assistant_output="",
-                exit_requested=True,
-                steps=0,
-                error=None,
+                assistant_output=model_result.visible_text,
+                exit_requested=model_result.exit_requested,
+                steps=model_result.steps,
+                error=model_result.error,
             )
-
-        if not route.enter_model:
-            return LoopResult(
-                immediate_output=route.immediate_output,
-                assistant_output="",
-                exit_requested=False,
-                steps=0,
-                error=None,
-            )
-
-        model_result = await self._model_runner.run(route.model_prompt)
-        self._record_result(model_result)
-        return LoopResult(
-            immediate_output=route.immediate_output,
-            assistant_output=model_result.visible_text,
-            exit_requested=model_result.exit_requested,
-            steps=model_result.steps,
-            error=model_result.error,
-        )
 
     def _record_result(self, result: ModelTurnResult) -> None:
         self._tape.append_event(

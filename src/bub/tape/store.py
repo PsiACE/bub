@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import shutil
 import threading
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from hashlib import md5
@@ -30,6 +32,7 @@ class FileTapeStore:
     def __init__(self, home: Path, workspace_path: Path) -> None:
         self._paths = self._resolve_paths(home, workspace_path)
         self._next_ids: dict[str, int] = {}
+        self._fork_start_ids: dict[str, int] = {}
         self._lock = threading.Lock()
 
     def list_tapes(self) -> list[str]:
@@ -42,6 +45,31 @@ class FileTapeStore:
                     continue
                 tapes.append(unquote(encoded))
             return sorted(set(tapes))
+
+    def fork(self, source: str) -> str:
+        with self._lock:
+            fork_suffix = uuid.uuid4().hex[:8]
+            new_name = f"{source}__{fork_suffix}"
+            source_file = self._tape_file(source)
+            target_file = self._tape_file(new_name)
+            if source_file.exists():
+                shutil.copy2(source_file, target_file)
+            self._next_ids[new_name] = self._fork_start_ids[new_name] = self._next_entry_id(source, source_file)
+            return new_name
+
+    def merge(self, source: str, target: str) -> None:
+        all_entries = self.read(source) or []
+        with self._lock:
+            if source not in self._fork_start_ids:
+                return
+            source_file = self._tape_file(source)
+            next_id = self._next_entry_id(source, source_file)
+            fork_start_id = self._fork_start_ids[source]
+            entries = [entry for entry in all_entries if fork_start_id <= entry.id < next_id]
+            self._append_many(target, entries)
+            del self._fork_start_ids[source]
+            del self._next_ids[source]
+            source_file.unlink(missing_ok=True)
 
     def reset(self, tape: str) -> None:
         with self._lock:
@@ -79,6 +107,16 @@ class FileTapeStore:
             with tape_file.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(self._entry_to_payload(stored), ensure_ascii=False) + "\n")
             self._next_ids[tape] = next_id + 1
+
+    def _append_many(self, tape: str, entries: list[TapeEntry]) -> None:
+        tape_file = self._tape_file(tape)
+        next_id = self._next_entry_id(tape, tape_file)
+        with tape_file.open("a", encoding="utf-8") as handle:
+            for entry in entries:
+                stored = TapeEntry(next_id, entry.kind, dict(entry.payload), dict(entry.meta))
+                handle.write(json.dumps(self._entry_to_payload(stored), ensure_ascii=False) + "\n")
+                next_id += 1
+        self._next_ids[tape] = next_id
 
     def archive(self, tape: str) -> Path | None:
         with self._lock:
