@@ -16,6 +16,7 @@ from telegramify_markdown import markdownify as md
 from bub.channels.base import BaseChannel
 from bub.channels.bus import MessageBus
 from bub.channels.events import InboundMessage, OutboundMessage
+from bub.message_store import MessageStore, StoredMessage
 
 
 def exclude_none(d: dict[str, Any]) -> dict[str, Any]:
@@ -89,6 +90,7 @@ class TelegramChannel(BaseChannel):
         self._config = config
         self._app: Application | None = None
         self._typing_tasks: dict[str, asyncio.Task[None]] = {}
+        self._message_store = MessageStore(db_path="data/messages.db")
 
     async def start(self) -> None:
         if not self._config.token:
@@ -106,11 +108,20 @@ class TelegramChannel(BaseChannel):
             return
         await updater.start_polling(drop_pending_updates=True, allowed_updates=["message"])
         logger.info("telegram.channel.polling")
+        
+        # Start proactive interaction task
+        self._proactive_task = asyncio.create_task(self._proactive_interaction_loop())
+        
         while self._running:
             await asyncio.sleep(0.5)
 
     async def stop(self) -> None:
         self._running = False
+        
+        # Cancel proactive interaction task
+        if hasattr(self, '_proactive_task'):
+            self._proactive_task.cancel()
+        
         for task in self._typing_tasks.values():
             task.cancel()
         self._typing_tasks.clear()
@@ -210,6 +221,20 @@ class TelegramChannel(BaseChannel):
             text[:100],  # Log first 100 chars to avoid verbose logs
         )
 
+        # Store the message
+        import time
+        self._message_store.add_message(StoredMessage(
+            id=f"{chat_id}_{update.message.message_id}",
+            chat_id=int(chat_id),
+            thread_id=None,
+            role="user",
+            name=user.username,
+            content=text,
+            tool_call_id=None,
+            tool_calls=None,
+            timestamp=time.time(),
+        ))
+
         self._start_typing(chat_id)
         await self.publish_inbound(
             InboundMessage(
@@ -243,4 +268,34 @@ class TelegramChannel(BaseChannel):
             return
         except Exception:
             logger.exception("telegram.channel.typing_loop.error chat_id={}", chat_id)
+            return
+
+    async def _proactive_interaction_loop(self) -> None:
+        """Check for unreplied messages and proactively respond."""
+        import time
+        
+        try:
+            while self._running:
+                # Check every 5 minutes
+                await asyncio.sleep(300)
+                
+                if not self._running or self._app is None:
+                    return
+                
+                # Get chats with unreplied messages (older than 5 minutes)
+                cutoff_time = time.time() - 1800  # 30 minutes ago
+                active_chats = self._message_store.get_active_chats(cutoff_time)
+                
+                for chat_id in active_chats:
+                    if self._message_store.has_unreplied_message(chat_id, min_age_seconds=300):
+                        logger.info("telegram.channel.proactive.unreplied chat_id={}", chat_id)
+                        # For now just log - actual proactive response logic would go here
+                        # In future: generate contextual response and send
+                
+                logger.debug("telegram.channel.proactive_check complete")
+                
+        except asyncio.CancelledError:
+            return
+        except Exception as e:
+            logger.exception("telegram.channel.proactive_loop.error: {}", e)
             return
