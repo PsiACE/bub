@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Callable, Iterable
 
 from loguru import logger
@@ -20,7 +19,6 @@ class ChannelManager:
         self.bus = bus
         self.runtime = runtime
         self._channels: dict[str, BaseChannel] = {}
-        self._tasks: list[asyncio.Task[None]] = []
         self._unsub_inbound: Callable[[], None] | None = None
         self._unsub_outbound: Callable[[], None] | None = None
 
@@ -36,20 +34,12 @@ class ChannelManager:
         self._unsub_outbound = self.bus.on_outbound(self._process_outbound)
         logger.info("channel.manager.start channels={}", sorted(self._channels.keys()))
         for channel in self._channels.values():
-            self._tasks.append(asyncio.create_task(channel.start()))
+            await channel.start()
 
     async def stop(self) -> None:
         logger.info("channel.manager.stop")
         for channel in self._channels.values():
             await channel.stop()
-        for task in self._tasks:
-            task.cancel()
-        for task in self._tasks:
-            try:
-                await task
-            except asyncio.CancelledError:
-                continue
-        self._tasks.clear()
         if self._unsub_inbound is not None:
             self._unsub_inbound()
             self._unsub_inbound = None

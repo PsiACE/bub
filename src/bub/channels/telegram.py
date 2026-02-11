@@ -106,8 +106,6 @@ class TelegramChannel(BaseChannel):
             return
         await updater.start_polling(drop_pending_updates=True, allowed_updates=["message"])
         logger.info("telegram.channel.polling")
-        while self._running:
-            await asyncio.sleep(0.5)
 
     async def stop(self) -> None:
         self._running = False
