@@ -6,6 +6,7 @@ import asyncio
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import ClassVar
 
 from loguru import logger
 from republic import Tool, ToolAutoResult
@@ -44,6 +45,8 @@ class _PromptState:
 
 class ModelRunner:
     """Runs assistant loop over tape with command-aware follow-up handling."""
+
+    DEFAULT_HEADERS: ClassVar[dict[str, str]] = {"HTTP-Referer": "https://bub.build/", "X-Title": "Bub"}
 
     def __init__(
         self,
@@ -168,6 +171,7 @@ class ModelRunner:
                     system_prompt=system_prompt,
                     max_tokens=self._max_tokens,
                     tools=self._tools,
+                    extra_headers=self.DEFAULT_HEADERS,
                 )
                 return _ChatResult.from_tool_auto(output)
         except TimeoutError:

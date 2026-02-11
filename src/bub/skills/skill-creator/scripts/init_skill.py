@@ -3,21 +3,20 @@
 Skill Initializer - Creates a new skill from template
 
 Usage:
-    init_skill.py <skill-name> --path <path> [--resources scripts,references,assets] [--examples] [--interface key=value]
+    uv run scripts/init_skill.py <skill-name> --path <path> [--resources scripts,references,assets] [--examples] [--interface key=value]
 
 Examples:
-    init_skill.py my-new-skill --path skills/public
-    init_skill.py my-new-skill --path skills/public --resources scripts,references
-    init_skill.py my-api-helper --path skills/private --resources scripts --examples
-    init_skill.py custom-skill --path /custom/location
-    init_skill.py my-skill --path skills/public --interface short_description="Short UI label"
+    uv run scripts/init_skill.py my-new-skill --path skills/public
+    uv run scripts/init_skill.py my-new-skill --path skills/public --resources scripts,references
+    uv run scripts/init_skill.py my-api-helper --path skills/private --resources scripts --examples
+    uv run scripts/init_skill.py custom-skill --path /custom/location
+    uv run scripts/init_skill.py my-skill --path skills/public --interface short_description="Short UI label"
 """
 
 import argparse
 import re
 import sys
 from pathlib import Path
-
 
 MAX_SKILL_NAME_LENGTH = 64
 ALLOWED_RESOURCES = {"scripts", "references", "assets"}

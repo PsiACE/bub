@@ -215,9 +215,9 @@ Skill creation involves these steps:
 
 1. Understand the skill with concrete examples
 2. Plan reusable skill contents (scripts, references, assets)
-3. Initialize the skill (run init_skill.py)
+3. Initialize the skill (run `uv run scripts/init_skill.py`)
 4. Edit the skill (implement resources and write SKILL.md)
-5. Validate the skill (run quick_validate.py)
+5. Validate the skill (run `uv run scripts/quick_validate.py`)
 6. Iterate based on real usage
 
 Follow these steps in order, skipping only if there is a clear reason why they are not applicable.
@@ -277,21 +277,21 @@ At this point, it is time to actually create the skill.
 
 Skip this step only if the skill being developed already exists. In this case, continue to the next step.
 
-When creating a new skill from scratch, always run the `init_skill.py` script. The script conveniently generates a new template skill directory that automatically includes everything a skill requires, making the skill creation process much more efficient and reliable.
+When creating a new skill from scratch, always run `uv run scripts/init_skill.py`. The script conveniently generates a new template skill directory that automatically includes everything a skill requires, making the skill creation process much more efficient and reliable.
 
 Usage:
 
 ```bash
-scripts/init_skill.py <skill-name> --path <output-directory> [--resources scripts,references,assets] [--examples]
+uv run scripts/init_skill.py <skill-name> --path <output-directory> [--resources scripts,references,assets] [--examples]
 ```
 
 Examples:
 
 ```bash
-scripts/init_skill.py my-skill --path "$workspace/.agent/skills"
-scripts/init_skill.py my-skill --path "$workspace/.agent/skills" --resources scripts,references
-scripts/init_skill.py my-skill --path "$workspace/.agent/skills" --resources scripts --examples
-scripts/init_skill.py my-skill --path "~/.agent/skills"
+uv run scripts/init_skill.py my-skill --path "$workspace/.agent/skills"
+uv run scripts/init_skill.py my-skill --path "$workspace/.agent/skills" --resources scripts,references
+uv run scripts/init_skill.py my-skill --path "$workspace/.agent/skills" --resources scripts --examples
+uv run scripts/init_skill.py my-skill --path "~/.agent/skills"
 ```
 
 The script:
@@ -349,7 +349,7 @@ Write instructions for using the skill and its bundled resources.
 Once development of the skill is complete, validate the skill folder to catch basic issues early:
 
 ```bash
-scripts/quick_validate.py <path/to/skill-folder>
+uv run scripts/quick_validate.py <path/to/skill-folder>
 ```
 
 The validation script checks YAML frontmatter format, required fields, and naming rules. If validation fails, fix the reported issues and run the command again.
