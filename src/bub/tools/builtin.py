@@ -463,7 +463,9 @@ def register_builtin_tools(
     @register(name="tape.reset", short_description="Reset tape", model=TapeResetInput)
     def tape_reset(params: TapeResetInput) -> str:
         """Reset current tape; can archive before clearing."""
-        return tape.reset(archive=params.archive)
+        result = tape.reset(archive=params.archive)
+        runtime.reset_session_context(session_id)
+        return result
 
     @register(name="skills.list", short_description="List skills", model=EmptyInput)
     def list_skills(_params: EmptyInput) -> str:

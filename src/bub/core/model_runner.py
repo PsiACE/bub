@@ -75,6 +75,10 @@ class ModelRunner:
         self._workspace_system_prompt = workspace_system_prompt.strip()
         self._expanded_skills: dict[str, str] = {}
 
+    def reset_context(self) -> None:
+        """Clear volatile model-side context caches within one session."""
+        self._expanded_skills.clear()
+
     async def run(self, prompt: str) -> ModelTurnResult:
         state = _PromptState(prompt=prompt)
         self._activate_hints(prompt)

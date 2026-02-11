@@ -43,9 +43,16 @@ class SessionRuntime:
     session_id: str
     loop: AgentLoop
     tape: TapeService
+    model_runner: ModelRunner
+    tool_view: ProgressiveToolView
 
     async def handle_input(self, text: str) -> LoopResult:
         return await self.loop.handle_input(text)
+
+    def reset_context(self) -> None:
+        """Clear volatile in-memory context while keeping the same session identity."""
+        self.model_runner.reset_context()
+        self.tool_view.reset()
 
 
 class AppRuntime:
@@ -133,7 +140,7 @@ class AppRuntime:
             workspace_system_prompt=self.workspace_prompt,
         )
         loop = AgentLoop(router=router, model_runner=runner, tape=tape)
-        runtime = SessionRuntime(session_id=session_id, loop=loop, tape=tape)
+        runtime = SessionRuntime(session_id=session_id, loop=loop, tape=tape, model_runner=runner, tool_view=tool_view)
         self._sessions[session_id] = runtime
         return runtime
 
@@ -141,6 +148,13 @@ class AppRuntime:
         self._sync_running_loop()
         session = self.get_session(session_id)
         return await session.handle_input(text)
+
+    def reset_session_context(self, session_id: str) -> None:
+        """Reset volatile context for an already-created session."""
+        session = self._sessions.get(session_id)
+        if session is None:
+            return
+        session.reset_context()
 
     def set_bus(self, bus: MessageBus) -> None:
         self.bus = bus

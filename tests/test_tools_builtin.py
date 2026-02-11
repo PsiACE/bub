@@ -48,6 +48,7 @@ class _DummyRuntime:
         self.scheduler = scheduler
         self._discovered_skills: list[object] = []
         self.bus = None
+        self.reset_calls: list[str] = []
 
     def discover_skills(self) -> list[object]:
         return list(self._discovered_skills)
@@ -55,6 +56,9 @@ class _DummyRuntime:
     @staticmethod
     def load_skill_body(_name: str) -> str | None:
         return None
+
+    def reset_session_context(self, session_id: str) -> None:
+        self.reset_calls.append(session_id)
 
 
 def _build_registry(workspace: Path, settings: Settings, scheduler: BackgroundScheduler) -> ToolRegistry:
@@ -349,3 +353,20 @@ def test_bash_tool_inherits_runtime_session_id(
     kwargs = observed["kwargs"]
     assert isinstance(kwargs, dict)
     assert kwargs["env"]["BUB_SESSION_ID"] == "cli:test"
+
+
+def test_tape_reset_also_clears_session_runtime_context(tmp_path: Path, scheduler: BackgroundScheduler) -> None:
+    settings = Settings(_env_file=None, model="openrouter:test")
+    runtime = _DummyRuntime(settings, scheduler)
+    registry = ToolRegistry()
+    register_builtin_tools(
+        registry,
+        workspace=tmp_path,
+        tape=_DummyTape(),  # type: ignore[arg-type]
+        runtime=runtime,  # type: ignore[arg-type]
+        session_id="telegram:123",
+    )
+
+    result = registry.execute("tape.reset", kwargs={"archive": True})
+    assert result == "reset"
+    assert runtime.reset_calls == ["telegram:123"]
