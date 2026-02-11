@@ -6,8 +6,10 @@ import sys
 from loguru import logger
 
 
-def run_scheduled_reminder(message: str, session_id: str) -> None:
+def run_scheduled_reminder(message: str, session_id: str, workspace: str | None = None) -> None:
     command = [sys.executable, "-m", "bub.cli.app", "run", "--session-id", session_id]
+    if workspace:
+        command.extend(["--workspace", workspace])
     command.append(message)
 
     logger.info("running scheduled reminder via bub run session_id={} message={}", session_id, message)
