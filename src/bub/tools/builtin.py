@@ -39,6 +39,9 @@ SESSION_ID_ENV_VAR = "BUB_SESSION_ID"
 class BashInput(BaseModel):
     cmd: str = Field(..., description="Shell command")
     cwd: str | None = Field(default=None, description="Working directory")
+    timeout_seconds: int = Field(
+        default=SUBPROCESS_TIMEOUT_SECONDS, ge=1, description="Maximum seconds to allow command to run"
+    )
 
 
 class ReadInput(BaseModel):
@@ -194,7 +197,7 @@ def register_builtin_tools(
             capture_output=True,
             text=True,
             env=env,
-            timeout=WEB_REQUEST_TIMEOUT_SECONDS,
+            timeout=params.timeout_seconds,
         )
         stdout = (completed.stdout or "").strip()
         stderr = (completed.stderr or "").strip()
