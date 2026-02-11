@@ -18,9 +18,8 @@ from bub.core import AgentLoop, InputRouter, LoopResult, ModelRunner
 from bub.integrations.republic_client import build_llm, build_tape_store, read_workspace_agents_prompt
 from bub.skills import SkillMetadata, discover_skills, load_skill_body
 from bub.tape import TapeService
-from bub.tools import ProgressiveToolView
+from bub.tools import ProgressiveToolView, ToolRegistry
 from bub.tools.builtin import register_builtin_tools
-from bub.tools.registry import ToolRegistry
 
 if TYPE_CHECKING:
     from bub.channels.bus import MessageBus
