@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import signal
 import sys
 from contextlib import suppress
@@ -46,6 +47,7 @@ def chat(
     workspace: Annotated[Path | None, typer.Option("--workspace", "-w")] = None,
     model: Annotated[str | None, typer.Option("--model")] = None,
     max_tokens: Annotated[int | None, typer.Option("--max-tokens")] = None,
+    disable_scheduler: Annotated[bool, typer.Option("--disable-scheduler", envvar="BUB_DISABLE_SCHEDULER")] = False,
 ) -> None:
     """Run interactive CLI."""
 
@@ -57,7 +59,9 @@ def chat(
         model or "<default>",
         max_tokens if max_tokens is not None else "<default>",
     )
-    with build_runtime(resolved_workspace, model=model, max_tokens=max_tokens) as runtime:
+    with build_runtime(
+        resolved_workspace, model=model, max_tokens=max_tokens, enable_scheduler=not disable_scheduler
+    ) as runtime:
         cli = InteractiveCli(runtime)
         asyncio.run(cli.run())
 
@@ -112,6 +116,7 @@ def run(
             help="Allowed skill names (repeatable or comma-separated).",
         ),
     ] = None,
+    disable_scheduler: Annotated[bool, typer.Option("--disable-scheduler", envvar="BUB_DISABLE_SCHEDULER")] = False,
 ) -> None:
     """Run a single message and exit, useful for quick testing or one-off commands."""
     import rich
@@ -134,6 +139,7 @@ def run(
         max_tokens=max_tokens,
         allowed_tools=allowed_tools,
         allowed_skills=allowed_skills,
+        enable_scheduler=not disable_scheduler,
     ) as runtime:
         result = asyncio.run(runtime.handle_input(session_id, message))
         if result.error:
@@ -151,6 +157,7 @@ def telegram(
     """Run Telegram adapter with the same agent loop runtime."""
 
     configure_logging()
+    os.environ["BUB_MESSAGE_CHANNEL"] = "telegram"
     resolved_workspace = (workspace or Path.cwd()).resolve()
     logger.info(
         "telegram.start workspace={} model={} max_tokens={}",

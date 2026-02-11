@@ -66,6 +66,7 @@ class AppRuntime:
         *,
         allowed_tools: set[str] | None = None,
         allowed_skills: set[str] | None = None,
+        enable_scheduler: bool = True,
     ) -> None:
         self.workspace = workspace.resolve()
         self.settings = settings
@@ -79,18 +80,19 @@ class AppRuntime:
         self._llm = build_llm(settings, self._store)
         self._sessions: dict[str, SessionRuntime] = {}
         self._active_inputs: set[asyncio.Task[LoopResult]] = set()
+        self._enable_scheduler = enable_scheduler
 
     def _default_scheduler(self) -> BaseScheduler:
         job_store = JSONJobStore(self.settings.resolve_home() / "jobs.json")
         return BackgroundScheduler(daemon=True, jobstores={"default": job_store})
 
     def __enter__(self) -> AppRuntime:
-        if not self.scheduler.running:
+        if not self.scheduler.running and self._enable_scheduler:
             self.scheduler.start()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        if self.scheduler.running:
+        if self.scheduler.running and self._enable_scheduler:
             with suppress(Exception):
                 self.scheduler.shutdown()
 
