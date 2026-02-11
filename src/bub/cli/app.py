@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import signal
 import sys
+from contextlib import suppress
 from pathlib import Path
 from typing import Annotated
 
@@ -189,12 +191,30 @@ def telegram(
 
 
 async def _serve_channels(manager: ChannelManager) -> None:
+    loop = asyncio.get_running_loop()
+    stop_event = asyncio.Event()
+    handled_signals: list[signal.Signals] = []
+
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, stop_event.set)
+            handled_signals.append(sig)
+        except (NotImplementedError, RuntimeError):
+            # Signal handlers can be unavailable on non-main threads/platforms.
+            continue
+
     channels = sorted(manager.enabled_channels())
     logger.info("channels.start enabled={}", channels)
     await manager.start()
     try:
-        await asyncio.Event().wait()
+        await stop_event.wait()
     finally:
+        cancelled = manager.runtime.cancel_active_inputs()
+        if cancelled:
+            logger.info("channels.cancel_inflight count={}", cancelled)
+        for sig in handled_signals:
+            with suppress(NotImplementedError, RuntimeError):
+                loop.remove_signal_handler(sig)
         await manager.stop()
         logger.info("channels.stop")
 

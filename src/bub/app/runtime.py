@@ -78,6 +78,7 @@ class AppRuntime:
         self.scheduler = self._default_scheduler()
         self._llm = build_llm(settings, self._store)
         self._sessions: dict[str, SessionRuntime] = {}
+        self._active_inputs: set[asyncio.Task[LoopResult]] = set()
 
     def _default_scheduler(self) -> BaseScheduler:
         job_store = JSONJobStore(self.settings.resolve_home() / "jobs.json")
@@ -151,7 +152,20 @@ class AppRuntime:
     async def handle_input(self, session_id: str, text: str) -> LoopResult:
         self._sync_running_loop()
         session = self.get_session(session_id)
-        return await session.handle_input(text)
+        task = asyncio.create_task(session.handle_input(text))
+        self._active_inputs.add(task)
+        try:
+            return await task
+        finally:
+            self._active_inputs.discard(task)
+
+    def cancel_active_inputs(self) -> int:
+        """Cancel all in-flight input tasks and return canceled count."""
+        count = 0
+        while self._active_inputs:
+            self._active_inputs.pop().cancel()
+            count += 1
+        return count
 
     def reset_session_context(self, session_id: str) -> None:
         """Reset volatile context for an already-created session."""

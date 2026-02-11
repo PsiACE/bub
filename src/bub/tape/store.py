@@ -58,6 +58,7 @@ class FileTapeStore:
             return new_name
 
     def merge(self, source: str, target: str) -> None:
+        print("Merging", source, "into", target)
         all_entries = self.read(source) or []
         with self._lock:
             if source not in self._fork_start_ids:

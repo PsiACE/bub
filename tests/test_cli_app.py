@@ -1,6 +1,9 @@
+import asyncio
 import importlib
+import signal
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 cli_app_module = importlib.import_module("bub.cli.app")
@@ -182,3 +185,56 @@ def test_run_command_session_id_option_overrides_env(monkeypatch, tmp_path: Path
 
     assert result.exit_code == 0
     assert captured["session_id"] == "explicit-session"
+
+
+@pytest.mark.asyncio
+async def test_serve_channels_stops_manager_on_sigterm(monkeypatch) -> None:
+    class _DummyRuntime:
+        def __init__(self) -> None:
+            self.cancel_calls = 0
+
+        def cancel_active_inputs(self) -> int:
+            self.cancel_calls += 1
+            return 1
+
+    class _DummyManager:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+            self._signal_handler = None
+            self.runtime = _DummyRuntime()
+
+        def enabled_channels(self):
+            return {"telegram"}
+
+        async def start(self) -> None:
+            self.calls.append("start")
+
+        async def stop(self) -> None:
+            self.calls.append("stop")
+
+    manager = _DummyManager()
+    loop = asyncio.get_running_loop()
+    original_add = loop.add_signal_handler
+    original_remove = loop.remove_signal_handler
+
+    def _add_signal_handler(sig, callback, *args):
+        if sig == signal.SIGTERM:
+            manager._signal_handler = callback
+        return original_add(sig, callback, *args)
+
+    def _remove_signal_handler(sig):
+        return original_remove(sig)
+
+    monkeypatch.setattr(loop, "add_signal_handler", _add_signal_handler)
+    monkeypatch.setattr(loop, "remove_signal_handler", _remove_signal_handler)
+
+    task = asyncio.create_task(cli_app_module._serve_channels(manager))
+    await asyncio.sleep(0.05)
+    assert manager.calls == ["start"]
+    assert manager._signal_handler is not None
+
+    manager._signal_handler()
+    await asyncio.wait_for(task, timeout=1.0)
+
+    assert manager.calls == ["start", "stop"]
+    assert manager.runtime.cancel_calls == 1
