@@ -34,7 +34,7 @@ def current_tape() -> str:
     tape = _tape_context.get(None)
     if tape is None:
         return "-"
-    return tape.name
+    return tape.name  # type: ignore[no-any-return]
 
 
 class TapeService:

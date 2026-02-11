@@ -21,7 +21,7 @@ def test_registry_logs_once_for_execute(monkeypatch) -> None:
 
     result = registry.execute("math.add", kwargs={"a": 1, "b": 2})
     assert result == 3
-    assert logs.count("tool.call.start name={} run_id={} tape={} {{ {} }}") == 1
+    assert logs.count("tool.call.start tape={} {{ {} }}") == 1
     assert logs.count("tool.call.end name={} duration={:.3f}ms") == 1
 
 
@@ -45,7 +45,7 @@ def test_registry_logs_for_direct_tool_run_with_context(monkeypatch) -> None:
 
     output = descriptor.tool.run(context=ToolContext(tape="t1", run_id="r1"), path="README.md")
     assert output == "r1:README.md"
-    assert logs.count("tool.call.start name={} run_id={} tape={} {{ {} }}") == 1
+    assert logs.count("tool.call.start tape={} {{ {} }}") == 1
     assert logs.count("tool.call.end name={} duration={:.3f}ms") == 1
 
 
