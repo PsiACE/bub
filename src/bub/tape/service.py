@@ -29,6 +29,14 @@ class TapeInfo:
 _tape_context: ContextVar[Tape] = ContextVar("tape")
 
 
+def current_tape() -> str:
+    """Get the name of the current tape in context."""
+    tape = _tape_context.get(None)
+    if tape is None:
+        return "-"
+    return tape.name
+
+
 class TapeService:
     """Tape helper with app-specific operations."""
 

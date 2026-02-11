@@ -190,15 +190,8 @@ class ToolRegistry:
                 value = value + "]"
             params.append(f"{key}={value}")
         params_str = ", ".join(params)
-        run_id = context.run_id if context is not None else "-"
         tape = context.tape if context is not None else "-"
-        logger.info(
-            "tool.call.start name={} run_id={} tape={} {{ {} }}",
-            name,
-            run_id,
-            tape,
-            params_str,
-        )
+        logger.info("tool.call.start tape={} {{ {} }}", tape, params_str)
 
     def execute(
         self,
