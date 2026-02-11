@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.base import BaseScheduler
 
 from bub.app.jobstore import JSONJobStore
 from bub.config.settings import Settings
@@ -65,6 +66,7 @@ class AppRuntime:
         *,
         allowed_tools: set[str] | None = None,
         allowed_skills: set[str] | None = None,
+        scheduler: BaseScheduler | None = None,
     ) -> None:
         self.workspace = workspace.resolve()
         self.settings = settings
@@ -74,10 +76,15 @@ class AppRuntime:
         self.workspace_prompt = read_workspace_agents_prompt(self.workspace)
         self.bus: MessageBus | None = None
         self.loop: AbstractEventLoop | None = None
-        job_store = JSONJobStore(settings.resolve_home() / "jobs.json")
-        self.scheduler = BackgroundScheduler(daemon=True, jobstores={"default": job_store})
+        if scheduler is None:
+            scheduler = self._default_scheduler()
+        self.scheduler = scheduler
         self._llm = build_llm(settings, self._store)
         self._sessions: dict[str, SessionRuntime] = {}
+
+    def _default_scheduler(self) -> BaseScheduler:
+        job_store = JSONJobStore(self.settings.resolve_home() / "jobs.json")
+        return BackgroundScheduler(daemon=True, jobstores={"default": job_store})
 
     def __enter__(self) -> AppRuntime:
         if not self.scheduler.running:
