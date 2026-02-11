@@ -49,6 +49,7 @@ class _DummyRuntime:
         self._discovered_skills: list[object] = []
         self.bus = None
         self.reset_calls: list[str] = []
+        self.workspace = Path.cwd()
 
     def discover_skills(self) -> list[object]:
         return list(self._discovered_skills)

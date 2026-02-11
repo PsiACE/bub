@@ -294,7 +294,7 @@ def register_builtin_tools(
                 run_scheduled_reminder,
                 trigger=trigger,
                 id=job_id,
-                kwargs={"message": params.message, "session_id": session_id},
+                kwargs={"message": params.message, "session_id": session_id, "workspace": str(runtime.workspace)},
                 coalesce=True,
                 max_instances=1,
             )

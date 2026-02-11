@@ -44,10 +44,10 @@ class BubMessageFilter(filters.MessageFilter):
                 return True
 
             if self._mentions_bot(message, text, bot_id, bot_username):
-                return True
+                return not filters.COMMAND.filter(message)
 
             if self._is_reply_to_bot(message, bot_id):
-                return True
+                return not filters.COMMAND.filter(message)
 
         return False
 

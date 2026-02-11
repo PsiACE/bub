@@ -61,6 +61,35 @@ def chat(
 
 
 @app.command()
+def idle(
+    workspace: Annotated[Path | None, typer.Option("--workspace", "-w")] = None,
+    model: Annotated[str | None, typer.Option("--model")] = None,
+    max_tokens: Annotated[int | None, typer.Option("--max-tokens")] = None,
+) -> None:
+    """Start the scheduler only, this is a good option for running a completely autonomous agent."""
+    from apscheduler.schedulers.blocking import BlockingScheduler
+
+    from bub.app.jobstore import JSONJobStore
+    from bub.config.settings import load_settings
+
+    configure_logging(profile="chat")
+    resolved_workspace = (workspace or Path.cwd()).resolve()
+    logger.info(
+        "idle.start workspace={} model={} max_tokens={}",
+        str(resolved_workspace),
+        model or "<default>",
+        max_tokens if max_tokens is not None else "<default>",
+    )
+    settings = load_settings(resolved_workspace)
+    job_store = JSONJobStore(settings.resolve_home() / "jobs.json")
+    scheduler = BlockingScheduler(jobstores={"default": job_store})
+    try:
+        scheduler.start()
+    finally:
+        logger.info("idle.stop workspace={}", str(resolved_workspace))
+
+
+@app.command()
 def run(
     message: Annotated[str, typer.Argument()],
     workspace: Annotated[Path | None, typer.Option("--workspace", "-w")] = None,
