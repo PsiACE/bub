@@ -79,6 +79,9 @@ class FakeToolView:
             return True
         return False
 
+    def reset(self) -> None:
+        self.expanded.clear()
+
 
 @dataclass
 class FakeTapeImpl:
@@ -375,3 +378,34 @@ async def test_model_runner_refreshes_skills_from_provider_between_runs() -> Non
     _, second_system_prompt, _ = tape.tape.calls[1]
     assert "<skill_view>" in second_system_prompt
     assert "friendly-python" in second_system_prompt
+
+
+@pytest.mark.asyncio
+async def test_model_runner_does_not_carry_expanded_details_across_runs() -> None:
+    tape = FakeTapeService(
+        FakeTapeImpl(
+            outputs=[ToolAutoResult.text_result("assistant-only"), ToolAutoResult.text_result("assistant-only")]
+        )
+    )
+    runner = ModelRunner(
+        tape=tape,  # type: ignore[arg-type]
+        router=AnySingleStepRouter(),  # type: ignore[arg-type]
+        tool_view=FakeToolView(),  # type: ignore[arg-type]
+        tools=[],
+        list_skills=lambda: [],
+        load_skill_body=lambda name: None,
+        model="openrouter:test",
+        max_steps=1,
+        max_tokens=512,
+        model_timeout_seconds=90,
+        base_system_prompt="base",
+        workspace_system_prompt="",
+    )
+
+    await runner.run("use $fs.read")
+    _, first_system_prompt, _ = tape.tape.calls[0]
+    assert "<tool_details>" in first_system_prompt
+
+    await runner.run("plain prompt")
+    _, second_system_prompt, _ = tape.tape.calls[1]
+    assert "<tool_details>" not in second_system_prompt

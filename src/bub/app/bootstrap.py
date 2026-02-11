@@ -9,10 +9,16 @@ from bub.config import load_settings
 
 # Global singleton runtime instance
 _runtime: AppRuntime | None = None
+_runtimes: dict[str, AppRuntime] = {}
 
 
-def get_runtime() -> AppRuntime:
+def get_runtime(runtime_id: str | None = None) -> AppRuntime:
     """Get or create the global app runtime."""
+    if runtime_id is not None:
+        runtime = _runtimes.get(runtime_id)
+        if runtime is not None:
+            return runtime
+        raise RuntimeError(f"AppRuntime is not initialized for runtime_id={runtime_id}.")
     if _runtime is None:
         raise RuntimeError("AppRuntime is not initialized. Call build_runtime() first.")
     return _runtime
@@ -43,4 +49,5 @@ def build_runtime(
         allowed_tools=allowed_tools,
         allowed_skills=allowed_skills,
     )
+    _runtimes[_runtime.runtime_id] = _runtime
     return _runtime

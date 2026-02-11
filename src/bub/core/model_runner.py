@@ -80,6 +80,9 @@ class ModelRunner:
         self._expanded_skills.clear()
 
     async def run(self, prompt: str) -> ModelTurnResult:
+        # Bound prompt growth across turns by clearing volatile expansions per new user turn.
+        self.reset_context()
+        self._tool_view.reset()
         state = _PromptState(prompt=prompt)
         self._activate_hints(prompt)
 

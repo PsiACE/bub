@@ -5,11 +5,11 @@ import asyncio
 from loguru import logger
 
 
-def run_scheduled_reminder(message: str, session_id: str) -> None:
+def run_scheduled_reminder(message: str, session_id: str, runtime_id: str | None = None) -> None:
     from bub.app import get_runtime
     from bub.channels.events import InboundMessage
 
-    runtime = get_runtime()
+    runtime = get_runtime(runtime_id)
 
     if runtime is None:
         logger.error("cannot send scheduled reminder: runtime is not set")

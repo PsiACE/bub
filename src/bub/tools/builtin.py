@@ -297,7 +297,11 @@ def register_builtin_tools(
                     run_scheduled_reminder,
                     trigger=trigger,
                     id=job_id,
-                    kwargs={"message": params.message, "session_id": session_id},
+                    kwargs={
+                        "message": params.message,
+                        "session_id": session_id,
+                        "runtime_id": runtime.runtime_id,
+                    },
                     coalesce=True,
                     max_instances=1,
                 )
@@ -312,6 +316,12 @@ def register_builtin_tools(
         @register(name="schedule.remove", short_description="Remove a scheduled job", model=ScheduleRemoveInput)
         def schedule_remove(params: ScheduleRemoveInput) -> str:
             """Remove one scheduled job by id."""
+            job = runtime.scheduler.get_job(params.job_id)
+            if job is None:
+                raise RuntimeError(f"job not found: {params.job_id}")
+            owner_session = job.kwargs.get("session_id")
+            if owner_session != session_id:
+                raise RuntimeError(f"job not found: {params.job_id}")
             try:
                 runtime.scheduler.remove_job(params.job_id)
             except JobLookupError as exc:
@@ -321,7 +331,7 @@ def register_builtin_tools(
         @register(name="schedule.list", short_description="List scheduled jobs", model=EmptyInput)
         def schedule_list(_params: EmptyInput) -> str:
             """List scheduled jobs for current workspace."""
-            jobs = runtime.scheduler.get_jobs()
+            jobs = [job for job in runtime.scheduler.get_jobs() if job.kwargs.get("session_id") == session_id]
             if not jobs:
                 return "(no scheduled jobs)"
 

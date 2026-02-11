@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import threading
+import uuid
 from asyncio import AbstractEventLoop
 from contextlib import suppress
 from dataclasses import dataclass
@@ -41,6 +43,7 @@ class SessionRuntime:
     """Runtime state for one deterministic session."""
 
     session_id: str
+    registry: ToolRegistry
     loop: AgentLoop
     tape: TapeService
     model_runner: ModelRunner
@@ -68,16 +71,22 @@ class AppRuntime:
     ) -> None:
         self.workspace = workspace.resolve()
         self.settings = settings
+        self.runtime_id = uuid.uuid4().hex
+        self._allowed_tools = _normalize_name_set(allowed_tools)
         self._allowed_skills = _normalize_name_set(allowed_skills)
         self._store = build_tape_store(settings, self.workspace)
         self.workspace_prompt = read_workspace_agents_prompt(self.workspace)
         self.bus: MessageBus | None = None
         self.loop: AbstractEventLoop | None = None
-        self.registry = ToolRegistry(_normalize_name_set(allowed_tools))
+        # Keep one registry reference for compatibility with callers that inspect
+        # runtime-level tools (for example interactive completion setup).
+        self.registry = ToolRegistry(self._allowed_tools)
         job_store = JSONJobStore(settings.resolve_home() / "jobs.json")
         self.scheduler = BackgroundScheduler(daemon=True, jobstores={"default": job_store})
         self._llm = build_llm(settings, self._store)
         self._sessions: dict[str, SessionRuntime] = {}
+        self._session_locks: dict[str, threading.Lock] = {}
+        self._session_locks_guard = threading.Lock()
 
     def __enter__(self) -> AppRuntime:
         if not self.scheduler.running:
@@ -111,38 +120,53 @@ class AppRuntime:
         if existing is not None:
             return existing
 
-        tape_name = f"{self.settings.tape_name}:{_session_slug(session_id)}"
-        tape = TapeService(self._llm, tape_name, store=self._store)
-        tape.ensure_bootstrap_anchor()
+        with self._session_lock(session_id):
+            existing = self._sessions.get(session_id)
+            if existing is not None:
+                return existing
 
-        registry = self.registry
-        register_builtin_tools(
-            registry,
-            workspace=self.workspace,
-            tape=tape,
-            runtime=self,
-            session_id=session_id,
-        )
-        tool_view = ProgressiveToolView(registry)
-        router = InputRouter(registry, tool_view, tape, self.workspace)
-        runner = ModelRunner(
-            tape=tape,
-            router=router,
-            tool_view=tool_view,
-            tools=registry.model_tools(),
-            list_skills=self.discover_skills,
-            load_skill_body=self.load_skill_body,
-            model=self.settings.model,
-            max_steps=self.settings.max_steps,
-            max_tokens=self.settings.max_tokens,
-            model_timeout_seconds=self.settings.model_timeout_seconds,
-            base_system_prompt=self.settings.system_prompt,
-            workspace_system_prompt=self.workspace_prompt,
-        )
-        loop = AgentLoop(router=router, model_runner=runner, tape=tape)
-        runtime = SessionRuntime(session_id=session_id, loop=loop, tape=tape, model_runner=runner, tool_view=tool_view)
-        self._sessions[session_id] = runtime
-        return runtime
+            tape_name = f"{self.settings.tape_name}:{_session_slug(session_id)}"
+            tape = TapeService(self._llm, tape_name, store=self._store)
+            tape.ensure_bootstrap_anchor()
+
+            # Use isolated per-session registries so command handlers do not capture
+            # and overwrite each other across sessions.
+            registry = ToolRegistry(self._allowed_tools)
+            register_builtin_tools(
+                registry,
+                workspace=self.workspace,
+                tape=tape,
+                runtime=self,
+                session_id=session_id,
+            )
+            self.registry = registry
+            tool_view = ProgressiveToolView(registry)
+            router = InputRouter(registry, tool_view, tape, self.workspace)
+            runner = ModelRunner(
+                tape=tape,
+                router=router,
+                tool_view=tool_view,
+                tools=registry.model_tools(),
+                list_skills=self.discover_skills,
+                load_skill_body=self.load_skill_body,
+                model=self.settings.model,
+                max_steps=self.settings.max_steps,
+                max_tokens=self.settings.max_tokens,
+                model_timeout_seconds=self.settings.model_timeout_seconds,
+                base_system_prompt=self.settings.system_prompt,
+                workspace_system_prompt=self.workspace_prompt,
+            )
+            loop = AgentLoop(router=router, model_runner=runner, tape=tape)
+            runtime = SessionRuntime(
+                session_id=session_id,
+                registry=registry,
+                loop=loop,
+                tape=tape,
+                model_runner=runner,
+                tool_view=tool_view,
+            )
+            self._sessions[session_id] = runtime
+            return runtime
 
     async def handle_input(self, session_id: str, text: str) -> LoopResult:
         self._sync_running_loop()
@@ -158,6 +182,14 @@ class AppRuntime:
 
     def set_bus(self, bus: MessageBus) -> None:
         self.bus = bus
+
+    def _session_lock(self, session_id: str) -> threading.Lock:
+        with self._session_locks_guard:
+            lock = self._session_locks.get(session_id)
+            if lock is None:
+                lock = threading.Lock()
+                self._session_locks[session_id] = lock
+            return lock
 
 
 def _normalize_name_set(raw: set[str] | None) -> set[str] | None:

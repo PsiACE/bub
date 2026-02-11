@@ -46,6 +46,7 @@ class _DummyRuntime:
     def __init__(self, settings: Settings, scheduler: BackgroundScheduler) -> None:
         self.settings = settings
         self.scheduler = scheduler
+        self.runtime_id = "runtime:test"
         self._discovered_skills: list[object] = []
         self.bus = None
         self.reset_calls: list[str] = []
@@ -61,7 +62,13 @@ class _DummyRuntime:
         self.reset_calls.append(session_id)
 
 
-def _build_registry(workspace: Path, settings: Settings, scheduler: BackgroundScheduler) -> ToolRegistry:
+def _build_registry(
+    workspace: Path,
+    settings: Settings,
+    scheduler: BackgroundScheduler,
+    *,
+    session_id: str = "cli:test",
+) -> ToolRegistry:
     registry = ToolRegistry()
     runtime = _DummyRuntime(settings, scheduler)
     register_builtin_tools(
@@ -69,7 +76,7 @@ def _build_registry(workspace: Path, settings: Settings, scheduler: BackgroundSc
         workspace=workspace,
         tape=_DummyTape(),  # type: ignore[arg-type]
         runtime=runtime,  # type: ignore[arg-type]
-        session_id="cli:test",
+        session_id=session_id,
     )
     return registry
 
@@ -271,13 +278,13 @@ def test_schedule_remove_missing_job_returns_error(tmp_path: Path, scheduler: Ba
         assert "job not found: missing" in str(exc)
 
 
-def test_schedule_shared_scheduler_across_registries(tmp_path: Path, scheduler: BackgroundScheduler) -> None:
+def test_schedule_list_is_isolated_by_session_id(tmp_path: Path, scheduler: BackgroundScheduler) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
     settings = Settings(_env_file=None, model="openrouter:test")
-    registry_a = _build_registry(workspace, settings, scheduler)
-    registry_b = _build_registry(workspace, settings, scheduler)
+    registry_a = _build_registry(workspace, settings, scheduler, session_id="telegram:1")
+    registry_b = _build_registry(workspace, settings, scheduler, session_id="telegram:2")
 
     add_result = registry_a.execute(
         "schedule.add",
@@ -286,7 +293,31 @@ def test_schedule_shared_scheduler_across_registries(tmp_path: Path, scheduler: 
     matched = re.match(r"^scheduled: (?P<job_id>[a-z0-9-]+) next=.*$", add_result)
     assert matched is not None
 
-    assert matched.group("job_id") in registry_b.execute("schedule.list", kwargs={})
+    assert matched.group("job_id") in registry_a.execute("schedule.list", kwargs={})
+    assert registry_b.execute("schedule.list", kwargs={}) == "(no scheduled jobs)"
+
+
+def test_schedule_remove_cannot_remove_other_session_job(tmp_path: Path, scheduler: BackgroundScheduler) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    settings = Settings(_env_file=None, model="openrouter:test")
+    registry_a = _build_registry(workspace, settings, scheduler, session_id="telegram:1")
+    registry_b = _build_registry(workspace, settings, scheduler, session_id="telegram:2")
+
+    add_result = registry_a.execute(
+        "schedule.add",
+        kwargs={"cron": "*/5 * * * *", "message": "from-a"},
+    )
+    matched = re.match(r"^scheduled: (?P<job_id>[a-z0-9-]+) next=.*$", add_result)
+    assert matched is not None
+    job_id = matched.group("job_id")
+
+    try:
+        registry_b.execute("schedule.remove", kwargs={"job_id": job_id})
+        raise AssertionError("expected RuntimeError")
+    except RuntimeError as exc:
+        assert f"job not found: {job_id}" in str(exc)
 
 
 def test_skills_list_uses_latest_runtime_skills(tmp_path: Path, scheduler: BackgroundScheduler) -> None:
@@ -299,6 +330,7 @@ def test_skills_list_uses_latest_runtime_skills(tmp_path: Path, scheduler: Backg
         def __init__(self, settings: Settings, scheduler: BackgroundScheduler) -> None:
             self.settings = settings
             self.scheduler = scheduler
+            self.runtime_id = "runtime:test"
             self.bus = None
             self._discovered_skills: list[_Skill] = [_Skill(name="alpha", description="first")]
 

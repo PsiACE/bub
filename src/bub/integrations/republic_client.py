@@ -11,6 +11,7 @@ from bub.tape.context import default_tape_context
 from bub.tape.store import FileTapeStore
 
 AGENTS_FILE = "AGENTS.md"
+MAX_AGENTS_PROMPT_CHARS = 12_000
 
 
 def build_tape_store(settings: Settings, workspace: Path) -> FileTapeStore:
@@ -38,6 +39,16 @@ def read_workspace_agents_prompt(workspace: Path) -> str:
     if not prompt_file.is_file():
         return ""
     try:
-        return prompt_file.read_text(encoding="utf-8").strip()
+        content = prompt_file.read_text(encoding="utf-8").strip()
     except OSError:
         return ""
+
+    if len(content) <= MAX_AGENTS_PROMPT_CHARS:
+        return content
+
+    marker = "\n\n[AGENTS.md truncated: middle content removed]\n\n"
+    head_len = (MAX_AGENTS_PROMPT_CHARS - len(marker)) // 2
+    tail_len = MAX_AGENTS_PROMPT_CHARS - len(marker) - head_len
+    if head_len <= 0 or tail_len <= 0:
+        return content[:MAX_AGENTS_PROMPT_CHARS]
+    return f"{content[:head_len]}{marker}{content[-tail_len:]}"
