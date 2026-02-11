@@ -83,10 +83,10 @@ def idle(
     settings = load_settings(resolved_workspace)
     job_store = JSONJobStore(settings.resolve_home() / "jobs.json")
     scheduler = BlockingScheduler(jobstores={"default": job_store})
-    with build_runtime(resolved_workspace, model=model, max_tokens=max_tokens, scheduler=scheduler):
-        # The blocking scheduler will run indefinitely, no need to do anything else here
-        pass
-    logger.info("idle.stop workspace={}", str(resolved_workspace))
+    try:
+        scheduler.start()
+    finally:
+        logger.info("idle.stop workspace={}", str(resolved_workspace))
 
 
 @app.command()
