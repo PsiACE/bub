@@ -7,6 +7,9 @@ from loguru import logger
 
 
 def run_scheduled_reminder(message: str, session_id: str, workspace: str | None = None) -> None:
+    if session_id.startswith("telegram:"):
+        chat_id = session_id.split(":", 1)[1]
+        message = f"[Reminder for Telegram chat {chat_id}, after done, send message to this chat]\n\n{message}"
     command = [sys.executable, "-m", "bub.cli.app", "run", "--session-id", session_id]
     if workspace:
         command.extend(["--workspace", workspace])
