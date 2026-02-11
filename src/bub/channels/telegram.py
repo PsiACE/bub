@@ -119,7 +119,7 @@ class TelegramChannel(BaseChannel):
         self._running = False
 
         # Cancel proactive interaction task
-        if hasattr(self, '_proactive_task'):
+        if hasattr(self, "_proactive_task"):
             self._proactive_task.cancel()
 
         for task in self._typing_tasks.values():
@@ -223,17 +223,20 @@ class TelegramChannel(BaseChannel):
 
         # Store the message
         import time
-        self._message_store.add_message(StoredMessage(
-            id=f"{chat_id}_{update.message.message_id}",
-            chat_id=int(chat_id),
-            thread_id=None,
-            role="user",
-            name=user.username,
-            content=text,
-            tool_call_id=None,
-            tool_calls=None,
-            timestamp=time.time(),
-        ))
+
+        self._message_store.add_message(
+            StoredMessage(
+                id=f"{chat_id}_{update.message.message_id}",
+                chat_id=int(chat_id),
+                thread_id=None,
+                role="user",
+                name=user.username,
+                content=text,
+                tool_call_id=None,
+                tool_calls=None,
+                timestamp=time.time(),
+            )
+        )
 
         self._start_typing(chat_id)
         await self.publish_inbound(

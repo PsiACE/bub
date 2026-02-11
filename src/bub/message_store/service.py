@@ -13,6 +13,7 @@ from typing import Literal
 @dataclass
 class StoredMessage:
     """Represents a stored message."""
+
     id: str
     chat_id: int
     thread_id: int | None
@@ -92,17 +93,19 @@ class MessageStore:
 
         messages = []
         for row in reversed(rows):
-            messages.append(StoredMessage(
-                id=row["id"],
-                chat_id=row["chat_id"],
-                thread_id=row["thread_id"],
-                role=row["role"],
-                name=row["name"],
-                content=row["content"],
-                tool_call_id=row["tool_call_id"],
-                tool_calls=json.loads(row["tool_calls"]) if row["tool_calls"] else None,
-                timestamp=row["timestamp"],
-            ))
+            messages.append(
+                StoredMessage(
+                    id=row["id"],
+                    chat_id=row["chat_id"],
+                    thread_id=row["thread_id"],
+                    role=row["role"],
+                    name=row["name"],
+                    content=row["content"],
+                    tool_call_id=row["tool_call_id"],
+                    tool_calls=json.loads(row["tool_calls"]) if row["tool_calls"] else None,
+                    timestamp=row["timestamp"],
+                )
+            )
         return messages
 
     def delete_messages(self, chat_id: int, thread_id: int | None = None) -> None:
@@ -112,7 +115,9 @@ class MessageStore:
             self._conn.execute("DELETE FROM messages WHERE chat_id = ? AND thread_id IS NULL", (chat_id,))
         self._conn.commit()
 
-    def get_last_message_by_role(self, chat_id: int, role: Literal["user", "assistant"], thread_id: int | None = None) -> StoredMessage | None:
+    def get_last_message_by_role(
+        self, chat_id: int, role: Literal["user", "assistant"], thread_id: int | None = None
+    ) -> StoredMessage | None:
         """Get the last message by a specific role in a chat."""
         if thread_id is not None:
             row = self._conn.execute(
