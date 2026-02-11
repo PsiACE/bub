@@ -108,20 +108,20 @@ class TelegramChannel(BaseChannel):
             return
         await updater.start_polling(drop_pending_updates=True, allowed_updates=["message"])
         logger.info("telegram.channel.polling")
-        
+
         # Start proactive interaction task
         self._proactive_task = asyncio.create_task(self._proactive_interaction_loop())
-        
+
         while self._running:
             await asyncio.sleep(0.5)
 
     async def stop(self) -> None:
         self._running = False
-        
+
         # Cancel proactive interaction task
         if hasattr(self, '_proactive_task'):
             self._proactive_task.cancel()
-        
+
         for task in self._typing_tasks.values():
             task.cancel()
         self._typing_tasks.clear()
@@ -273,27 +273,27 @@ class TelegramChannel(BaseChannel):
     async def _proactive_interaction_loop(self) -> None:
         """Check for unreplied messages and proactively respond."""
         import time
-        
+
         try:
             while self._running:
                 # Check every 5 minutes
                 await asyncio.sleep(300)
-                
+
                 if not self._running or self._app is None:
                     return
-                
+
                 # Get chats with unreplied messages (older than 5 minutes)
                 cutoff_time = time.time() - 1800  # 30 minutes ago
                 active_chats = self._message_store.get_active_chats(cutoff_time)
-                
+
                 for chat_id in active_chats:
                     if self._message_store.has_unreplied_message(chat_id, min_age_seconds=300):
                         logger.info("telegram.channel.proactive.unreplied chat_id={}", chat_id)
                         # For now just log - actual proactive response logic would go here
                         # In future: generate contextual response and send
-                
+
                 logger.debug("telegram.channel.proactive_check complete")
-                
+
         except asyncio.CancelledError:
             return
         except Exception as e:

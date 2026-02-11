@@ -34,10 +34,12 @@ class MessageStore:
     @property
     def _conn(self) -> sqlite3.Connection:
         if not hasattr(self._local, "conn") or self._local.conn is None:
-            self._local.conn = sqlite3.connect(self.db_path)
-            self._local.conn.row_factory = sqlite3.Row
-            self._init_db(self._local.conn)
-        return self._local.conn
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            self._init_db(conn)
+            self._local.conn = conn
+            return conn
+        return self._local.conn  # type: ignore[no-any-return]
 
     def _init_db(self, conn: sqlite3.Connection) -> None:
         conn.execute("""
@@ -87,7 +89,7 @@ class MessageStore:
                 ORDER BY timestamp DESC LIMIT ?""",
                 (chat_id, limit),
             ).fetchall()
-        
+
         messages = []
         for row in reversed(rows):
             messages.append(StoredMessage(
@@ -114,22 +116,22 @@ class MessageStore:
         """Get the last message by a specific role in a chat."""
         if thread_id is not None:
             row = self._conn.execute(
-                """SELECT * FROM messages 
+                """SELECT * FROM messages
                 WHERE chat_id = ? AND thread_id = ? AND role = ?
                 ORDER BY timestamp DESC LIMIT 1""",
                 (chat_id, thread_id, role),
             ).fetchone()
         else:
             row = self._conn.execute(
-                """SELECT * FROM messages 
+                """SELECT * FROM messages
                 WHERE chat_id = ? AND thread_id IS NULL AND role = ?
                 ORDER BY timestamp DESC LIMIT 1""",
                 (chat_id, role),
             ).fetchone()
-        
+
         if row is None:
             return None
-        
+
         return StoredMessage(
             id=row["id"],
             chat_id=row["chat_id"],
@@ -147,28 +149,16 @@ class MessageStore:
         last_user = self.get_last_message_by_role(chat_id, "user")
         if last_user is None:
             return False
-        
+
         last_assistant = self.get_last_message_by_role(chat_id, "assistant")
         if last_assistant is None:
             return (time.time() - last_user.timestamp) >= min_age_seconds
-        
+
         if last_user.timestamp > last_assistant.timestamp:
             return (time.time() - last_user.timestamp) >= min_age_seconds
-        
+
         return False
 
-    def get_active_chats(self, since: float) -> list[int]:
-        """Get list of chat_ids that have messages since the given timestamp."""
-        rows = self._conn.execute(
-            "SELECT DISTINCT chat_id FROM messages WHERE timestamp >= ?",
-            (since,),
-        ).fetchall()
-        return [row["chat_id"] for row in rows]
-
-    def close(self) -> None:
-        if hasattr(self._local, "conn") and self._local.conn:
-            self._local.conn.close()
-            self._local.conn = None
     def get_active_chats(self, since: float) -> list[int]:
         """Get list of chat_ids that have messages since the given timestamp."""
         rows = self._conn.execute(
