@@ -18,6 +18,7 @@ class DummyRuntime:
             telegram_enabled = False
             telegram_token = None
             telegram_allow_from = ()
+            telegram_allow_chats = ()
 
         self.settings = _Settings()
         self.registry = type("_Registry", (), {"descriptors": staticmethod(lambda: [])})()

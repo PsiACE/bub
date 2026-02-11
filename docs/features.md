@@ -47,6 +47,6 @@ Why it matters: local debugging and implementation loops are fast and consistent
 
 - Optional long-polling Telegram adapter.
 - Per-chat session isolation (`telegram:<chat_id>`).
-- Optional sender allowlist for access control.
+- Optional sender/chat allowlist for access control.
 
 Why it matters: you can continue lightweight operations from mobile or remote environments.

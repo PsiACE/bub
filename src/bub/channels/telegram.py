@@ -77,6 +77,7 @@ class TelegramConfig:
 
     token: str
     allow_from: set[str]
+    allow_chats: set[str]
 
 
 class TelegramChannel(BaseChannel):
@@ -93,7 +94,11 @@ class TelegramChannel(BaseChannel):
     async def start(self) -> None:
         if not self._config.token:
             raise RuntimeError("telegram token is empty")
-        logger.info("telegram.channel.start allow_from_count={}", len(self._config.allow_from))
+        logger.info(
+            "telegram.channel.start allow_from_count={} allow_chats_count={}",
+            len(self._config.allow_from),
+            len(self._config.allow_chats),
+        )
         self._running = True
         self._app = Application.builder().token(self._config.token).build()
         self._app.add_handler(CommandHandler("start", self._on_start))
@@ -171,6 +176,11 @@ class TelegramChannel(BaseChannel):
     async def _on_start(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
         if update.message is None:
             return
+        if self._config.allow_chats and str(update.message.chat_id) not in self._config.allow_chats:
+            await update.message.reply_text(
+                "You are not allowed to chat with me. Please deploy your own instance of Bub"
+            )
+            return
         await update.message.reply_text("Bub is online. Send text to start.")
 
     async def _on_help(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -186,6 +196,9 @@ class TelegramChannel(BaseChannel):
     async def _on_text(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
         if update.message is None or update.effective_user is None:
             return
+        chat_id = str(update.message.chat_id)
+        if self._config.allow_chats and chat_id not in self._config.allow_chats:
+            return
         user = update.effective_user
         sender_tokens = {str(user.id)}
         if user.username:
@@ -194,7 +207,6 @@ class TelegramChannel(BaseChannel):
             await update.message.reply_text("Access denied.")
             return
 
-        chat_id = str(update.message.chat_id)
         text = update.message.text or ""
         # Strip /bot prefix if present
         if text.startswith("/bot "):
