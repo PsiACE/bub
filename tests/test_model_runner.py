@@ -92,6 +92,7 @@ class FakeTapeImpl:
         system_prompt: str,
         max_tokens: int,
         tools: list[object],
+        extra_headers: dict[str, str] | None = None,
     ) -> ToolAutoResult:
         self.calls.append((prompt, system_prompt, max_tokens))
         return self.outputs.pop(0)

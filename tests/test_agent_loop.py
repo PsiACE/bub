@@ -1,3 +1,5 @@
+from collections.abc import Generator
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 import pytest
@@ -26,6 +28,10 @@ class FakeRunner:
 class FakeTape:
     def __init__(self) -> None:
         self.events: list[tuple[str, dict[str, object]]] = []
+
+    @contextmanager
+    def fork_tape(self) -> Generator["FakeTape", None, None]:
+        yield self
 
     def append_event(self, name: str, data: dict[str, object]) -> None:
         self.events.append((name, data))

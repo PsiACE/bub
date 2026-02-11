@@ -1071,15 +1071,15 @@ wheels = [
 
 [[package]]
 name = "republic"
-version = "0.3.1"
+version = "0.3.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "any-llm-sdk" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/75/74/07a29284c3db81bc868e7329a60b691b203e1302b97b9cbf9db962e869a2/republic-0.3.1.tar.gz", hash = "sha256:e7b7548de85c3daf3a6afdaa2f5a313d9e818c162a947b530aa6911b220861ae", size = 94073, upload-time = "2026-02-10T03:55:13.077Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f6/13/83056a957e8a2bf5a38e1837617c255a32f2ac9d583af87374db9480c673/republic-0.3.2.tar.gz", hash = "sha256:e0b0079078f9b0c5c083ad4b7ca6d5895b45d212426dec8b7f935154d37f1bac", size = 94371, upload-time = "2026-02-10T13:19:25.251Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c4/1d/8d2280eb9e1b9f05133012bd72f4e489c7771debcce409f97396920e44c0/republic-0.3.1-py3-none-any.whl", hash = "sha256:162bc241d7730dbd6e5f94fe69557a6258243e46a94e879e4eb8c5c4424622ee", size = 36620, upload-time = "2026-02-10T03:55:13.874Z" },
+    { url = "https://files.pythonhosted.org/packages/77/99/b00545272682fac9948c61d9f603c1f7e23fa59703d626ed858995ac5e5f/republic-0.3.2-py3-none-any.whl", hash = "sha256:326a9c2e5103c2f6a8fbaf4375f57b5d74c5f746929419a27ac0594dff737017", size = 37490, upload-time = "2026-02-10T13:19:26.08Z" },
 ]
 
 [[package]]

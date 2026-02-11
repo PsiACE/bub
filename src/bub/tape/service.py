@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
+from collections.abc import Generator
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -23,20 +26,30 @@ class TapeInfo:
     last_anchor: str | None
 
 
+_tape_context: ContextVar[Tape] = ContextVar("tape")
+
+
 class TapeService:
     """Tape helper with app-specific operations."""
 
-    def __init__(self, llm: LLM, tape_name: str, *, store: FileTapeStore | None = None) -> None:
-        self._tape: Tape = llm.tape(tape_name)
+    def __init__(self, llm: LLM, tape_name: str, *, store: FileTapeStore) -> None:
+        self._llm = llm
         self._store = store
-
-    @property
-    def tape_name(self) -> str:
-        return cast(str, self._tape.name)
+        self._tape = llm.tape(tape_name)
 
     @property
     def tape(self) -> Tape:
-        return self._tape
+        return _tape_context.get(self._tape)
+
+    @contextlib.contextmanager
+    def fork_tape(self) -> Generator[Tape, None, None]:
+        fork_name = self._store.fork(self._tape.name)
+        reset_token = _tape_context.set(self._llm.tape(fork_name))
+        try:
+            yield _tape_context.get()
+        finally:
+            self._store.merge(fork_name, self._tape.name)
+            _tape_context.reset(reset_token)
 
     def ensure_bootstrap_anchor(self) -> None:
         anchors = [entry for entry in self.read_entries() if entry.kind == "anchor"]
@@ -45,23 +58,23 @@ class TapeService:
         self.handoff("session/start", state={"owner": "human"})
 
     def read_entries(self) -> list[TapeEntry]:
-        return cast(list[TapeEntry], self._tape.read_entries())
+        return cast(list[TapeEntry], self.tape.read_entries())
 
     def handoff(self, name: str, *, state: dict[str, Any] | None = None) -> list[TapeEntry]:
-        return cast(list[TapeEntry], self._tape.handoff(name, state=state))
+        return cast(list[TapeEntry], self.tape.handoff(name, state=state))
 
     def append_event(self, name: str, data: dict[str, Any]) -> None:
-        self._tape.append(TapeEntry.event(name, data=data))
+        self.tape.append(TapeEntry.event(name, data=data))
 
     def append_system(self, content: str) -> None:
-        self._tape.append(TapeEntry.system(content))
+        self.tape.append(TapeEntry.system(content))
 
     def info(self) -> TapeInfo:
         entries = self.read_entries()
         anchors = [entry for entry in entries if entry.kind == "anchor"]
         last_anchor = anchors[-1].payload.get("name") if anchors else None
         return TapeInfo(
-            name=self._tape.name,
+            name=self.tape.name,
             entries=len(entries),
             anchors=len(anchors),
             last_anchor=str(last_anchor) if last_anchor else None,
@@ -69,12 +82,12 @@ class TapeService:
 
     def reset(self, *, archive: bool = False) -> str:
         if archive and self._store is not None:
-            archive_path = self._store.archive(self._tape.name)
-            self._tape.reset()
+            archive_path = self._store.archive(self.tape.name)
+            self.tape.reset()
             self.ensure_bootstrap_anchor()
             if archive_path is not None:
                 return f"archived: {archive_path}"
-        self._tape.reset()
+        self.tape.reset()
         self.ensure_bootstrap_anchor()
         return "ok"
 
@@ -89,21 +102,21 @@ class TapeService:
         return results
 
     def between_anchors(self, start: str, end: str, *, kinds: tuple[str, ...] = ()) -> list[TapeEntry]:
-        query = self._tape.query().between_anchors(start, end)
+        query = self.tape.query().between_anchors(start, end)
         if kinds:
             query = query.kinds(*kinds)
         result = query.all()
         return result.entries if result.error is None else []
 
     def after_anchor(self, anchor: str, *, kinds: tuple[str, ...] = ()) -> list[TapeEntry]:
-        query = self._tape.query().after_anchor(anchor)
+        query = self.tape.query().after_anchor(anchor)
         if kinds:
             query = query.kinds(*kinds)
         result = query.all()
         return result.entries if result.error is None else []
 
     def from_last_anchor(self, *, kinds: tuple[str, ...] = ()) -> list[TapeEntry]:
-        query = self._tape.query().last_anchor()
+        query = self.tape.query().last_anchor()
         if kinds:
             query = query.kinds(*kinds)
         result = query.all()
