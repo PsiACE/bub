@@ -178,7 +178,6 @@ def register_builtin_tools(
     """Register built-in tools and internal commands."""
     from bub.tools.schedule import run_scheduled_reminder
 
-    support_scheduling = runtime.scheduler.running
     register = registry.register
 
     @register(name="bash", short_description="Run shell command", model=BashInput)
@@ -276,63 +275,64 @@ def register_builtin_tools(
         """Fetch URL and convert HTML to markdown-like text."""
         return _fetch_markdown_from_url(params.url)
 
-    if support_scheduling:
-
-        @register(name="schedule.add", short_description="Add a cron schedule", model=ScheduleAddInput, context=True)
-        def schedule_add(params: ScheduleAddInput, context: ToolContext) -> str:
-            """Create or replace a cron-based scheduled shell command."""
-            job_id = str(uuid.uuid4())[:8]
-            if params.after_seconds is not None:
-                trigger = DateTrigger(run_date=datetime.now(UTC) + timedelta(seconds=params.after_seconds))
-            elif params.interval_seconds is not None:
-                trigger = IntervalTrigger(seconds=params.interval_seconds)
-            else:
-                try:
-                    trigger = CronTrigger.from_crontab(params.cron)
-                except ValueError as exc:
-                    raise RuntimeError(f"invalid cron expression: {params.cron}") from exc
-
+    @register(name="schedule.add", short_description="Add a cron schedule", model=ScheduleAddInput, context=True)
+    def schedule_add(params: ScheduleAddInput, context: ToolContext) -> str:
+        """Create or replace a cron-based scheduled shell command."""
+        job_id = str(uuid.uuid4())[:8]
+        if params.after_seconds is not None:
+            trigger = DateTrigger(run_date=datetime.now(UTC) + timedelta(seconds=params.after_seconds))
+        elif params.interval_seconds is not None:
+            trigger = IntervalTrigger(seconds=params.interval_seconds)
+        else:
             try:
-                job = runtime.scheduler.add_job(
-                    run_scheduled_reminder,
-                    trigger=trigger,
-                    id=job_id,
-                    kwargs={"message": params.message, "session_id": session_id},
-                    coalesce=True,
-                    max_instances=1,
-                )
-            except ConflictingIdError as exc:
-                raise RuntimeError(f"job id already exists: {job_id}") from exc
+                trigger = CronTrigger.from_crontab(params.cron)
+            except ValueError as exc:
+                raise RuntimeError(f"invalid cron expression: {params.cron}") from exc
 
+        try:
+            job = runtime.scheduler.add_job(
+                run_scheduled_reminder,
+                trigger=trigger,
+                id=job_id,
+                kwargs={"message": params.message, "session_id": session_id},
+                coalesce=True,
+                max_instances=1,
+            )
+        except ConflictingIdError as exc:
+            raise RuntimeError(f"job id already exists: {job_id}") from exc
+
+        next_run = "-"
+        if isinstance(job.next_run_time, datetime):
+            next_run = job.next_run_time.isoformat()
+        return f"scheduled: {job.id} next={next_run}"
+
+    @register(name="schedule.remove", short_description="Remove a scheduled job", model=ScheduleRemoveInput)
+    def schedule_remove(params: ScheduleRemoveInput) -> str:
+        """Remove one scheduled job by id."""
+        try:
+            runtime.scheduler.remove_job(params.job_id)
+        except JobLookupError as exc:
+            raise RuntimeError(f"job not found: {params.job_id}") from exc
+        return f"removed: {params.job_id}"
+
+    @register(name="schedule.list", short_description="List scheduled jobs", model=EmptyInput)
+    def schedule_list(_params: EmptyInput) -> str:
+        """List scheduled jobs for current workspace."""
+        jobs = runtime.scheduler.get_jobs()
+        if not jobs:
+            return "(no scheduled jobs)"
+
+        rows: list[str] = []
+        for job in jobs:
             next_run = "-"
             if isinstance(job.next_run_time, datetime):
                 next_run = job.next_run_time.isoformat()
-            return f"scheduled: {job.id} next={next_run}"
-
-        @register(name="schedule.remove", short_description="Remove a scheduled job", model=ScheduleRemoveInput)
-        def schedule_remove(params: ScheduleRemoveInput) -> str:
-            """Remove one scheduled job by id."""
-            try:
-                runtime.scheduler.remove_job(params.job_id)
-            except JobLookupError as exc:
-                raise RuntimeError(f"job not found: {params.job_id}") from exc
-            return f"removed: {params.job_id}"
-
-        @register(name="schedule.list", short_description="List scheduled jobs", model=EmptyInput)
-        def schedule_list(_params: EmptyInput) -> str:
-            """List scheduled jobs for current workspace."""
-            jobs = runtime.scheduler.get_jobs()
-            if not jobs:
-                return "(no scheduled jobs)"
-
-            rows: list[str] = []
-            for job in jobs:
-                next_run = "-"
-                if isinstance(job.next_run_time, datetime):
-                    next_run = job.next_run_time.isoformat()
-                message = str(job.kwargs.get("message", ""))
-                rows.append(f"{job.id} next={next_run} msg={message}")
-            return "\n".join(rows)
+            message = str(job.kwargs.get("message", ""))
+            job_session = job.kwargs.get("session_id")
+            if job_session and job_session != session_id:
+                continue
+            rows.append(f"{job.id} next={next_run} msg={message}")
+        return "\n".join(rows)
 
     if runtime.settings.ollama_api_key:
 

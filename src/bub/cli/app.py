@@ -55,9 +55,9 @@ def chat(
         model or "<default>",
         max_tokens if max_tokens is not None else "<default>",
     )
-    runtime = build_runtime(resolved_workspace, model=model, max_tokens=max_tokens)
-    cli = InteractiveCli(runtime)
-    asyncio.run(cli.run())
+    with build_runtime(resolved_workspace, model=model, max_tokens=max_tokens) as runtime:
+        cli = InteractiveCli(runtime)
+        asyncio.run(cli.run())
 
 
 @app.command()
@@ -97,18 +97,18 @@ def run(
         ",".join(sorted(allowed_tools)) if allowed_tools else "<all>",
         ",".join(sorted(allowed_skills)) if allowed_skills else "<all>",
     )
-    runtime = build_runtime(
+    with build_runtime(
         resolved_workspace,
         model=model,
         max_tokens=max_tokens,
         allowed_tools=allowed_tools,
         allowed_skills=allowed_skills,
-    )
-    result = asyncio.run(runtime.handle_input(session_id, message))
-    if result.error:
-        rich.print(f"[red]Error:[/red] {result.error}", file=sys.stderr)
-    else:
-        rich.print(result.assistant_output or result.immediate_output or "")
+    ) as runtime:
+        result = asyncio.run(runtime.handle_input(session_id, message))
+        if result.error:
+            rich.print(f"[red]Error:[/red] {result.error}", file=sys.stderr)
+        else:
+            rich.print(result.assistant_output or result.immediate_output or "")
 
 
 @app.command()
