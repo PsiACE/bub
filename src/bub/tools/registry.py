@@ -190,7 +190,7 @@ class ToolRegistry:
                 value = value + "]"
             params.append(f"{key}={value}")
         params_str = ", ".join(params)
-        logger.info("tool.call.start {{ {} }}", params_str)
+        logger.info("tool.call.start name={} {{ {} }}", name, params_str)
 
     def execute(
         self,
