@@ -9,6 +9,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, cast
 
+from loguru import logger
 from republic import LLM, TapeEntry
 from republic.tape import Tape
 
@@ -24,9 +25,18 @@ class TapeInfo:
     entries: int
     anchors: int
     last_anchor: str | None
+    entries_since_last_anchor: int
 
 
 _tape_context: ContextVar[Tape] = ContextVar("tape")
+
+
+def current_tape() -> str:
+    """Get the name of the current tape in context."""
+    tape = _tape_context.get(None)
+    if tape is None:
+        return "-"
+    return tape.name  # type: ignore[no-any-return]
 
 
 class TapeService:
@@ -50,6 +60,7 @@ class TapeService:
         finally:
             self._store.merge(fork_name, self._tape.name)
             _tape_context.reset(reset_token)
+            logger.info("Merged forked tape '{}' back into '{}'", fork_name, self._tape.name)
 
     def ensure_bootstrap_anchor(self) -> None:
         anchors = [entry for entry in self.read_entries() if entry.kind == "anchor"]
@@ -73,11 +84,16 @@ class TapeService:
         entries = self.read_entries()
         anchors = [entry for entry in entries if entry.kind == "anchor"]
         last_anchor = anchors[-1].payload.get("name") if anchors else None
+        if last_anchor is not None:
+            entries_since_last_anchor = sum(1 for entry in entries if entry.id > anchors[-1].id)
+        else:
+            entries_since_last_anchor = len(entries)
         return TapeInfo(
             name=self.tape.name,
             entries=len(entries),
             anchors=len(anchors),
             last_anchor=str(last_anchor) if last_anchor else None,
+            entries_since_last_anchor=entries_since_last_anchor,
         )
 
     def reset(self, *, archive: bool = False) -> str:
@@ -105,22 +121,19 @@ class TapeService:
         query = self.tape.query().between_anchors(start, end)
         if kinds:
             query = query.kinds(*kinds)
-        result = query.all()
-        return result.entries if result.error is None else []
+        return cast(list[TapeEntry], query.all())
 
     def after_anchor(self, anchor: str, *, kinds: tuple[str, ...] = ()) -> list[TapeEntry]:
         query = self.tape.query().after_anchor(anchor)
         if kinds:
             query = query.kinds(*kinds)
-        result = query.all()
-        return result.entries if result.error is None else []
+        return cast(list[TapeEntry], query.all())
 
     def from_last_anchor(self, *, kinds: tuple[str, ...] = ()) -> list[TapeEntry]:
         query = self.tape.query().last_anchor()
         if kinds:
             query = query.kinds(*kinds)
-        result = query.all()
-        return result.entries if result.error is None else []
+        return cast(list[TapeEntry], query.all())
 
     def search(self, query: str, *, limit: int = 20) -> list[TapeEntry]:
         if not query:

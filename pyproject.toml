@@ -30,6 +30,7 @@ dependencies = [
     "loguru>=0.7.2",
     "telegramify-markdown>=0.5.4",
     "apscheduler>=3.11.2",
+    "aiohttp>=3.13.3",
 ]
 
 [project.urls]

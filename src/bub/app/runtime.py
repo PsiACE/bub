@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import signal
 from asyncio import AbstractEventLoop
+from collections.abc import AsyncGenerator
 from contextlib import suppress
 from dataclasses import dataclass
 from hashlib import md5
@@ -11,6 +14,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.base import BaseScheduler
+from loguru import logger
 
 from bub.app.jobstore import JSONJobStore
 from bub.config.settings import Settings
@@ -65,6 +70,7 @@ class AppRuntime:
         *,
         allowed_tools: set[str] | None = None,
         allowed_skills: set[str] | None = None,
+        enable_scheduler: bool = True,
     ) -> None:
         self.workspace = workspace.resolve()
         self.settings = settings
@@ -73,19 +79,23 @@ class AppRuntime:
         self._store = build_tape_store(settings, self.workspace)
         self.workspace_prompt = read_workspace_agents_prompt(self.workspace)
         self.bus: MessageBus | None = None
-        self.loop: AbstractEventLoop | None = None
-        job_store = JSONJobStore(settings.resolve_home() / "jobs.json")
-        self.scheduler = BackgroundScheduler(daemon=True, jobstores={"default": job_store})
+        self.scheduler = self._default_scheduler()
         self._llm = build_llm(settings, self._store)
         self._sessions: dict[str, SessionRuntime] = {}
+        self._active_inputs: set[asyncio.Task[LoopResult]] = set()
+        self._enable_scheduler = enable_scheduler
+
+    def _default_scheduler(self) -> BaseScheduler:
+        job_store = JSONJobStore(self.settings.resolve_home() / "jobs.json")
+        return BackgroundScheduler(daemon=True, jobstores={"default": job_store})
 
     def __enter__(self) -> AppRuntime:
-        if not self.scheduler.running:
+        if not self.scheduler.running and self._enable_scheduler:
             self.scheduler.start()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        if self.scheduler.running:
+        if self.scheduler.running and self._enable_scheduler:
             with suppress(Exception):
                 self.scheduler.shutdown()
 
@@ -100,13 +110,7 @@ class AppRuntime:
             return None
         return load_skill_body(skill_name, self.workspace)
 
-    def _sync_running_loop(self) -> None:
-        loop = _running_loop()
-        if loop is not None and loop is not self.loop:
-            self.loop = loop
-
     def get_session(self, session_id: str) -> SessionRuntime:
-        self._sync_running_loop()
         existing = self._sessions.get(session_id)
         if existing is not None:
             return existing
@@ -145,9 +149,24 @@ class AppRuntime:
         return runtime
 
     async def handle_input(self, session_id: str, text: str) -> LoopResult:
-        self._sync_running_loop()
         session = self.get_session(session_id)
-        return await session.handle_input(text)
+        task = asyncio.create_task(session.handle_input(text))
+        self._active_inputs.add(task)
+        try:
+            return await task
+        finally:
+            self._active_inputs.discard(task)
+
+    async def _cancel_active_inputs(self) -> int:
+        """Cancel all in-flight input tasks and return canceled count."""
+        count = 0
+        while self._active_inputs:
+            task = self._active_inputs.pop()
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+            count += 1
+        return count
 
     def reset_session_context(self, session_id: str) -> None:
         """Reset volatile context for an already-created session."""
@@ -158,6 +177,29 @@ class AppRuntime:
 
     def set_bus(self, bus: MessageBus) -> None:
         self.bus = bus
+
+    @contextlib.asynccontextmanager
+    async def graceful_shutdown(self) -> AsyncGenerator[asyncio.Event, None]:
+        """Run the runtime indefinitely with graceful shutdown."""
+        stop_event = asyncio.Event()
+        loop = asyncio.get_running_loop()
+        handled_signals: list[signal.Signals] = []
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            try:
+                loop.add_signal_handler(sig, stop_event.set)
+                handled_signals.append(sig)
+            except (NotImplementedError, RuntimeError):
+                continue
+
+        try:
+            yield stop_event
+        finally:
+            cancelled = await self._cancel_active_inputs()
+            if cancelled:
+                logger.info("runtime.cancel_inflight count={}", cancelled)
+            for sig in handled_signals:
+                with suppress(NotImplementedError, RuntimeError):
+                    loop.remove_signal_handler(sig)
 
 
 def _normalize_name_set(raw: set[str] | None) -> set[str] | None:

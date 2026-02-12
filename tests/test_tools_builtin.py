@@ -1,3 +1,5 @@
+import asyncio
+import inspect
 import json
 import re
 from collections.abc import Iterator
@@ -49,6 +51,7 @@ class _DummyRuntime:
         self._discovered_skills: list[object] = []
         self.bus = None
         self.reset_calls: list[str] = []
+        self.workspace = Path.cwd()
 
     def discover_skills(self) -> list[object]:
         return list(self._discovered_skills)
@@ -74,6 +77,13 @@ def _build_registry(workspace: Path, settings: Settings, scheduler: BackgroundSc
     return registry
 
 
+def _execute_tool(registry: ToolRegistry, name: str, *, kwargs: dict[str, Any]) -> Any:
+    result = registry.execute(name, kwargs=kwargs)
+    if inspect.isawaitable(result):
+        return asyncio.run(result)
+    return result
+
+
 @pytest.fixture
 def scheduler() -> Iterator[BackgroundScheduler]:
     scheduler = BackgroundScheduler(daemon=True)
@@ -85,7 +95,7 @@ def scheduler() -> Iterator[BackgroundScheduler]:
 def test_web_search_default_returns_duckduckgo_url(tmp_path: Path, scheduler: BackgroundScheduler) -> None:
     settings = Settings(_env_file=None, model="openrouter:test")
     registry = _build_registry(tmp_path, settings, scheduler)
-    result = registry.execute("web.search", kwargs={"query": "psiace bub"})
+    result = _execute_tool(registry, "web.search", kwargs={"query": "psiace bub"})
     assert result == "https://duckduckgo.com/?q=psiace+bub"
 
 
@@ -94,34 +104,43 @@ def test_web_fetch_default_normalizes_url_and_extracts_text(
 ) -> None:
     observed_urls: list[str] = []
 
-    class _Headers:
-        def get_content_charset(self) -> str:
-            return "utf-8"
-
     class _Response:
-        headers = _Headers()
+        class _Content:
+            @staticmethod
+            async def read(_size: int | None = None) -> bytes:
+                return b"<html><body><h1>Title</h1><p>Hello world.</p></body></html>"
 
-        def __enter__(self) -> Any:
-            return self
+        content = _Content()
 
-        def __exit__(self, exc_type: object, exc: object, tb: object) -> bool:
+    class _RequestCtx:
+        def __init__(self, response: _Response) -> None:
+            self._response = response
+
+        async def __aenter__(self) -> _Response:
+            return self._response
+
+        async def __aexit__(self, exc_type: object, exc: object, tb: object) -> bool:
             _ = (exc_type, exc, tb)
             return False
 
-        def read(self, size: int | None = None) -> bytes:
-            body = b"<html><body><h1>Title</h1><p>Hello world.</p></body></html>"
-            return body if size is None else body[:size]
+    class _Session:
+        async def __aenter__(self) -> "_Session":
+            return self
 
-    def _fake_urlopen(request: Any, timeout: int = 0) -> _Response:
-        _ = timeout
-        observed_urls.append(request.full_url)
-        return _Response()
+        async def __aexit__(self, exc_type: object, exc: object, tb: object) -> bool:
+            _ = (exc_type, exc, tb)
+            return False
 
-    monkeypatch.setattr("bub.tools.builtin.urlopen", _fake_urlopen)
+        def get(self, url: str, *, headers: dict[str, str]) -> _RequestCtx:
+            _ = headers
+            observed_urls.append(url)
+            return _RequestCtx(_Response())
+
+    monkeypatch.setattr("aiohttp.ClientSession", lambda *args, **kwargs: _Session())
 
     settings = Settings(_env_file=None, model="openrouter:test")
     registry = _build_registry(tmp_path, settings, scheduler)
-    result = registry.execute("web.fetch", kwargs={"url": "example.com"})
+    result = _execute_tool(registry, "web.fetch", kwargs={"url": "example.com"})
 
     assert observed_urls == ["https://example.com"]
     assert "Title" in result
@@ -132,14 +151,8 @@ def test_web_search_ollama_mode_calls_api(tmp_path: Path, monkeypatch: Any, sche
     observed_request: dict[str, str] = {}
 
     class _Response:
-        def __enter__(self) -> Any:
-            return self
-
-        def __exit__(self, exc_type: object, exc: object, tb: object) -> bool:
-            _ = (exc_type, exc, tb)
-            return False
-
-        def read(self) -> bytes:
+        @staticmethod
+        async def text() -> str:
             payload = {
                 "results": [
                     {
@@ -149,16 +162,36 @@ def test_web_search_ollama_mode_calls_api(tmp_path: Path, monkeypatch: Any, sche
                     }
                 ]
             }
-            return json.dumps(payload).encode("utf-8")
+            return json.dumps(payload)
 
-    def _fake_urlopen(request: Any, timeout: int = 0) -> _Response:
-        _ = timeout
-        observed_request["url"] = request.full_url
-        observed_request["auth"] = request.headers.get("Authorization", "")
-        observed_request["payload"] = request.data.decode("utf-8") if request.data else ""
-        return _Response()
+    class _RequestCtx:
+        def __init__(self, response: _Response) -> None:
+            self._response = response
 
-    monkeypatch.setattr("bub.tools.builtin.urlopen", _fake_urlopen)
+        async def __aenter__(self) -> _Response:
+            return self._response
+
+        async def __aexit__(self, exc_type: object, exc: object, tb: object) -> bool:
+            _ = (exc_type, exc, tb)
+            return False
+
+    class _Session:
+        async def __aenter__(self) -> "_Session":
+            return self
+
+        async def __aexit__(self, exc_type: object, exc: object, tb: object) -> bool:
+            _ = (exc_type, exc, tb)
+            return False
+
+        def post(self, url: str, *, json: dict[str, object], headers: dict[str, str]) -> _RequestCtx:
+            import json as json_lib
+
+            observed_request["url"] = url
+            observed_request["auth"] = headers.get("Authorization", "")
+            observed_request["payload"] = json_lib.dumps(json)
+            return _RequestCtx(_Response())
+
+    monkeypatch.setattr("aiohttp.ClientSession", lambda *args, **kwargs: _Session())
 
     settings = Settings(
         _env_file=None,
@@ -167,7 +200,7 @@ def test_web_search_ollama_mode_calls_api(tmp_path: Path, monkeypatch: Any, sche
         ollama_api_base="https://search.ollama.test/api",
     )
     registry = _build_registry(tmp_path, settings, scheduler)
-    result = registry.execute("web.search", kwargs={"query": "test query", "max_results": 3})
+    result = _execute_tool(registry, "web.search", kwargs={"query": "test query", "max_results": 3})
 
     assert observed_request["url"] == "https://search.ollama.test/api/web_search"
     assert observed_request["auth"] == "Bearer ollama-test-key"
@@ -182,30 +215,39 @@ def test_web_fetch_ollama_mode_normalizes_url_and_extracts_text(
 ) -> None:
     observed_urls: list[str] = []
 
-    class _Headers:
-        def get_content_charset(self) -> str:
-            return "utf-8"
-
     class _Response:
-        headers = _Headers()
+        class _Content:
+            @staticmethod
+            async def read(_size: int | None = None) -> bytes:
+                return b"<html><body><h1>Title</h1><p>Hello world.</p></body></html>"
 
-        def __enter__(self) -> Any:
-            return self
+        content = _Content()
 
-        def __exit__(self, exc_type: object, exc: object, tb: object) -> bool:
+    class _RequestCtx:
+        def __init__(self, response: _Response) -> None:
+            self._response = response
+
+        async def __aenter__(self) -> _Response:
+            return self._response
+
+        async def __aexit__(self, exc_type: object, exc: object, tb: object) -> bool:
             _ = (exc_type, exc, tb)
             return False
 
-        def read(self, size: int | None = None) -> bytes:
-            body = b"<html><body><h1>Title</h1><p>Hello world.</p></body></html>"
-            return body if size is None else body[:size]
+    class _Session:
+        async def __aenter__(self) -> "_Session":
+            return self
 
-    def _fake_urlopen(request: Any, timeout: int = 0) -> _Response:
-        _ = timeout
-        observed_urls.append(request.full_url)
-        return _Response()
+        async def __aexit__(self, exc_type: object, exc: object, tb: object) -> bool:
+            _ = (exc_type, exc, tb)
+            return False
 
-    monkeypatch.setattr("bub.tools.builtin.urlopen", _fake_urlopen)
+        def get(self, url: str, *, headers: dict[str, str]) -> _RequestCtx:
+            _ = headers
+            observed_urls.append(url)
+            return _RequestCtx(_Response())
+
+    monkeypatch.setattr("aiohttp.ClientSession", lambda *args, **kwargs: _Session())
 
     settings = Settings(
         _env_file=None,
@@ -213,7 +255,7 @@ def test_web_fetch_ollama_mode_normalizes_url_and_extracts_text(
         ollama_api_key="ollama-test-key",
     )
     registry = _build_registry(tmp_path, settings, scheduler)
-    result = registry.execute("web.fetch", kwargs={"url": "example.com"})
+    result = _execute_tool(registry, "web.fetch", kwargs={"url": "example.com"})
 
     assert observed_urls == ["https://example.com"]
     assert "Title" in result
@@ -224,7 +266,8 @@ def test_schedule_add_list_remove_roundtrip(tmp_path: Path, scheduler: Backgroun
     settings = Settings(_env_file=None, model="openrouter:test")
     registry = _build_registry(tmp_path, settings, scheduler)
 
-    add_result = registry.execute(
+    add_result = _execute_tool(
+        registry,
         "schedule.add",
         kwargs={
             "cron": "*/5 * * * *",
@@ -236,14 +279,14 @@ def test_schedule_add_list_remove_roundtrip(tmp_path: Path, scheduler: Backgroun
     assert matched is not None
     job_id = matched.group("job_id")
 
-    list_result = registry.execute("schedule.list", kwargs={})
+    list_result = _execute_tool(registry, "schedule.list", kwargs={})
     assert job_id in list_result
     assert "msg=hello" in list_result
 
-    remove_result = registry.execute("schedule.remove", kwargs={"job_id": job_id})
+    remove_result = _execute_tool(registry, "schedule.remove", kwargs={"job_id": job_id})
     assert remove_result == f"removed: {job_id}"
 
-    assert registry.execute("schedule.list", kwargs={}) == "(no scheduled jobs)"
+    assert _execute_tool(registry, "schedule.list", kwargs={}) == "(no scheduled jobs)"
 
 
 def test_schedule_add_rejects_invalid_cron(tmp_path: Path, scheduler: BackgroundScheduler) -> None:
@@ -251,7 +294,8 @@ def test_schedule_add_rejects_invalid_cron(tmp_path: Path, scheduler: Background
     registry = _build_registry(tmp_path, settings, scheduler)
 
     try:
-        registry.execute(
+        _execute_tool(
+            registry,
             "schedule.add",
             kwargs={"cron": "* * *", "message": "bad"},
         )
@@ -265,7 +309,7 @@ def test_schedule_remove_missing_job_returns_error(tmp_path: Path, scheduler: Ba
     registry = _build_registry(tmp_path, settings, scheduler)
 
     try:
-        registry.execute("schedule.remove", kwargs={"job_id": "missing"})
+        _execute_tool(registry, "schedule.remove", kwargs={"job_id": "missing"})
         raise AssertionError("expected RuntimeError")
     except RuntimeError as exc:
         assert "job not found: missing" in str(exc)
@@ -320,10 +364,10 @@ def test_skills_list_uses_latest_runtime_skills(tmp_path: Path, scheduler: Backg
         session_id="cli:test",
     )
 
-    assert registry.execute("skills.list", kwargs={}) == "alpha: first"
+    assert _execute_tool(registry, "skills.list", kwargs={}) == "alpha: first"
 
     runtime._discovered_skills.append(_Skill(name="beta", description="second"))
-    second = registry.execute("skills.list", kwargs={})
+    second = _execute_tool(registry, "skills.list", kwargs={})
     assert "alpha: first" in second
     assert "beta: second" in second
 
@@ -335,19 +379,21 @@ def test_bash_tool_inherits_runtime_session_id(
 
     class _Completed:
         returncode = 0
-        stdout = "ok"
-        stderr = ""
 
-    def _fake_run(*args: Any, **kwargs: Any) -> _Completed:
+        @staticmethod
+        async def communicate() -> tuple[bytes, bytes]:
+            return b"ok", b""
+
+    async def _fake_create_subprocess_exec(*args: Any, **kwargs: Any) -> _Completed:
         observed["args"] = args
         observed["kwargs"] = kwargs
         return _Completed()
 
-    monkeypatch.setattr("bub.tools.builtin.subprocess.run", _fake_run)
+    monkeypatch.setattr("bub.tools.builtin.asyncio.create_subprocess_exec", _fake_create_subprocess_exec)
 
     settings = Settings(_env_file=None, model="openrouter:test")
     registry = _build_registry(tmp_path, settings, scheduler)
-    result = registry.execute("bash", kwargs={"cmd": "echo hi"})
+    result = _execute_tool(registry, "bash", kwargs={"cmd": "echo hi"})
 
     assert result == "ok"
     kwargs = observed["kwargs"]
@@ -367,6 +413,6 @@ def test_tape_reset_also_clears_session_runtime_context(tmp_path: Path, schedule
         session_id="telegram:123",
     )
 
-    result = registry.execute("tape.reset", kwargs={"archive": True})
+    result = _execute_tool(registry, "tape.reset", kwargs={"archive": True})
     assert result == "reset"
     assert runtime.reset_calls == ["telegram:123"]

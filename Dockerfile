@@ -9,8 +9,10 @@ RUN apt-get update && \
     wget \
     vim \
     sudo \
+    procps \
     openssh-client \
-    ca-certificates
+    ca-certificates \
+    tini
 
 # Install development tools
 RUN apt-get install -y --no-install-recommends \
@@ -30,14 +32,15 @@ RUN apt-get install -y --no-install-recommends \
 RUN npm install -g pnpm
 
 WORKDIR /app
-
 # Install Python dependencies first (cached layer)
-COPY pyproject.toml uv.lock README.md LICENSE ./
-
+COPY pyproject.toml uv.lock README.md LICENSE entrypoint.sh ./
 # Copy the full source and install
 COPY src ./src
-RUN uv sync --no-dev && uv pip install "any-llm-sdk[anthropic,gemini]"
+RUN uv sync --no-dev && uv pip install "any-llm-sdk[anthropic,gemini]" && \
+    chmod +x /app/entrypoint.sh
 
 WORKDIR /workspace
 
-CMD ["/app/.venv/bin/bub", "telegram"]
+ENTRYPOINT ["/usr/bin/tini", "--"]
+
+CMD ["/app/entrypoint.sh"]

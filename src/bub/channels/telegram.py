@@ -16,7 +16,6 @@ from telegramify_markdown import markdownify as md
 from bub.channels.base import BaseChannel
 from bub.channels.bus import MessageBus
 from bub.channels.events import InboundMessage, OutboundMessage
-from bub.message_store import MessageStore, StoredMessage
 
 
 def exclude_none(d: dict[str, Any]) -> dict[str, Any]:
@@ -45,10 +44,10 @@ class BubMessageFilter(filters.MessageFilter):
                 return True
 
             if self._mentions_bot(message, text, bot_id, bot_username):
-                return True
+                return not filters.COMMAND.filter(message)
 
             if self._is_reply_to_bot(message, bot_id):
-                return True
+                return not filters.COMMAND.filter(message)
 
         return False
 
@@ -78,6 +77,7 @@ class TelegramConfig:
 
     token: str
     allow_from: set[str]
+    allow_chats: set[str]
 
 
 class TelegramChannel(BaseChannel):
@@ -90,12 +90,15 @@ class TelegramChannel(BaseChannel):
         self._config = config
         self._app: Application | None = None
         self._typing_tasks: dict[str, asyncio.Task[None]] = {}
-        self._message_store = MessageStore(db_path="data/messages.db")
 
     async def start(self) -> None:
         if not self._config.token:
             raise RuntimeError("telegram token is empty")
-        logger.info("telegram.channel.start allow_from_count={}", len(self._config.allow_from))
+        logger.info(
+            "telegram.channel.start allow_from_count={} allow_chats_count={}",
+            len(self._config.allow_from),
+            len(self._config.allow_chats),
+        )
         self._running = True
         self._app = Application.builder().token(self._config.token).build()
         self._app.add_handler(CommandHandler("start", self._on_start))
@@ -109,19 +112,8 @@ class TelegramChannel(BaseChannel):
         await updater.start_polling(drop_pending_updates=True, allowed_updates=["message"])
         logger.info("telegram.channel.polling")
 
-        # Start proactive interaction task
-        self._proactive_task = asyncio.create_task(self._proactive_interaction_loop())
-
-        while self._running:
-            await asyncio.sleep(0.5)
-
     async def stop(self) -> None:
         self._running = False
-
-        # Cancel proactive interaction task
-        if hasattr(self, "_proactive_task"):
-            self._proactive_task.cancel()
-
         for task in self._typing_tasks.values():
             task.cancel()
         self._typing_tasks.clear()
@@ -184,6 +176,11 @@ class TelegramChannel(BaseChannel):
     async def _on_start(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
         if update.message is None:
             return
+        if self._config.allow_chats and str(update.message.chat_id) not in self._config.allow_chats:
+            await update.message.reply_text(
+                "You are not allowed to chat with me. Please deploy your own instance of Bub"
+            )
+            return
         await update.message.reply_text("Bub is online. Send text to start.")
 
     async def _on_help(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -199,6 +196,9 @@ class TelegramChannel(BaseChannel):
     async def _on_text(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
         if update.message is None or update.effective_user is None:
             return
+        chat_id = str(update.message.chat_id)
+        if self._config.allow_chats and chat_id not in self._config.allow_chats:
+            return
         user = update.effective_user
         sender_tokens = {str(user.id)}
         if user.username:
@@ -207,7 +207,6 @@ class TelegramChannel(BaseChannel):
             await update.message.reply_text("Access denied.")
             return
 
-        chat_id = str(update.message.chat_id)
         text = update.message.text or ""
         # Strip /bot prefix if present
         if text.startswith("/bot "):
@@ -219,23 +218,6 @@ class TelegramChannel(BaseChannel):
             user.id,
             user.username or "",
             text[:100],  # Log first 100 chars to avoid verbose logs
-        )
-
-        # Store the message
-        import time
-
-        self._message_store.add_message(
-            StoredMessage(
-                id=f"{chat_id}_{update.message.message_id}",
-                chat_id=int(chat_id),
-                thread_id=None,
-                role="user",
-                name=user.username,
-                content=text,
-                tool_call_id=None,
-                tool_calls=None,
-                timestamp=time.time(),
-            )
         )
 
         self._start_typing(chat_id)
@@ -271,34 +253,4 @@ class TelegramChannel(BaseChannel):
             return
         except Exception:
             logger.exception("telegram.channel.typing_loop.error chat_id={}", chat_id)
-            return
-
-    async def _proactive_interaction_loop(self) -> None:
-        """Check for unreplied messages and proactively respond."""
-        import time
-
-        try:
-            while self._running:
-                # Check every 5 minutes
-                await asyncio.sleep(300)
-
-                if not self._running or self._app is None:
-                    return
-
-                # Get chats with unreplied messages (older than 5 minutes)
-                cutoff_time = time.time() - 1800  # 30 minutes ago
-                active_chats = self._message_store.get_active_chats(cutoff_time)
-
-                for chat_id in active_chats:
-                    if self._message_store.has_unreplied_message(chat_id, min_age_seconds=300):
-                        logger.info("telegram.channel.proactive.unreplied chat_id={}", chat_id)
-                        # For now just log - actual proactive response logic would go here
-                        # In future: generate contextual response and send
-
-                logger.debug("telegram.channel.proactive_check complete")
-
-        except asyncio.CancelledError:
-            return
-        except Exception as e:
-            logger.exception("telegram.channel.proactive_loop.error: {}", e)
             return

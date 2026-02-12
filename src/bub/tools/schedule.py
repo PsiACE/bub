@@ -1,36 +1,21 @@
 from __future__ import annotations
 
-import asyncio
+import subprocess
+import sys
 
 from loguru import logger
 
 
-def run_scheduled_reminder(message: str, session_id: str) -> None:
-    from bub.app import get_runtime
-    from bub.channels.events import InboundMessage
+def run_scheduled_reminder(message: str, session_id: str, workspace: str | None = None) -> None:
+    if session_id.startswith("telegram:"):
+        chat_id = session_id.split(":", 1)[1]
+        message = (
+            f"[Reminder for Telegram chat {chat_id}, after done, send a notice to this chat if necessary]\n{message}"
+        )
+    command = [sys.executable, "-m", "bub.cli.app", "run", "--session-id", session_id, message]
 
-    runtime = get_runtime()
-
-    if runtime is None:
-        logger.error("cannot send scheduled reminder: runtime is not set")
-        return
-
-    bus = runtime.bus
-    if bus is None:
-        logger.warning("cannot send scheduled reminder: runtime bus is not set")
-        return
-
-    channel, chat_id = session_id.split(":", 1)
-    inbound_message = InboundMessage(
-        channel=channel,
-        sender_id="scheduler",
-        chat_id=chat_id,
-        content=message,
-    )
-    logger.info("sending scheduled reminder to channel={} chat_id={} message={}", channel, chat_id, message)
-
-    if runtime.loop is not None and runtime.loop.is_running():
-        runtime.loop.call_soon_threadsafe(lambda: asyncio.create_task(bus.publish_inbound(inbound_message)))
-        return
-
-    asyncio.run(bus.publish_inbound(inbound_message))
+    logger.info("running scheduled reminder via bub run session_id={} message={}", session_id, message)
+    try:
+        completed = subprocess.run(command, check=True, cwd=workspace)  # noqa: S603
+    finally:
+        logger.info("scheduled reminder finished exit={}", completed.returncode)
