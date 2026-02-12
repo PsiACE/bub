@@ -155,7 +155,7 @@ async def _run_once(runtime: AppRuntime, session_id: str, message: str) -> None:
             else:
                 rich.print(result.assistant_output or result.immediate_output or "")
         except asyncio.CancelledError:
-            logger.info("run_once.interrupted")
+            rich.print("[yellow]Operation interrupted.[/yellow]", file=sys.stderr)
 
 
 @app.command()
