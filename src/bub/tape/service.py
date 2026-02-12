@@ -9,6 +9,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, cast
 
+from loguru import logger
 from republic import LLM, TapeEntry
 from republic.tape import Tape
 
@@ -59,6 +60,7 @@ class TapeService:
         finally:
             self._store.merge(fork_name, self._tape.name)
             _tape_context.reset(reset_token)
+            logger.info("Merged forked tape '{}' back into '{}'", fork_name, self._tape.name)
 
     def ensure_bootstrap_anchor(self) -> None:
         anchors = [entry for entry in self.read_entries() if entry.kind == "anchor"]
