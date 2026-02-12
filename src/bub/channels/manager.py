@@ -59,12 +59,17 @@ class ChannelManager:
         # Extract message_id for reply functionality in group chats
         reply_to_message_id = message.metadata.get("message_id")
 
+        # Build metadata with optional reaction
+        metadata = {"session_id": message.session_id}
+        if result.reaction:
+            metadata["reaction"] = result.reaction
+
         await self.bus.publish_outbound(
             OutboundMessage(
                 channel=message.channel,
                 chat_id=message.chat_id,
                 content=output,
-                metadata={"session_id": message.session_id},
+                metadata=metadata,
                 reply_to_message_id=reply_to_message_id,
             )
         )

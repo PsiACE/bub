@@ -31,6 +31,7 @@ class ModelTurnResult:
     steps: int
     error: str | None = None
     command_followups: int = 0
+    reaction: str | None = None
 
 
 @dataclass
@@ -41,6 +42,7 @@ class _PromptState:
     visible_parts: list[str] = field(default_factory=list)
     error: str | None = None
     exit_requested: bool = False
+    reaction: str | None = None
 
 
 class ModelRunner:
@@ -145,22 +147,48 @@ class ModelRunner:
             steps=state.step,
             error=state.error,
             command_followups=state.followups,
+            reaction=state.reaction,
         )
 
     def _consume_route(self, state: _PromptState, route: AssistantRouteResult) -> None:
-        if route.visible_text:
-            state.visible_parts.append(route.visible_text)
+        # Extract reaction if present (format: !reaction 👍 or !react 👍)
+        reaction, cleaned_text = self._extract_reaction(route.visible_text)
+        state.reaction = reaction
+
+        if cleaned_text:
+            state.visible_parts.append(cleaned_text)
         if route.exit_requested:
             state.exit_requested = True
+
         self._tape.append_event(
             "loop.step.finish",
             {
                 "step": state.step,
-                "visible_text": bool(route.visible_text),
+                "visible_text": bool(cleaned_text),
                 "followup": bool(route.next_prompt),
                 "exit_requested": route.exit_requested,
+                "reaction": state.reaction,
             },
         )
+
+    @staticmethod
+    def _extract_reaction(text: str | None) -> tuple[str | None, str | None]:
+        """Extract reaction emoji from text if !reaction or !react directive is present.
+        
+        Returns: (emoji, cleaned_text) or (None, original_text)
+        """
+        if not text:
+            return None, text
+        import re
+
+        # Match !reaction 👍 or !react 👍 at the end or as a line
+        match = re.search(r"!(?:reaction|react)\s+([^\s]+)", text, re.IGNORECASE)
+        if match:
+            emoji = match.group(1)
+            # Remove the directive from visible text
+            cleaned = re.sub(r"!(?:reaction|react)\s+[^\s]+\s*$", "", text, flags=re.MULTILINE | re.IGNORECASE).strip()
+            return emoji, cleaned
+        return None, text
 
     async def _chat(self, prompt: str) -> _ChatResult:
         system_prompt = self._render_system_prompt()

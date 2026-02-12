@@ -21,6 +21,7 @@ class LoopResult:
     exit_requested: bool
     steps: int
     error: str | None = None
+    reaction: str | None = None
 
 
 class AgentLoop:
@@ -61,6 +62,7 @@ class AgentLoop:
                 exit_requested=model_result.exit_requested,
                 steps=model_result.steps,
                 error=model_result.error,
+                reaction=model_result.reaction,
             )
 
     def _record_result(self, result: ModelTurnResult) -> None:
