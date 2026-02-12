@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any, ClassVar
 
 from loguru import logger
-from telegram import Message, Update
+from telegram import Message, ReactionTypeEmoji, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 from telegramify_markdown import markdownify as md
 
@@ -160,17 +160,25 @@ class TelegramChannel(BaseChannel):
 
         # In group chats, reply to the original message if reply_to_message_id is provided
         if message.reply_to_message_id is not None:
-            await self._app.bot.send_message(
+            sent_message = await self._app.bot.send_message(
                 chat_id=int(message.chat_id),
                 text=text,
                 parse_mode=parse_mode,
                 reply_to_message_id=message.reply_to_message_id,
             )
         else:
-            await self._app.bot.send_message(
+            sent_message = await self._app.bot.send_message(
                 chat_id=int(message.chat_id),
                 text=text,
                 parse_mode=parse_mode,
+            )
+
+        # Send reaction if specified in metadata
+        if message.metadata and message.metadata.get("reaction"):
+            await self._send_reaction(
+                chat_id=message.chat_id,
+                message_id=message.reply_to_message_id or sent_message.message_id,
+                emoji=message.metadata["reaction"],
             )
 
     async def _on_start(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -254,3 +262,30 @@ class TelegramChannel(BaseChannel):
         except Exception:
             logger.exception("telegram.channel.typing_loop.error chat_id={}", chat_id)
             return
+
+    async def _send_reaction(self, chat_id: str, message_id: int, emoji: str) -> None:
+        """Send a reaction emoji to a message."""
+        try:
+            await self._app.bot.set_message_reaction(
+                chat_id=int(chat_id),
+                message_id=message_id,
+                reaction=[ReactionTypeEmoji(emoji=emoji)],
+            )
+            logger.info("telegram.channel.reaction sent chat_id={} message_id={} emoji={}", chat_id, message_id, emoji)
+        except Exception:
+            logger.exception("telegram.channel.reaction.error chat_id={} message_id={}", chat_id, message_id)
+
+    async def _send_reaction(self, chat_id: str, message_id: int, emoji: str) -> None:
+        """Send a reaction emoji to a message."""
+        if self._app is None:
+            return
+        try:
+            reaction = [ReactionTypeEmoji(emoji=emoji)]
+            await self._app.bot.set_message_reaction(
+                chat_id=int(chat_id),
+                message_id=message_id,
+                reaction=reaction,
+            )
+            logger.info("telegram.channel.reaction chat_id={} message_id={} emoji={}", chat_id, message_id, emoji)
+        except Exception:
+            logger.exception("telegram.channel.reaction.error chat_id={} message_id={}", chat_id, message_id)
