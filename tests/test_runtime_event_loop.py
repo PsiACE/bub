@@ -14,28 +14,6 @@ async def test_running_loop_returns_current_running_loop() -> None:
     assert _running_loop() is asyncio.get_running_loop()
 
 
-def test_handle_input_syncs_runtime_loop_to_active_loop() -> None:
-    runtime = object.__new__(AppRuntime)
-    runtime.loop = None
-    runtime._active_inputs = set()
-
-    class _DummySession:
-        async def handle_input(self, text: str) -> str:
-            assert runtime.loop is asyncio.get_running_loop()
-            return text
-
-    session = _DummySession()
-
-    def _get_session(_session_id: str) -> _DummySession:
-        return session
-
-    runtime.get_session = _get_session
-
-    result = asyncio.run(AppRuntime.handle_input(runtime, "cli", "ping"))
-    assert result == "ping"
-    assert runtime.loop is not None
-
-
 def test_reset_session_context_ignores_missing_session() -> None:
     runtime = object.__new__(AppRuntime)
     runtime._sessions = {}
@@ -74,7 +52,7 @@ async def test_cancel_active_inputs_cancels_running_tasks() -> None:
     runtime._active_inputs = {task}
     await asyncio.sleep(0)
 
-    count = AppRuntime.cancel_active_inputs(runtime)
+    count = await AppRuntime._cancel_active_inputs(runtime)
     assert count == 1
 
     with pytest.raises(asyncio.CancelledError):

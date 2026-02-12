@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
-import signal
 import sys
-from contextlib import suppress
 from pathlib import Path
 from typing import Annotated
 
@@ -14,6 +12,7 @@ import typer
 from loguru import logger
 
 from bub.app import build_runtime
+from bub.app.runtime import AppRuntime
 from bub.channels import ChannelManager, MessageBus, TelegramChannel, TelegramConfig
 from bub.cli.interactive import InteractiveCli
 from bub.logging_utils import configure_logging
@@ -47,6 +46,7 @@ def chat(
     workspace: Annotated[Path | None, typer.Option("--workspace", "-w")] = None,
     model: Annotated[str | None, typer.Option("--model")] = None,
     max_tokens: Annotated[int | None, typer.Option("--max-tokens")] = None,
+    session_id: Annotated[str, typer.Option("--session-id", envvar="BUB_SESSION_ID")] = "cli",
     disable_scheduler: Annotated[bool, typer.Option("--disable-scheduler", envvar="BUB_DISABLE_SCHEDULER")] = False,
 ) -> None:
     """Run interactive CLI."""
@@ -62,7 +62,7 @@ def chat(
     with build_runtime(
         resolved_workspace, model=model, max_tokens=max_tokens, enable_scheduler=not disable_scheduler
     ) as runtime:
-        cli = InteractiveCli(runtime)
+        cli = InteractiveCli(runtime, session_id=session_id)
         asyncio.run(cli.run())
 
 
@@ -119,9 +119,8 @@ def run(
     disable_scheduler: Annotated[bool, typer.Option("--disable-scheduler", envvar="BUB_DISABLE_SCHEDULER")] = False,
 ) -> None:
     """Run a single message and exit, useful for quick testing or one-off commands."""
-    import rich
 
-    configure_logging(profile="chat")
+    configure_logging()
     resolved_workspace = (workspace or Path.cwd()).resolve()
     allowed_tools = _parse_subset(tools)
     allowed_skills = _parse_subset(skills)
@@ -141,11 +140,31 @@ def run(
         allowed_skills=allowed_skills,
         enable_scheduler=not disable_scheduler,
     ) as runtime:
-        result = asyncio.run(runtime.handle_input(session_id, message))
-        if result.error:
-            rich.print(f"[red]Error:[/red] {result.error}", file=sys.stderr)
+        asyncio.run(_run_once(runtime, session_id, message))
+
+
+async def _run_once(runtime: AppRuntime, session_id: str, message: str) -> None:
+    import rich
+
+    from bub.core.agent_loop import LoopResult
+
+    async with runtime.graceful_shutdown() as stop_event:
+        done, _ = await asyncio.wait(
+            [
+                asyncio.ensure_future(runtime.handle_input(session_id, message)),
+                asyncio.ensure_future(stop_event.wait()),
+            ],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        # the pending tasks will be cancelled in graceful_shutdown, ignore them here
+        if (result := done.pop().result()) is not True:
+            assert isinstance(result, LoopResult)  # noqa: S101
+            if result.error:
+                rich.print(f"[red]Error:[/red] {result.error}", file=sys.stderr)
+            else:
+                rich.print(result.assistant_output or result.immediate_output or "")
         else:
-            rich.print(result.assistant_output or result.immediate_output or "")
+            logger.info("run_once.interrupted")
 
 
 @app.command()
@@ -199,30 +218,13 @@ def telegram(
 
 
 async def _serve_channels(manager: ChannelManager) -> None:
-    loop = asyncio.get_running_loop()
-    stop_event = asyncio.Event()
-    handled_signals: list[signal.Signals] = []
-
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        try:
-            loop.add_signal_handler(sig, stop_event.set)
-            handled_signals.append(sig)
-        except (NotImplementedError, RuntimeError):
-            # Signal handlers can be unavailable on non-main threads/platforms.
-            continue
-
     channels = sorted(manager.enabled_channels())
     logger.info("channels.start enabled={}", channels)
     await manager.start()
     try:
-        await stop_event.wait()
+        async with manager.runtime.graceful_shutdown() as stop_event:
+            await stop_event.wait()
     finally:
-        cancelled = manager.runtime.cancel_active_inputs()
-        if cancelled:
-            logger.info("channels.cancel_inflight count={}", cancelled)
-        for sig in handled_signals:
-            with suppress(NotImplementedError, RuntimeError):
-                loop.remove_signal_handler(sig)
         await manager.stop()
         logger.info("channels.stop")
 

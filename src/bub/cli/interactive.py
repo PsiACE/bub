@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 from datetime import datetime
 from hashlib import md5
 from pathlib import Path
@@ -30,6 +32,17 @@ class InteractiveCli:
         self._prompt = self._build_prompt()
 
     async def run(self) -> None:
+        async with self._runtime.graceful_shutdown() as stop_event:
+            _, pending = await asyncio.wait(
+                [asyncio.ensure_future(self._run()), asyncio.ensure_future(stop_event.wait())],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            for task in pending:
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+
+    async def _run(self) -> None:
         self._renderer.welcome(model=self._runtime.settings.model, workspace=str(self._runtime.workspace))
         while True:
             try:
