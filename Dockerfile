@@ -9,6 +9,7 @@ RUN apt-get update && \
     wget \
     vim \
     sudo \
+    procps \
     openssh-client \
     ca-certificates \
     tini
