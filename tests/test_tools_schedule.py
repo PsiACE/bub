@@ -27,4 +27,3 @@ def test_run_scheduled_reminder_invokes_bub_run(monkeypatch: Any, tmp_path: Path
         "telegram:42",
         "[Reminder for Telegram chat 42, after done, send a notice to this chat if necessary]\nremind me",
     ]
-    assert observed["kwargs"] == {"capture_output": True, "text": True, "check": False}

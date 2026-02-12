@@ -12,22 +12,10 @@ def run_scheduled_reminder(message: str, session_id: str, workspace: str | None 
         message = (
             f"[Reminder for Telegram chat {chat_id}, after done, send a notice to this chat if necessary]\n{message}"
         )
-    command = [sys.executable, "-m", "bub.cli.app", "run", "--session-id", session_id]
-    if workspace:
-        command.extend(["--workspace", workspace])
-    command.append(message)
+    command = [sys.executable, "-m", "bub.cli.app", "run", "--session-id", session_id, message]
 
     logger.info("running scheduled reminder via bub run session_id={} message={}", session_id, message)
-    completed = subprocess.run(  # noqa: S603
-        command,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if completed.returncode != 0:
-        logger.error(
-            "scheduled reminder failed exit={} stderr={} stdout={}",
-            completed.returncode,
-            (completed.stderr or "").strip(),
-            (completed.stdout or "").strip(),
-        )
+    try:
+        completed = subprocess.run(command, check=True, cwd=workspace)  # noqa: S603
+    finally:
+        logger.info("scheduled reminder finished exit={}", completed.returncode)
