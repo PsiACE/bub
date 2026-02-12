@@ -265,18 +265,6 @@ class TelegramChannel(BaseChannel):
 
     async def _send_reaction(self, chat_id: str, message_id: int, emoji: str) -> None:
         """Send a reaction emoji to a message."""
-        try:
-            await self._app.bot.set_message_reaction(
-                chat_id=int(chat_id),
-                message_id=message_id,
-                reaction=[ReactionTypeEmoji(emoji=emoji)],
-            )
-            logger.info("telegram.channel.reaction sent chat_id={} message_id={} emoji={}", chat_id, message_id, emoji)
-        except Exception:
-            logger.exception("telegram.channel.reaction.error chat_id={} message_id={}", chat_id, message_id)
-
-    async def _send_reaction(self, chat_id: str, message_id: int, emoji: str) -> None:
-        """Send a reaction emoji to a message."""
         if self._app is None:
             return
         try:
