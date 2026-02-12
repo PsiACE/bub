@@ -22,12 +22,17 @@ def build_tape_store(settings: Settings, workspace: Path) -> FileTapeStore:
 def build_llm(settings: Settings, store: FileTapeStore) -> LLM:
     """Build Republic LLM client configured for Bub runtime."""
 
+    client_args = None
+    if "azure" in settings.model:
+        client_args = {"api_version": "2025-01-01-preview"}
+
     return LLM(
         settings.model,
         api_key=settings.resolved_api_key,
         api_base=settings.api_base,
         tape_store=store,
         context=default_tape_context(),
+        client_args=client_args,
     )
 
 

@@ -121,22 +121,19 @@ class TapeService:
         query = self.tape.query().between_anchors(start, end)
         if kinds:
             query = query.kinds(*kinds)
-        result = query.all()
-        return result.entries if result.error is None else []
+        return cast(list[TapeEntry], query.all())
 
     def after_anchor(self, anchor: str, *, kinds: tuple[str, ...] = ()) -> list[TapeEntry]:
         query = self.tape.query().after_anchor(anchor)
         if kinds:
             query = query.kinds(*kinds)
-        result = query.all()
-        return result.entries if result.error is None else []
+        return cast(list[TapeEntry], query.all())
 
     def from_last_anchor(self, *, kinds: tuple[str, ...] = ()) -> list[TapeEntry]:
         query = self.tape.query().last_anchor()
         if kinds:
             query = query.kinds(*kinds)
-        result = query.all()
-        return result.entries if result.error is None else []
+        return cast(list[TapeEntry], query.all())
 
     def search(self, query: str, *, limit: int = 20) -> list[TapeEntry]:
         if not query:

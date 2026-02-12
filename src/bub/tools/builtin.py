@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import shutil
-import subprocess
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib import error as urllib_error
 from urllib import parse as urllib_parse
-from urllib.request import Request, urlopen
 
 import html2markdown
 from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
@@ -185,26 +183,29 @@ def register_builtin_tools(
     register = registry.register
 
     @register(name="bash", short_description="Run shell command", model=BashInput)
-    def run_bash(params: BashInput) -> str:
+    async def run_bash(params: BashInput) -> str:
         """Execute bash in workspace. Non-zero exit raises an error."""
         cwd = params.cwd or str(workspace)
         executable = shutil.which("bash") or "bash"
         env = dict(os.environ)
         env[SESSION_ID_ENV_VAR] = session_id
-        completed = subprocess.run(  # noqa: S603
-            [executable, "-lc", params.cmd],
+        completed = await asyncio.create_subprocess_exec(
+            executable,
+            "-lc",
+            params.cmd,
             cwd=cwd,
-            capture_output=True,
-            text=True,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
             env=env,
-            timeout=params.timeout_seconds,
         )
-        stdout = (completed.stdout or "").strip()
-        stderr = (completed.stderr or "").strip()
+        async with asyncio.timeout(params.timeout_seconds):
+            stdout_bytes, stderr_bytes = await completed.communicate()
+        stdout_text = (stdout_bytes or b"").decode("utf-8").strip()
+        stderr_text = (stderr_bytes or b"").decode("utf-8").strip()
         if completed.returncode != 0:
-            message = stderr or stdout or f"exit={completed.returncode}"
+            message = stderr_text or stdout_text or f"exit={completed.returncode}"
             raise RuntimeError(f"exit={completed.returncode}: {message}")
-        return stdout or "(no output)"
+        return stdout_text or "(no output)"
 
     @register(name="fs.read", short_description="Read file content", model=ReadInput)
     def fs_read(params: ReadInput) -> str:
@@ -243,31 +244,23 @@ def register_builtin_tools(
         file_path.write_text(updated, encoding="utf-8")
         return f"updated: {file_path} occurrences=1"
 
-    def _fetch_markdown_from_url(raw_url: str) -> str:
+    async def _fetch_markdown_from_url(raw_url: str) -> str:
+        import aiohttp
+
         url = _normalize_url(raw_url)
         if not url:
             return "error: invalid url"
 
-        request = Request(  # noqa: S310
-            url,
-            headers={
-                "User-Agent": WEB_USER_AGENT,
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            },
-        )
         try:
-            with urlopen(request, timeout=WEB_REQUEST_TIMEOUT_SECONDS) as response:  # noqa: S310
-                body_bytes = response.read(MAX_FETCH_BYTES + 1)
-                truncated = len(body_bytes) > MAX_FETCH_BYTES
-                if truncated:
-                    body_bytes = body_bytes[:MAX_FETCH_BYTES]
-                charset = response.headers.get_content_charset() or "utf-8"
-        except urllib_error.URLError as exc:
-            return f"error: {exc!s}"
-        except OSError as exc:
-            return f"error: {exc!s}"
-
-        content = body_bytes.decode(charset, errors="replace")
+            async with (
+                aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=WEB_REQUEST_TIMEOUT_SECONDS)) as session,
+                session.get(url, headers={"User-Agent": WEB_USER_AGENT}) as response,
+            ):
+                content_bytes = await response.content.read(MAX_FETCH_BYTES + 1)
+                truncated = len(content_bytes) > MAX_FETCH_BYTES
+                content = content_bytes[:MAX_FETCH_BYTES].decode("utf-8", errors="replace")
+        except aiohttp.ClientError as exc:
+            return f"HTTP error: {exc!s}"
         rendered = _html_to_markdown(content).strip()
         if not rendered:
             return "error: empty response body"
@@ -276,9 +269,9 @@ def register_builtin_tools(
         return rendered
 
     @register(name="web.fetch", short_description="Fetch URL as markdown", model=FetchInput)
-    def web_fetch_default(params: FetchInput) -> str:
+    async def web_fetch_default(params: FetchInput) -> str:
         """Fetch URL and convert HTML to markdown-like text."""
-        return _fetch_markdown_from_url(params.url)
+        return await _fetch_markdown_from_url(params.url)
 
     @register(name="schedule.add", short_description="Add a cron schedule", model=ScheduleAddInput, context=True)
     def schedule_add(params: ScheduleAddInput, context: ToolContext) -> str:
@@ -342,7 +335,9 @@ def register_builtin_tools(
     if runtime.settings.ollama_api_key:
 
         @register(name="web.search", short_description="Search the web", model=SearchInput)
-        def web_search_ollama(params: SearchInput) -> str:
+        async def web_search_ollama(params: SearchInput) -> str:
+            import aiohttp
+
             api_key = runtime.settings.ollama_api_key
             if not api_key:
                 return "error: ollama api key is not configured"
@@ -356,28 +351,22 @@ def register_builtin_tools(
                 "query": params.query,
                 "max_results": params.max_results,
             }
-            request = Request(  # noqa: S310
-                endpoint,
-                data=json.dumps(payload).encode("utf-8"),
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {api_key}",
-                    "User-Agent": WEB_USER_AGENT,
-                },
-                method="POST",
-            )
             try:
-                with urlopen(request, timeout=WEB_REQUEST_TIMEOUT_SECONDS) as response:  # noqa: S310
-                    response_body = response.read().decode("utf-8", errors="replace")
-            except urllib_error.HTTPError as exc:
-                detail = exc.read().decode("utf-8", errors="replace").strip()
-                if detail:
-                    return f"error: http {exc.code}: {detail}"
-                return f"error: http {exc.code}"
-            except urllib_error.URLError as exc:
-                return f"error: {exc!s}"
-            except OSError as exc:
-                return f"error: {exc!s}"
+                async with (
+                    aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=WEB_REQUEST_TIMEOUT_SECONDS)) as session,
+                    session.post(
+                        endpoint,
+                        json=payload,
+                        headers={
+                            "Content-Type": "application/json",
+                            "Authorization": f"Bearer {api_key}",
+                            "User-Agent": WEB_USER_AGENT,
+                        },
+                    ) as response,
+                ):
+                    response_body = await response.text()
+            except aiohttp.ClientError as exc:
+                return f"HTTP error: {exc!s}"
 
             try:
                 data = json.loads(response_body)
@@ -462,7 +451,7 @@ def register_builtin_tools(
         - approximate_context_length: approximate total length of message contents
         """
         info = tape.info()
-        messages = tape.tape.read_messages().messages
+        messages = tape.tape.read_messages()
         approximate_context_length = sum(len(msg.get("content", "")) for msg in messages)
         return "\n".join((
             f"tape={info.name}",
