@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import signal
-from asyncio import AbstractEventLoop
 from collections.abc import AsyncGenerator
 from contextlib import suppress
 from dataclasses import dataclass
@@ -32,13 +31,6 @@ if TYPE_CHECKING:
 
 def _session_slug(session_id: str) -> str:
     return md5(session_id.encode("utf-8")).hexdigest()[:16]  # noqa: S324
-
-
-def _running_loop() -> AbstractEventLoop | None:
-    try:
-        return asyncio.get_running_loop()
-    except RuntimeError:
-        return None
 
 
 @dataclass

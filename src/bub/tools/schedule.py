@@ -17,5 +17,7 @@ def run_scheduled_reminder(message: str, session_id: str, workspace: str | None 
     logger.info("running scheduled reminder via bub run session_id={} message={}", session_id, message)
     try:
         completed = subprocess.run(command, check=True, cwd=workspace)  # noqa: S603
-    finally:
-        logger.info("scheduled reminder finished exit={}", completed.returncode)
+    except subprocess.CalledProcessError as exc:
+        logger.error("scheduled reminder failed with exit={}", exc.returncode)
+    else:
+        logger.info("scheduled reminder succeeded with exit={}", completed.returncode)
