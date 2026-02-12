@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
-import contextlib
 from datetime import datetime
 from hashlib import md5
 from pathlib import Path
@@ -17,6 +15,7 @@ from prompt_toolkit.patch_stdout import patch_stdout
 from rich import get_console
 
 from bub.app.runtime import AppRuntime
+from bub.cli.concurrency import wait_until_stopped
 from bub.cli.render import CliRenderer
 
 
@@ -33,14 +32,7 @@ class InteractiveCli:
 
     async def run(self) -> None:
         async with self._runtime.graceful_shutdown() as stop_event:
-            _, pending = await asyncio.wait(
-                [asyncio.ensure_future(self._run()), asyncio.ensure_future(stop_event.wait())],
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-            for task in pending:
-                task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await task
+            return await wait_until_stopped(self._run(), stop_event)
 
     async def _run(self) -> None:
         self._renderer.welcome(model=self._runtime.settings.model, workspace=str(self._runtime.workspace))

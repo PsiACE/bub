@@ -14,6 +14,7 @@ from loguru import logger
 from bub.app import build_runtime
 from bub.app.runtime import AppRuntime
 from bub.channels import ChannelManager, MessageBus, TelegramChannel, TelegramConfig
+from bub.cli.concurrency import wait_until_stopped
 from bub.cli.interactive import InteractiveCli
 from bub.logging_utils import configure_logging
 
@@ -146,24 +147,14 @@ def run(
 async def _run_once(runtime: AppRuntime, session_id: str, message: str) -> None:
     import rich
 
-    from bub.core.agent_loop import LoopResult
-
     async with runtime.graceful_shutdown() as stop_event:
-        done, _ = await asyncio.wait(
-            [
-                asyncio.ensure_future(runtime.handle_input(session_id, message)),
-                asyncio.ensure_future(stop_event.wait()),
-            ],
-            return_when=asyncio.FIRST_COMPLETED,
-        )
-        # the pending tasks will be cancelled in graceful_shutdown, ignore them here
-        if (result := done.pop().result()) is not True:
-            assert isinstance(result, LoopResult)  # noqa: S101
+        try:
+            result = await wait_until_stopped(runtime.handle_input(session_id, message), stop_event)
             if result.error:
                 rich.print(f"[red]Error:[/red] {result.error}", file=sys.stderr)
             else:
                 rich.print(result.assistant_output or result.immediate_output or "")
-        else:
+        except asyncio.CancelledError:
             logger.info("run_once.interrupted")
 
 
