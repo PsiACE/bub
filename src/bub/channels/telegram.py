@@ -101,6 +101,7 @@ class TelegramConfig:
     token: str
     allow_from: set[str]
     allow_chats: set[str]
+    proxy: str | None = None
 
 
 class TelegramChannel(BaseChannel[Message]):
@@ -125,10 +126,16 @@ class TelegramChannel(BaseChannel[Message]):
         self._on_receive = on_receive
         logger.info(
             "telegram.start allow_from_count={} allow_chats_count={}",
+            "telegram.channel.start allow_from_count={} allow_chats_count={} proxy={}",
             len(self._config.allow_from),
             len(self._config.allow_chats),
+            self._config.proxy,
         )
-        self._app = Application.builder().token(self._config.token).build()
+        self._running = True
+        builder = Application.builder().token(self._config.token)
+        if self._config.proxy:
+            builder = builder.proxy(self._config.proxy).get_updates_proxy(self._config.proxy)
+        self._app = builder.build()
         self._app.add_handler(CommandHandler("start", self._on_start))
         self._app.add_handler(CommandHandler("bub", self._on_text, has_args=True, block=False))
         self._app.add_handler(MessageHandler(BubMessageFilter() & ~filters.COMMAND, self._on_text, block=False))
