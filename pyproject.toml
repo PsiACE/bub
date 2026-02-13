@@ -71,8 +71,7 @@ paths = ["src"]
 [tool.mypy]
 files = ["src"]
 exclude = [
-    '^src/bub/skills/skill-creator/scripts/.*$',
-    '^src/bub/skills/skill-installer/scripts/.*$',
+    '^src/bub/skills/.*$',
 ]
 disallow_untyped_defs = false
 disallow_any_unimported = false
@@ -91,8 +90,7 @@ target-version = "py312"
 line-length = 120
 fix = true
 extend-exclude = [
-    "src/bub/skills/skill-creator/scripts",
-    "src/bub/skills/skill-installer/scripts",
+    "src/bub/skills",
     "backup",
 ]
 
