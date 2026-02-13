@@ -15,7 +15,6 @@ from prompt_toolkit.patch_stdout import patch_stdout
 from rich import get_console
 
 from bub.app.runtime import AppRuntime
-from bub.cli.concurrency import wait_until_stopped
 from bub.cli.render import CliRenderer
 
 
@@ -31,8 +30,8 @@ class InteractiveCli:
         self._prompt = self._build_prompt()
 
     async def run(self) -> None:
-        async with self._runtime.graceful_shutdown() as stop_event:
-            return await wait_until_stopped(self._run(), stop_event)
+        async with self._runtime.graceful_shutdown():
+            return await self._run()
 
     async def _run(self) -> None:
         self._renderer.welcome(model=self._runtime.settings.model, workspace=str(self._runtime.workspace))
