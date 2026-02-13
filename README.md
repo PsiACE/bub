@@ -5,7 +5,7 @@
 [![Commit activity](https://img.shields.io/github/commit-activity/m/bubbuild/bub)](https://github.com/bubbuild/bub/graphs/commit-activity)
 [![License](https://img.shields.io/github/license/bubbuild/bub)](LICENSE)
 
-> Bub it. Build it.
+Bub is a **batteries-included, hook-first AI framework**.
 
 Bub is a collaborative agent for shared delivery workflows, evolving into a framework that helps other agents operate with the same collaboration model.
 It is not a personal-assistant shell: it is designed for shared environments where work must be inspectable, handoff-friendly, and operationally reliable.
@@ -29,17 +29,21 @@ This aligns with [Socialized Evaluation](https://psiace.me/posts/im-and-socializ
 git clone https://github.com/bubbuild/bub.git
 cd bub
 uv sync
-cp env.example .env
+uv run bub run "hello"
+uv run bub hooks
+uv run bub skills
 ```
 
-Minimal `.env`:
+## Skill Layout
 
 ```bash
 BUB_MODEL=openrouter:qwen/qwen3-coder-next
-LLM_API_KEY=your_key_here
+BUB_API_KEY=your_key_here
 ```
 
-Start interactive CLI:
+1. `<workspace>/.agents/skills`
+2. `~/.agents/skills`
+3. `src/bub_skills/`
 
 ```bash
 uv run bub
@@ -68,24 +72,13 @@ Common commands:
 ,quit
 ```
 
-## Channel Runtime (Optional)
+## Channel Runtime
 
 Telegram:
 
 ```bash
-BUB_TELEGRAM_ENABLED=true
 BUB_TELEGRAM_TOKEN=123456:token
-BUB_TELEGRAM_ALLOW_FROM='["123456789","your_username"]'
-uv run bub message
-```
-
-Discord:
-
-```bash
-BUB_DISCORD_ENABLED=true
-BUB_DISCORD_TOKEN=discord_bot_token
-BUB_DISCORD_ALLOW_FROM='["123456789012345678","your_discord_name"]'
-BUB_DISCORD_ALLOW_CHANNELS='["123456789012345678"]'
+BUB_TELEGRAM_ALLOW_USERS=123456789,your_username
 uv run bub message
 ```
 
@@ -95,9 +88,4 @@ uv run bub message
 uv run ruff check .
 uv run mypy
 uv run pytest -q
-just docs-test
 ```
-
-## License
-
-[Apache 2.0](./LICENSE)
