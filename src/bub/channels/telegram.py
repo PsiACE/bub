@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import html
-import re
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
 from loguru import logger
 from telegram import Message, Update
+from telegram.error import BadRequest
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 from telegramify_markdown import markdownify as md
 
@@ -132,46 +132,50 @@ class TelegramChannel(BaseChannel):
             return
         self._stop_typing(message.chat_id)
 
-        # Use expandable blockquote for long messages (over 140 chars)
-        MAX_COLLAPSE_LENGTH = 140
         raw_content = message.content
-        if len(raw_content) > MAX_COLLAPSE_LENGTH:
-            # Long message: wrap in expandable blockquote
-            # Telegram HTML mode only supports limited tags: b, strong, i, em, u, ins, s, strike, del, code, pre, a, blockquote
-            # For simplicity, escape HTML special chars and use plain text in blockquote
-            text = html.escape(raw_content)
-            # Convert markdown-style bold/italic/code to HTML tags (basic support)
-            # Bold: **text** or __text__
-            text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
-            text = re.sub(r"__(.+?)__", r"<b>\1</b>", text)
-            # Italic: *text* or _text_
-            text = re.sub(r"\*(.+?)\*", r"<i>\1</i>", text)
-            text = re.sub(r"_(.+?)_", r"<i>\1</i>", text)
-            # Code block
-            text = re.sub(r"```(.+?)```", r"<pre>\1</pre>", text, flags=re.DOTALL)
-            # Inline code: `text`
-            text = re.sub(r"`(.+?)`", r"<code>\1</code>", text)
-            text = f"<blockquote expandable>{text}</blockquote>"
-            parse_mode = "HTML"
-        else:
-            # Short message: use MarkdownV2 format
-            text = md(raw_content)
-            parse_mode = "MarkdownV2"
+        text = md(raw_content)
+        parse_mode = "MarkdownV2"
 
-        # In group chats, reply to the original message if reply_to_message_id is provided
-        if message.reply_to_message_id is not None:
-            await self._app.bot.send_message(
-                chat_id=int(message.chat_id),
+        try:
+            await self._send_message(
+                chat_id=message.chat_id,
                 text=text,
                 parse_mode=parse_mode,
                 reply_to_message_id=message.reply_to_message_id,
             )
-        else:
-            await self._app.bot.send_message(
-                chat_id=int(message.chat_id),
-                text=text,
-                parse_mode=parse_mode,
+        except BadRequest as exc:
+            if "can't parse entities" not in str(exc).lower():
+                raise
+            logger.warning(
+                "telegram.channel.parse_fallback chat_id={} error={}",
+                message.chat_id,
+                str(exc),
             )
+            await self._send_message(
+                chat_id=message.chat_id,
+                text=html.escape(raw_content),
+                parse_mode=None,
+                reply_to_message_id=message.reply_to_message_id,
+            )
+
+    async def _send_message(
+        self,
+        *,
+        chat_id: str,
+        text: str,
+        parse_mode: str | None,
+        reply_to_message_id: int | None,
+    ) -> None:
+        if self._app is None:
+            return
+        kwargs = {
+            "chat_id": int(chat_id),
+            "text": text,
+            "parse_mode": parse_mode,
+        }
+        if reply_to_message_id is not None:
+            kwargs["reply_to_message_id"] = reply_to_message_id
+        await self._app.bot.send_message(**kwargs)
 
     async def _on_start(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
         if update.message is None:

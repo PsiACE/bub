@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+from telegram.error import BadRequest
 
 from bub.channels.bus import MessageBus
 from bub.channels.telegram import TelegramChannel, TelegramConfig
@@ -17,6 +18,17 @@ class DummyMessage:
 
     async def reply_text(self, text: str) -> None:
         self.replies.append(text)
+
+
+class DummyBot:
+    def __init__(self, *, fail_first: bool = False) -> None:
+        self.fail_first = fail_first
+        self.calls: list[dict[str, object]] = []
+
+    async def send_message(self, **kwargs: object) -> None:
+        self.calls.append(kwargs)
+        if self.fail_first and len(self.calls) == 1:
+            raise BadRequest("Can't parse entities: unmatched end tag")
 
 
 @pytest.mark.asyncio
@@ -97,3 +109,38 @@ async def test_on_text_stops_typing_when_publish_fails() -> None:
         await channel._on_text(update, None)  # type: ignore[arg-type]
 
     assert calls == {"start": 1, "stop": 1}
+
+
+@pytest.mark.asyncio
+async def test_send_falls_back_to_plain_text_when_entity_parse_fails() -> None:
+    channel = TelegramChannel(
+        MessageBus(),
+        TelegramConfig(token="t", allow_from=set(), allow_chats=set()),  # noqa: S106
+    )
+    bot = DummyBot(fail_first=True)
+    channel._app = SimpleNamespace(bot=bot)
+
+    outbound = SimpleNamespace(chat_id="123", content="a < b", reply_to_message_id=7)
+    await channel.send(outbound)  # type: ignore[arg-type]
+
+    assert len(bot.calls) == 2
+    assert bot.calls[0]["parse_mode"] == "MarkdownV2"
+    assert bot.calls[1]["parse_mode"] is None
+    assert bot.calls[1]["text"] == "a &lt; b"
+    assert bot.calls[1]["reply_to_message_id"] == 7
+
+
+@pytest.mark.asyncio
+async def test_send_uses_markdownv2_for_long_message() -> None:
+    channel = TelegramChannel(
+        MessageBus(),
+        TelegramConfig(token="t", allow_from=set(), allow_chats=set()),  # noqa: S106
+    )
+    bot = DummyBot()
+    channel._app = SimpleNamespace(bot=bot)
+
+    outbound = SimpleNamespace(chat_id="123", content="x" * 300, reply_to_message_id=None)
+    await channel.send(outbound)  # type: ignore[arg-type]
+
+    assert len(bot.calls) == 1
+    assert bot.calls[0]["parse_mode"] == "MarkdownV2"
