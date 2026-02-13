@@ -1,0 +1,61 @@
+apiVersion: zeabur.com/v1
+kind: Template
+metadata:
+  name: bub-telegram
+spec:
+  description: Deploy Bub with Telegram mode enabled by default.
+  icon: https://raw.githubusercontent.com/PsiACE/bub/main/docs/assets/images/baby-bub.png
+  variables:
+    - key: BUB_MODEL
+      type: STRING
+      name: Bub Model
+      description: Model in provider:model format (for example, openrouter:qwen/qwen3-coder-next).
+    - key: OPENROUTER_API_KEY
+      type: STRING
+      name: OpenRouter API Key
+      description: Required for OpenRouter model calls.
+    - key: BUB_TELEGRAM_TOKEN
+      type: STRING
+      name: Telegram Bot Token
+      description: Required Telegram bot token from BotFather.
+    - key: BUB_TELEGRAM_ALLOW_FROM
+      type: STRING
+      name: Telegram Allow List
+      description: JSON array of allowed Telegram user IDs or usernames.
+  tags:
+    - AI
+    - Telegram
+    - Python
+  readme: |-
+    Bub is a coding agent CLI built on republic.
+    Project README (source of truth): https://github.com/PsiACE/bub
+
+    This template starts Bub in Telegram mode by default.
+
+    Required envs for this template:
+    - BUB_MODEL
+    - OPENROUTER_API_KEY
+    - BUB_TELEGRAM_ENABLED=true (readonly)
+    - BUB_TELEGRAM_TOKEN
+    - BUB_TELEGRAM_ALLOW_FROM
+  services:
+    - name: bub
+      template: PREBUILT
+      spec:
+        source:
+          image: thaddeusjiang/bub:latest
+        volumes:
+          - id: bub-home
+            dir: /root/.bub
+        env:
+          BUB_MODEL:
+            default: ${BUB_MODEL}
+          OPENROUTER_API_KEY:
+            default: ${OPENROUTER_API_KEY}
+          BUB_TELEGRAM_ENABLED:
+            default: "true"
+            readonly: true
+          BUB_TELEGRAM_TOKEN:
+            default: ${BUB_TELEGRAM_TOKEN}
+          BUB_TELEGRAM_ALLOW_FROM:
+            default: ${BUB_TELEGRAM_ALLOW_FROM}
