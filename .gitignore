@@ -142,6 +142,3 @@ cython_debug/
 
 # Reference directory - ignore all reference projects
 reference/
-
-# Bub data directory
-_data/

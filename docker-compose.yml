@@ -1,18 +1,14 @@
 services:
-  bub:
+  app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: bub
     env_file:
       - .env
-    environment:
-      BUB_HOME: /data
-      BUB_WORKSPACE_PATH: /workspace
-    working_dir: /workspace
     volumes:
-      - ./:/workspace
-      - ./_data:/data
+      - ${BUB_HOME:-${HOME}/.bub}:/data
+      - ${BUB_WORKSPACE_PATH:-.}:/workspace
     stdin_open: true
     tty: true
     restart: unless-stopped
