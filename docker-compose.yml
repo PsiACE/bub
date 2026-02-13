@@ -7,8 +7,9 @@ services:
     env_file:
       - .env
     volumes:
-      - ${BUB_HOME:-${HOME}/.bub}:/data
       - ${BUB_WORKSPACE_PATH:-.}:/workspace
+      - ${BUB_HOME:-${HOME}/.bub}:/data
+      - ${BUB_AGENT_HOME:-${HOME}/.agent}:/root/.agent
     stdin_open: true
     tty: true
     restart: unless-stopped
