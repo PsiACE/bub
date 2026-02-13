@@ -184,7 +184,9 @@ def register_builtin_tools(
 
     @register(name="bash", short_description="Run shell command", model=BashInput)
     async def run_bash(params: BashInput) -> str:
-        """Execute bash in workspace. Non-zero exit raises an error."""
+        """Execute bash in workspace. Non-zero exit raises an error.
+        IMPORTANT: please DO NOT use sleep to delay execution, use schedule.add tool instead.
+        """
         cwd = params.cwd or str(workspace)
         executable = shutil.which("bash") or "bash"
         env = dict(os.environ)
@@ -275,7 +277,11 @@ def register_builtin_tools(
 
     @register(name="schedule.add", short_description="Add a cron schedule", model=ScheduleAddInput, context=True)
     def schedule_add(params: ScheduleAddInput, context: ToolContext) -> str:
-        """Create or replace a cron-based scheduled shell command."""
+        """Schedule a reminder message to be sent to current session in the future. You can specify either of the following scheduling options:
+        - after_seconds: run once after this many seconds from now
+        - interval_seconds: run repeatedly at this interval
+        - cron: run with cron expression in crontab format: minute hour day month day_of_week
+        """
         job_id = str(uuid.uuid4())[:8]
         if params.after_seconds is not None:
             trigger = DateTrigger(run_date=datetime.now(UTC) + timedelta(seconds=params.after_seconds))
