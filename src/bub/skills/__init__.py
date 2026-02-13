@@ -1,6 +1,5 @@
-"""Skill discovery package."""
+"""Skill discovery and loading exports."""
 
-from bub.skills.loader import SkillMetadata, discover_skills, load_skill_body
-from bub.skills.view import render_compact_skills
+from bub.skills.loader import SkillMetadata, discover_hook_skills
 
-__all__ = ["SkillMetadata", "discover_skills", "load_skill_body", "render_compact_skills"]
+__all__ = ["SkillMetadata", "discover_hook_skills"]

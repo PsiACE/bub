@@ -1,7 +1,7 @@
 [project]
 name = "bub"
 version = "0.2.0"
-description = "Bub it. Build it. Tape-first coding agent CLI."
+description = "Bub it. Build it. Batteries-included, hook-first AI framework."
 authors = [{ name = "Chojan Shang", email = "psiace@apache.org" }]
 readme = "README.md"
 keywords = ['python']
@@ -20,6 +20,7 @@ dependencies = [
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
     "pyyaml>=6.0.0",
+    "pluggy>=1.6.0",
     "typer>=0.9.0",
     "republic>=0.3.0",
     "rich>=13.0.0",

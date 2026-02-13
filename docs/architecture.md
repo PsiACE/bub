@@ -1,48 +1,45 @@
 # Architecture
 
-This page is for developers and advanced users who need to understand why Bub behavior is deterministic and how to extend it safely.
+## Framework Kernel
 
-## Core Principles
+- `BubFramework`
+- `BubHookSpecs`
+- `Skill Loader`
 
-1. One session, one append-only tape.
-2. Same routing rules for user input and assistant output.
-3. Command execution and model reasoning are explicit layers.
-4. Phase transitions are represented by `anchor/handoff`, not hidden state jumps.
+The kernel only coordinates a turn. It does not own channel, model, or tool behavior.
+Those concerns are provided by skills through hooks.
 
-## Runtime Topology
+The framework is batteries-included: default skills provide a runnable baseline,
+while every battery can be overridden by project or global skills.
 
-```text
-input -> InputRouter -> AgentLoop -> ModelRunner -> InputRouter(assistant output) -> ...
-                \-> direct command response
-```
+## Hook Pipeline
 
-Key modules:
+1. `normalize_inbound`
+2. `resolve_session`
+3. `load_state`
+4. `build_prompt`
+5. `run_model`
+6. `save_state`
+7. `render_outbound`
+8. `dispatch_outbound`
 
-- `src/bub/core/router.py`: command detection, execution, and failure context wrapping.
-- `src/bub/core/agent_loop.py`: turn orchestration and stop conditions.
-- `src/bub/core/model_runner.py`: bounded model loop and user-driven skill-hint activation.
-- `src/bub/tape/service.py`: tape read/write, anchor/handoff, reset, and search.
-- `src/bub/tools/*`: unified registry and progressive tool view.
+## Extension Ownership
 
-## Single Turn Flow
+- `cli` commands are registered by `register_cli_commands`.
+- `bus` instances are provided by `provide_bus`.
+- `message` shape is defined by users and adapted by skills.
 
-1. `InputRouter.route_user` checks whether input starts with `,`.
-2. If command succeeds, return output directly.
-3. If command fails, generate a `<command ...>` block for model context.
-4. `ModelRunner` gets assistant output.
-5. `route_assistant` applies the same command parsing/execution rules.
-6. Loop ends on plain final text, explicit quit, or `max_steps`.
+## Runtime Safety
 
-## Tape, Anchor, Handoff
+- Skill load failures are isolated and tracked in `failed_skills`.
+- Hook runtime failures are isolated per plugin and reported via `on_error`.
+- If no model skill returns output, the framework falls back to prompt echo to keep the process alive.
 
-- Tape is workspace-level JSONL for replay and audit.
-- `handoff` writes an anchor with optional `summary` and `next_steps`.
-- `anchors` lists phase boundaries.
-- `tape.reset` clears active context (optionally archiving first).
+## Skill Resolution
 
-## Tools and Skills
+1. workspace `.agent/skills`
+2. user `~/.agent/skills`
+3. builtin skills
 
-- Built-in tools and skills live in one registry.
-- System prompt starts with compact tool descriptions.
-- Full tool schema is expanded on demand (`tool.describe` or explicit selection).
-- `$name` hints progressively expand tool/skill details from either user input or model output.
+If two skills share the same name, higher precedence source wins.
+At runtime, project skills execute before global and builtin implementations.

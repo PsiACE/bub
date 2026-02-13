@@ -11,8 +11,7 @@ nav:
   - Home: index.md
   - Key Features: features.md
   - Architecture: architecture.md
-  - Interactive CLI: cli.md
-  - Telegram: telegram.md
+  - CLI: cli.md
 
 plugins:
   - search

@@ -1,37 +1,51 @@
-"""Skill discovery and loading."""
+"""Skill discovery and hook plugin loading."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from importlib import import_module
 from pathlib import Path
+from typing import Any
 
 import yaml
 
 PROJECT_SKILLS_DIR = ".agent/skills"
 SKILL_FILE_NAME = "SKILL.md"
+HOOK_SKILL_KINDS = frozenset({"hook", "model", "memory", "output", "bus", "tool", "channel", "command"})
+SKILL_SOURCES = ("project", "global", "builtin")
 
 
 @dataclass(frozen=True)
 class SkillMetadata:
-    """Skill metadata used in compact prompt view."""
+    """Discovered skill metadata."""
 
     name: str
     description: str
     location: Path
     source: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+def discover_hook_skills(workspace_path: Path) -> list[SkillMetadata]:
+    """Discover skills with hook entrypoints."""
+
+    results: list[SkillMetadata] = []
+    for skill in discover_skills(workspace_path):
+        entrypoint = skill.metadata.get("entrypoint")
+        kind = str(skill.metadata.get("kind") or "").strip().lower()
+        if not isinstance(entrypoint, str) or not entrypoint.strip():
+            continue
+        if kind not in HOOK_SKILL_KINDS:
+            continue
+        results.append(skill)
+    return results
 
 
 def discover_skills(workspace_path: Path) -> list[SkillMetadata]:
-    """Discover skills from project, global, and built-in roots."""
+    """Discover skills from project, global, and builtin roots with override precedence."""
 
-    ordered_roots = [
-        (workspace_path / PROJECT_SKILLS_DIR, "project"),
-        (Path.home() / PROJECT_SKILLS_DIR, "global"),
-        (_builtin_skills_root(), "builtin"),
-    ]
-
-    by_name: dict[str, SkillMetadata] = {}
-    for root, source in ordered_roots:
+    skills_by_name: dict[str, SkillMetadata] = {}
+    for root, source in _iter_skill_roots(workspace_path):
         if not root.is_dir():
             continue
         for skill_dir in sorted(root.iterdir()):
@@ -41,23 +55,26 @@ def discover_skills(workspace_path: Path) -> list[SkillMetadata]:
             if metadata is None:
                 continue
             key = metadata.name.casefold()
-            if key not in by_name:
-                by_name[key] = metadata
+            if key not in skills_by_name:
+                skills_by_name[key] = metadata
 
-    return sorted(by_name.values(), key=lambda item: item.name.casefold())
+    return sorted(skills_by_name.values(), key=lambda item: item.name.casefold())
 
 
-def load_skill_body(name: str, workspace_path: Path) -> str | None:
-    """Load full SKILL.md body for one skill name."""
+def load_skill_plugin(skill: SkillMetadata) -> object:
+    """Load plugin object from one skill entrypoint."""
 
-    lowered = name.casefold()
-    for skill in discover_skills(workspace_path):
-        if skill.name.casefold() == lowered:
-            try:
-                return skill.location.read_text(encoding="utf-8")
-            except OSError:
-                return None
-    return None
+    entrypoint = skill.metadata.get("entrypoint")
+    if not isinstance(entrypoint, str):
+        raise TypeError(f"{skill.name}: entrypoint must be string")
+
+    module_name, sep, attr_name = entrypoint.partition(":")
+    if not sep or not module_name or not attr_name:
+        raise ValueError(f"{skill.name}: invalid entrypoint format '{entrypoint}'")
+
+    module = import_module(module_name)
+    plugin = getattr(module, attr_name)
+    return plugin
 
 
 def _read_skill(skill_dir: Path, *, source: str) -> SkillMetadata | None:
@@ -73,11 +90,16 @@ def _read_skill(skill_dir: Path, *, source: str) -> SkillMetadata | None:
     metadata = _parse_frontmatter(content)
     name = str(metadata.get("name") or skill_dir.name).strip()
     description = str(metadata.get("description") or "No description provided.").strip()
-
     if not name:
         return None
 
-    return SkillMetadata(name=name, description=description, location=skill_file.resolve(), source=source)
+    return SkillMetadata(
+        name=name,
+        description=description,
+        location=skill_file.resolve(),
+        source=source,
+        metadata={str(key).casefold(): value for key, value in metadata.items() if key is not None},
+    )
 
 
 def _parse_frontmatter(content: str) -> dict[str, object]:
@@ -99,4 +121,16 @@ def _parse_frontmatter(content: str) -> dict[str, object]:
 
 
 def _builtin_skills_root() -> Path:
-    return Path(__file__).resolve().parent
+    return Path(__file__).resolve().parent / "builtin"
+
+
+def _iter_skill_roots(workspace_path: Path) -> list[tuple[Path, str]]:
+    roots: list[tuple[Path, str]] = []
+    for source in SKILL_SOURCES:
+        if source == "project":
+            roots.append((workspace_path / PROJECT_SKILLS_DIR, source))
+        elif source == "global":
+            roots.append((Path.home() / PROJECT_SKILLS_DIR, source))
+        elif source == "builtin":
+            roots.append((_builtin_skills_root(), source))
+    return roots

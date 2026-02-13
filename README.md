@@ -1,93 +1,54 @@
 # Bub
 
-[![Release](https://img.shields.io/github/v/release/psiace/bub)](https://github.com/psiace/bub/releases)
-[![Build status](https://img.shields.io/github/actions/workflow/status/psiace/bub/main.yml?branch=main)](https://github.com/psiace/bub/actions/workflows/main.yml?query=branch%3Amain)
-[![Commit activity](https://img.shields.io/github/commit-activity/m/psiace/bub)](https://github.com/psiace/bub/graphs/commit-activity)
-[![License](https://img.shields.io/github/license/psiace/bub)](LICENSE)
+Bub it. Build it.
 
-> Bub it. Build it.
+Bub is a **batteries-included, hook-first AI framework**.
 
-Bub is a coding agent CLI built on `republic`.
-It is designed for real engineering workflows where execution must be predictable, inspectable, and recoverable.
+The framework keeps only a minimal core and moves behavior into skills:
 
-## Four Things To Know
+- message normalization and session mapping
+- state and memory logic
+- model execution
+- outbound rendering and dispatch
+- CLI command registration
+- bus provisioning
 
-1. Command boundary is strict: only lines starting with `,` are treated as commands.
-2. The same routing model is applied to both user input and assistant output.
-3. Successful commands return directly; failed commands fall back to the model with structured context.
-4. Session context is append-only tape with explicit `anchor/handoff` transitions.
+Built-in batteries in this baseline:
+
+- `input-bus`
+- `memory-tape`
+- `model-echo`
+- `output-stdout`
+- `cli-core`
+
+## Design Goal
+
+`input` is treated as a message bus concern, not a fixed CLI feature.
+The core only coordinates one turn through hook contracts.
+Everything else is skill-driven.
+`message` is user-defined and can be mapping-based or object-based.
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/psiace/bub.git
-cd bub
 uv sync
-cp env.example .env
+uv run bub run "hello"
+uv run bub hooks
+uv run bub skills
 ```
 
-Minimal `.env`:
+## Skill Layout
 
-```bash
-BUB_MODEL=openrouter:qwen/qwen3-coder-next
-OPENROUTER_API_KEY=your_key_here
-```
+Skills are discovered from:
 
-Start interactive CLI:
+1. `<workspace>/.agent/skills`
+2. `~/.agent/skills`
+3. `src/bub/skills/builtin`
 
-```bash
-uv run bub
-```
-
-## Interaction Rules
-
-- `hello`: natural language routed to model.
-- `,help`: internal command.
-- `,git status`: shell command.
-- `, ls -la`: shell command (space after comma is optional).
-
-Common commands:
-
-```text
-,help
-,tools
-,tool.describe name=fs.read
-,skills.list
-,skills.describe name=friendly-python
-,handoff name=phase-1 summary="bootstrap done"
-,anchors
-,tape.info
-,tape.search query=error
-,tape.reset archive=true
-,quit
-```
-
-## Telegram (Optional)
-
-```bash
-BUB_TELEGRAM_ENABLED=true
-BUB_TELEGRAM_TOKEN=123456:token
-BUB_TELEGRAM_ALLOW_FROM=["123456789","your_username"]
-uv run bub telegram
-```
-
-## Documentation
-
-- `docs/index.md`: getting started and usage overview
-- `docs/features.md`: key capabilities and why they matter
-- `docs/cli.md`: interactive CLI workflow and troubleshooting
-- `docs/architecture.md`: agent loop, tape, anchor, and tool/skill design
-- `docs/telegram.md`: Telegram integration and operations
-
-## Development
+## Run Tests
 
 ```bash
 uv run ruff check .
 uv run mypy
 uv run pytest -q
-just docs-test
 ```
-
-## License
-
-[Apache 2.0](./LICENSE)
