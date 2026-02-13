@@ -128,7 +128,7 @@ class ModelRunner:
                 break
 
             self._activate_hints(assistant_text)
-            route = self._router.route_assistant(assistant_text)
+            route = await self._router.route_assistant(assistant_text)
             self._consume_route(state, route)
             if not route.next_prompt:
                 break

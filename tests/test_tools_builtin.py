@@ -78,7 +78,11 @@ def _build_registry(workspace: Path, settings: Settings, scheduler: BackgroundSc
 
 
 def _execute_tool(registry: ToolRegistry, name: str, *, kwargs: dict[str, Any]) -> Any:
-    result = registry.execute(name, kwargs=kwargs)
+    descriptor = registry.get(name)
+    if descriptor is not None and descriptor.tool.context:
+        result = descriptor.tool.run(context=None, **kwargs)
+    else:
+        result = registry.execute(name, kwargs=kwargs)
     if inspect.isawaitable(result):
         return asyncio.run(result)
     return result
@@ -323,14 +327,15 @@ def test_schedule_shared_scheduler_across_registries(tmp_path: Path, scheduler: 
     registry_a = _build_registry(workspace, settings, scheduler)
     registry_b = _build_registry(workspace, settings, scheduler)
 
-    add_result = registry_a.execute(
+    add_result = _execute_tool(
+        registry_a,
         "schedule.add",
         kwargs={"cron": "*/5 * * * *", "message": "from-a"},
     )
     matched = re.match(r"^scheduled: (?P<job_id>[a-z0-9-]+) next=.*$", add_result)
     assert matched is not None
 
-    assert matched.group("job_id") in registry_b.execute("schedule.list", kwargs={})
+    assert matched.group("job_id") in _execute_tool(registry_b, "schedule.list", kwargs={})
 
 
 def test_skills_list_uses_latest_runtime_skills(tmp_path: Path, scheduler: BackgroundScheduler) -> None:

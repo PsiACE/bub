@@ -2,16 +2,7 @@ import asyncio
 
 import pytest
 
-from bub.app.runtime import AppRuntime, _running_loop
-
-
-def test_running_loop_returns_none_without_active_loop() -> None:
-    assert _running_loop() is None
-
-
-@pytest.mark.asyncio
-async def test_running_loop_returns_current_running_loop() -> None:
-    assert _running_loop() is asyncio.get_running_loop()
+from bub.app.runtime import AppRuntime
 
 
 def test_reset_session_context_ignores_missing_session() -> None:

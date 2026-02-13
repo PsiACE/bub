@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import asyncio
-from contextvars import copy_context
 from dataclasses import dataclass
-from functools import partial
 
 from bub.core.model_runner import ModelRunner, ModelTurnResult
 from bub.core.router import InputRouter
@@ -33,8 +30,7 @@ class AgentLoop:
 
     async def handle_input(self, raw: str) -> LoopResult:
         with self._tape.fork_tape():
-            ctx = copy_context()
-            route = await asyncio.get_event_loop().run_in_executor(None, ctx.run, partial(self._router.route_user, raw))
+            route = await self._router.route_user(raw)
             if route.exit_requested:
                 return LoopResult(
                     immediate_output=route.immediate_output,

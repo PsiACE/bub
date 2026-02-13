@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import builtins
+import inspect
 import json
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from copy import deepcopy
 from dataclasses import dataclass
 from functools import wraps
@@ -61,7 +62,7 @@ class ToolRegistry:
         context: bool = False,
         source: str = "builtin",
     ) -> Callable[[Callable], ToolDescriptor | None]:
-        def decorator[**P, T](func: Callable[P, T]) -> ToolDescriptor | None:
+        def decorator[**P, T](func: Callable[P, T | Awaitable[T]]) -> ToolDescriptor | None:
             tool_detail = detail or func.__doc__ or ""
             if (
                 self._allowed_tools is not None
@@ -71,7 +72,7 @@ class ToolRegistry:
                 return None
 
             @wraps(func)
-            def handler(*args: P.args, **kwargs: P.kwargs) -> T:
+            async def handler(*args: P.args, **kwargs: P.kwargs) -> T:
                 context_arg = kwargs.get("context") if context else None
                 call_kwargs = {key: value for key, value in kwargs.items() if key != "context"}
                 if args and isinstance(args[0], BaseModel):
@@ -80,10 +81,14 @@ class ToolRegistry:
 
                 start = time.monotonic()
                 try:
-                    return func(*args, **kwargs)
+                    result = func(*args, **kwargs)
+                    if inspect.isawaitable(result):
+                        result = await result
                 except Exception:
                     logger.exception("tool.call.error name={}", name)
                     raise
+                else:
+                    return result
                 finally:
                     duration = time.monotonic() - start
                     logger.info("tool.call.end name={} duration={:.3f}ms", name, duration * 1000)
@@ -188,7 +193,7 @@ class ToolRegistry:
         params_str = ", ".join(params)
         logger.info("tool.call.start name={} {{ {} }}", name, params_str)
 
-    def execute(
+    async def execute(
         self,
         name: str,
         *,
@@ -200,5 +205,8 @@ class ToolRegistry:
             raise KeyError(name)
 
         if descriptor.tool.context:
-            return descriptor.tool.run(context=context, **kwargs)
-        return descriptor.tool.run(**kwargs)
+            kwargs["context"] = context
+        result = descriptor.tool.run(context=context, **kwargs)
+        if inspect.isawaitable(result):
+            result = await result
+        return result

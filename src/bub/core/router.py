@@ -63,7 +63,7 @@ class InputRouter:
         self._tape = tape
         self._workspace = workspace
 
-    def route_user(self, raw: str) -> UserRouteResult:
+    async def route_user(self, raw: str) -> UserRouteResult:
         stripped = raw.strip()
         if not stripped:
             return UserRouteResult(enter_model=False, model_prompt="", immediate_output="", exit_requested=False)
@@ -73,11 +73,11 @@ class InputRouter:
             text = parsed.get("message", stripped)
         except json.JSONDecodeError:
             text = stripped
-        command = self._detect_user_command(text)
+        command = self._parse_comma_prefixed_command(text)
         if command is None:
             return UserRouteResult(enter_model=True, model_prompt=stripped, immediate_output="", exit_requested=False)
 
-        result = self._execute_command(command, origin="human")
+        result = await self._execute_command(command, origin="human")
         if result.status == "ok" and result.name != "bash":
             if result.name == "quit" and result.output == "exit":
                 return UserRouteResult(
@@ -109,10 +109,7 @@ class InputRouter:
             exit_requested=False,
         )
 
-    def _detect_user_command(self, stripped: str) -> DetectedCommand | None:
-        return self._parse_comma_prefixed_command(stripped)
-
-    def route_assistant(self, raw: str) -> AssistantRouteResult:
+    async def route_assistant(self, raw: str) -> AssistantRouteResult:
         visible_lines: list[str] = []
         command_blocks: list[str] = []
         exit_requested = False
@@ -128,7 +125,7 @@ class InputRouter:
             if stripped.startswith("```"):
                 if in_fence:
                     exit_requested = (
-                        self._flush_pending_assistant_command(
+                        await self._flush_pending_assistant_command(
                             pending_command_lines=pending_command_lines,
                             pending_source_lines=pending_source_lines,
                             visible_lines=visible_lines,
@@ -143,7 +140,7 @@ class InputRouter:
                 shell_candidate = self._parse_comma_prefixed_command(stripped)
                 if shell_candidate is not None and shell_candidate.kind == "shell":
                     exit_requested = (
-                        self._flush_pending_assistant_command(
+                        await self._flush_pending_assistant_command(
                             pending_command_lines=pending_command_lines,
                             pending_source_lines=pending_source_lines,
                             visible_lines=visible_lines,
@@ -161,15 +158,15 @@ class InputRouter:
                 visible_lines.append(line)
                 continue
 
-            command = self._detect_assistant_command(stripped)
+            command = self._parse_comma_prefixed_command(stripped)
             if command is None:
                 visible_lines.append(line)
                 continue
 
-            exit_requested = self._execute_assistant_command(command, command_blocks) or exit_requested
+            exit_requested = await self._execute_assistant_command(command, command_blocks) or exit_requested
 
         exit_requested = (
-            self._flush_pending_assistant_command(
+            await self._flush_pending_assistant_command(
                 pending_command_lines=pending_command_lines,
                 pending_source_lines=pending_source_lines,
                 visible_lines=visible_lines,
@@ -188,12 +185,12 @@ class InputRouter:
             exit_requested=exit_requested,
         )
 
-    def _execute_assistant_command(self, command: DetectedCommand, command_blocks: list[str]) -> bool:
-        result = self._execute_command(command, origin="assistant")
+    async def _execute_assistant_command(self, command: DetectedCommand, command_blocks: list[str]) -> bool:
+        result = await self._execute_command(command, origin="assistant")
         command_blocks.append(result.block())
         return result.name == "quit" and result.status == "ok" and result.output == "exit"
 
-    def _flush_pending_assistant_command(
+    async def _flush_pending_assistant_command(
         self,
         *,
         pending_command_lines: list[str],
@@ -216,10 +213,7 @@ class InputRouter:
         if command is None:
             visible_lines.extend(source_lines)
             return False
-        return self._execute_assistant_command(command, command_blocks)
-
-    def _detect_assistant_command(self, stripped: str) -> DetectedCommand | None:
-        return self._parse_comma_prefixed_command(stripped)
+        return await self._execute_assistant_command(command, command_blocks)
 
     def _parse_comma_prefixed_command(self, stripped: str) -> DetectedCommand | None:
         if not stripped.startswith(","):
@@ -238,17 +232,17 @@ class InputRouter:
             return None
         return DetectedCommand(kind="shell", raw=body, name=words[0], args_tokens=words[1:])
 
-    def _execute_command(self, command: DetectedCommand, *, origin: str) -> CommandExecutionResult:
+    async def _execute_command(self, command: DetectedCommand, *, origin: str) -> CommandExecutionResult:
         start = time.time()
 
         if command.kind == "shell":
-            return self._execute_shell(command, origin=origin, start=start)
-        return self._execute_internal(command, origin=origin, start=start)
+            return await self._execute_shell(command, origin=origin, start=start)
+        return await self._execute_internal(command, origin=origin, start=start)
 
-    def _execute_shell(self, command: DetectedCommand, *, origin: str, start: float) -> CommandExecutionResult:
+    async def _execute_shell(self, command: DetectedCommand, *, origin: str, start: float) -> CommandExecutionResult:
         elapsed_ms: int
         try:
-            output = self._registry.execute(
+            output = await self._registry.execute(
                 "bash",
                 kwargs={
                     "cmd": command.raw,
@@ -271,7 +265,7 @@ class InputRouter:
             elapsed_ms=elapsed_ms,
         )
 
-    def _execute_internal(self, command: DetectedCommand, *, origin: str, start: float) -> CommandExecutionResult:
+    async def _execute_internal(self, command: DetectedCommand, *, origin: str, start: float) -> CommandExecutionResult:
         name = self._resolve_internal_name(command.name)
         parsed_args = parse_kv_arguments(command.args_tokens)
 
@@ -294,7 +288,7 @@ class InputRouter:
             )
 
         try:
-            output = self._registry.execute(name, kwargs=dict(parsed_args.kwargs))
+            output = await self._registry.execute(name, kwargs=dict(parsed_args.kwargs))
             status = "ok"
             text = str(output)
             if name == "tool.describe":

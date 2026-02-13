@@ -13,7 +13,7 @@ from bub.core.router import UserRouteResult
 class FakeRouter:
     route: UserRouteResult
 
-    def route_user(self, _raw: str) -> UserRouteResult:
+    async def route_user(self, _raw: str) -> UserRouteResult:
         return self.route
 
 

@@ -4,7 +4,8 @@ from republic import ToolContext
 from bub.tools.registry import ToolRegistry
 
 
-def test_registry_logs_once_for_execute(monkeypatch) -> None:
+@pytest.mark.asyncio
+async def test_registry_logs_once_for_execute(monkeypatch) -> None:
     logs: list[str] = []
 
     def _capture(message: str, *args: object) -> None:
@@ -19,13 +20,14 @@ def test_registry_logs_once_for_execute(monkeypatch) -> None:
     def add(*, a: int, b: int) -> int:
         return a + b
 
-    result = registry.execute("math.add", kwargs={"a": 1, "b": 2})
+    result = await registry.execute("math.add", kwargs={"a": 1, "b": 2})
     assert result == 3
     assert logs.count("tool.call.start name={} {{ {} }}") == 1
     assert logs.count("tool.call.end name={} duration={:.3f}ms") == 1
 
 
-def test_registry_logs_for_direct_tool_run_with_context(monkeypatch) -> None:
+@pytest.mark.asyncio
+async def test_registry_logs_for_direct_tool_run_with_context(monkeypatch) -> None:
     logs: list[str] = []
 
     def _capture(message: str, *args: object) -> None:
@@ -43,13 +45,14 @@ def test_registry_logs_for_direct_tool_run_with_context(monkeypatch) -> None:
     descriptor = registry.get("fs.ctx")
     assert descriptor is not None
 
-    output = descriptor.tool.run(context=ToolContext(tape="t1", run_id="r1"), path="README.md")
+    output = await descriptor.tool.run(context=ToolContext(tape="t1", run_id="r1"), path="README.md")
     assert output == "r1:README.md"
     assert logs.count("tool.call.start name={} {{ {} }}") == 1
     assert logs.count("tool.call.end name={} duration={:.3f}ms") == 1
 
 
-def test_registry_model_tools_use_underscore_names_and_keep_handlers() -> None:
+@pytest.mark.asyncio
+async def test_registry_model_tools_use_underscore_names_and_keep_handlers() -> None:
     registry = ToolRegistry()
 
     @registry.register(name="fs.read", short_description="read", detail="read")
@@ -61,7 +64,7 @@ def test_registry_model_tools_use_underscore_names_and_keep_handlers() -> None:
 
     model_tools = registry.model_tools()
     assert [tool.name for tool in model_tools] == ["fs_read"]
-    assert model_tools[0].run(path="README.md") == "read:README.md"
+    assert await model_tools[0].run(path="README.md") == "read:README.md"
 
 
 def test_registry_model_tool_name_conflict_raises_error() -> None:
