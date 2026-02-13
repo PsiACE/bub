@@ -235,10 +235,7 @@ class TelegramChannel(BaseChannel):
                     }),
                 )
             )
-        except asyncio.CancelledError:
-            self._stop_typing(chat_id)
-            raise
-        except Exception:
+        except (asyncio.CancelledError, Exception):
             self._stop_typing(chat_id)
             raise
 
