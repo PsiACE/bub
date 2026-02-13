@@ -317,9 +317,6 @@ def register_builtin_tools(
     def schedule_list(_params: EmptyInput) -> str:
         """List scheduled jobs for current workspace."""
         jobs = runtime.scheduler.get_jobs()
-        if not jobs:
-            return "(no scheduled jobs)"
-
         rows: list[str] = []
         for job in jobs:
             next_run = "-"
@@ -330,6 +327,10 @@ def register_builtin_tools(
             if job_session and job_session != session_id:
                 continue
             rows.append(f"{job.id} next={next_run} msg={message}")
+
+        if not rows:
+            return "(no scheduled jobs)"
+
         return "\n".join(rows)
 
     if runtime.settings.ollama_api_key:
