@@ -67,7 +67,7 @@ Common commands:
 ```bash
 BUB_TELEGRAM_ENABLED=true
 BUB_TELEGRAM_TOKEN=123456:token
-BUB_TELEGRAM_ALLOW_FROM=["123456789","your_username"]
+BUB_TELEGRAM_ALLOW_FROM='["123456789","your_username"]'
 uv run bub telegram
 ```
 
