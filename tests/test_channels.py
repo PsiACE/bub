@@ -20,6 +20,11 @@ class FakeRuntime:
         )
 
 
+class FailingRuntime:
+    async def handle_input(self, _session_id: str, _text: str) -> LoopResult:
+        raise RuntimeError("boom")
+
+
 class FakeChannel(BaseChannel):
     name = "fake"
 
@@ -55,5 +60,27 @@ async def test_channel_manager_routes_inbound_to_outbound() -> None:
         )
         await asyncio.sleep(0.05)
         assert channel.sent == ["hello from loop"]
+    finally:
+        await manager.stop()
+
+
+@pytest.mark.asyncio
+async def test_channel_manager_inbound_runtime_error_does_not_bubble() -> None:
+    bus = MessageBus()
+    manager = ChannelManager(bus, FailingRuntime())  # type: ignore[arg-type]
+    channel = FakeChannel(bus)
+    manager.register(channel)
+    await manager.start()
+    try:
+        await bus.publish_inbound(
+            InboundMessage(
+                channel="fake",
+                sender_id="u1",
+                chat_id="c1",
+                content="hello",
+            )
+        )
+        await asyncio.sleep(0.05)
+        assert channel.sent == []
     finally:
         await manager.stop()

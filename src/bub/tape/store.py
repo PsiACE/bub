@@ -67,31 +67,34 @@ class TapeFile:
 
     def read(self) -> list[TapeEntry]:
         with self._lock:
-            if not self.path.exists():
-                self._reset()
-                return []
+            return self._read_locked()
 
-            file_size = self.path.stat().st_size
-            if file_size < self._read_offset:
-                # The file was truncated or replaced, so cached entries are stale.
-                self._reset()
+    def _read_locked(self) -> list[TapeEntry]:
+        if not self.path.exists():
+            self._reset()
+            return []
 
-            with self.path.open("r", encoding="utf-8") as handle:
-                handle.seek(self._read_offset)
-                for raw_line in handle:
-                    line = raw_line.strip()
-                    if not line:
-                        continue
-                    try:
-                        payload = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-                    entry = self.entry_from_payload(payload)
-                    if entry is not None:
-                        self._read_entries.append(entry)
-                self._read_offset = handle.tell()
+        file_size = self.path.stat().st_size
+        if file_size < self._read_offset:
+            # The file was truncated or replaced, so cached entries are stale.
+            self._reset()
 
-            return list(self._read_entries)
+        with self.path.open("r", encoding="utf-8") as handle:
+            handle.seek(self._read_offset)
+            for raw_line in handle:
+                line = raw_line.strip()
+                if not line:
+                    continue
+                try:
+                    payload = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                entry = self.entry_from_payload(payload)
+                if entry is not None:
+                    self._read_entries.append(entry)
+            self._read_offset = handle.tell()
+
+        return list(self._read_entries)
 
     @staticmethod
     def entry_to_payload(entry: TapeEntry) -> dict[str, object]:
@@ -124,12 +127,20 @@ class TapeFile:
         return self._append_many([entry])
 
     def _append_many(self, entries: list[TapeEntry]) -> None:
-        with self._lock, self.path.open("a", encoding="utf-8") as handle:
-            next_id = self._next_id()
-            for entry in entries:
-                stored = TapeEntry(next_id, entry.kind, dict(entry.payload), dict(entry.meta))
-                handle.write(json.dumps(self.entry_to_payload(stored), ensure_ascii=False) + "\n")
-                next_id += 1
+        if not entries:
+            return
+
+        with self._lock:
+            # Keep cache and offset in sync before allocating new IDs.
+            self._read_locked()
+            with self.path.open("a", encoding="utf-8") as handle:
+                next_id = self._next_id()
+                for entry in entries:
+                    stored = TapeEntry(next_id, entry.kind, dict(entry.payload), dict(entry.meta))
+                    handle.write(json.dumps(self.entry_to_payload(stored), ensure_ascii=False) + "\n")
+                    self._read_entries.append(stored)
+                    next_id += 1
+                self._read_offset = handle.tell()
 
     def archive(self) -> Path | None:
         if not self.path.exists():

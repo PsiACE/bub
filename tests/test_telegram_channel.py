@@ -64,3 +64,36 @@ async def test_on_text_allows_chat_in_allowlist() -> None:
 
     assert message.replies == []
     assert len(published) == 1
+
+
+@pytest.mark.asyncio
+async def test_on_text_stops_typing_when_publish_fails() -> None:
+    channel = TelegramChannel(
+        MessageBus(),
+        TelegramConfig(token="t", allow_from=set(), allow_chats={"999"}),  # noqa: S106
+    )
+    calls = {"start": 0, "stop": 0}
+
+    def _start_typing(_chat_id: str) -> None:
+        calls["start"] += 1
+
+    def _stop_typing(_chat_id: str) -> None:
+        calls["stop"] += 1
+
+    channel._start_typing = _start_typing  # type: ignore[method-assign]
+    channel._stop_typing = _stop_typing  # type: ignore[method-assign]
+
+    async def _publish_inbound(_msg: object) -> None:
+        raise RuntimeError("publish failed")
+
+    channel.publish_inbound = _publish_inbound  # type: ignore[method-assign]
+    message = DummyMessage(chat_id=999, text="hello")
+    update = SimpleNamespace(
+        message=message,
+        effective_user=SimpleNamespace(id=1, username="tester", full_name="Test User"),
+    )
+
+    with pytest.raises(RuntimeError, match="publish failed"):
+        await channel._on_text(update, None)  # type: ignore[arg-type]
+
+    assert calls == {"start": 1, "stop": 1}

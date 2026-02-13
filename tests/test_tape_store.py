@@ -72,6 +72,32 @@ def test_tape_file_read_handles_truncated_file(tmp_path: Path) -> None:
     assert [entry.payload["content"] for entry in after_truncate] == ["reset"]
 
 
+def test_tape_file_append_increments_ids_without_intermediate_read(tmp_path: Path) -> None:
+    tape_path = tmp_path / "tape.jsonl"
+    tape_file = TapeFile(tape_path)
+
+    tape_file.append(TapeEntry.message({"role": "user", "content": "one"}))
+    tape_file.append(TapeEntry.message({"role": "assistant", "content": "two"}))
+    tape_file.append(TapeEntry.message({"role": "assistant", "content": "three"}))
+
+    entries = tape_file.read()
+    assert [entry.id for entry in entries] == [1, 2, 3]
+
+
+def test_tape_file_append_uses_existing_tail_id(tmp_path: Path) -> None:
+    tape_path = tmp_path / "tape.jsonl"
+    tape_path.write_text(
+        '{"id":3,"kind":"message","payload":{"role":"user","content":"existing"},"meta":{}}\n',
+        encoding="utf-8",
+    )
+    tape_file = TapeFile(tape_path)
+
+    tape_file.append(TapeEntry.message({"role": "assistant", "content": "new"}))
+
+    entries = tape_file.read()
+    assert [entry.id for entry in entries] == [3, 4]
+
+
 def test_multi_forks_merge_keeps_entries_ordered(tmp_path: Path) -> None:
     home = tmp_path / "home"
     workspace = tmp_path / "workspace"

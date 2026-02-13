@@ -221,19 +221,23 @@ class TelegramChannel(BaseChannel):
         )
 
         self._start_typing(chat_id)
-        await self.publish_inbound(
-            InboundMessage(
-                channel=self.name,
-                sender_id=str(user.id),
-                chat_id=chat_id,
-                content=text,
-                metadata=exclude_none({
-                    "username": user.username,
-                    "full_name": user.full_name,
-                    "message_id": update.message.message_id,
-                }),
+        try:
+            await self.publish_inbound(
+                InboundMessage(
+                    channel=self.name,
+                    sender_id=str(user.id),
+                    chat_id=chat_id,
+                    content=text,
+                    metadata=exclude_none({
+                        "username": user.username,
+                        "full_name": user.full_name,
+                        "message_id": update.message.message_id,
+                    }),
+                )
             )
-        )
+        except (asyncio.CancelledError, Exception):
+            self._stop_typing(chat_id)
+            raise
 
     def _start_typing(self, chat_id: str) -> None:
         self._stop_typing(chat_id)
