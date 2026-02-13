@@ -38,16 +38,17 @@ class TapeFile:
         self._read_offset = 0
 
     def copy_to(self, target: TapeFile) -> None:
-        with self._lock:
-            if self.path.exists():
-                shutil.copy2(self.path, target.path)
-            target.fork_start_id = self._next_id()
-            target._read_entries = list(self._read_entries)
-            target._read_offset = self._read_offset
+        if self.path.exists():
+            shutil.copy2(self.path, target.path)
+        target._read_entries = self.read()
+        target.fork_start_id = self._next_id()
+        target._read_offset = self._read_offset
 
     def copy_from(self, source: TapeFile) -> None:
         entries = [entry for entry in source.read() if entry.id >= (source.fork_start_id or 0)]
         self._append_many(entries)
+        # Refresh to update intenal state
+        self.read()
 
     def _next_id(self) -> int:
         if self._read_entries:
