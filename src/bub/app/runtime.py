@@ -182,10 +182,13 @@ class AppRuntime:
                 handled_signals.append(sig)
             except (NotImplementedError, RuntimeError):
                 continue
-
+        current_task = asyncio.current_task()
+        future = asyncio.ensure_future(stop_event.wait())
+        future.add_done_callback(lambda _, task=current_task: task and task.cancel())  # type: ignore[misc]
         try:
             yield stop_event
         finally:
+            future.cancel()
             cancelled = await self._cancel_active_inputs()
             if cancelled:
                 logger.info("runtime.cancel_inflight count={}", cancelled)

@@ -14,7 +14,6 @@ from loguru import logger
 from bub.app import build_runtime
 from bub.app.runtime import AppRuntime
 from bub.channels import ChannelManager, MessageBus, TelegramChannel, TelegramConfig
-from bub.cli.concurrency import wait_until_stopped
 from bub.cli.interactive import InteractiveCli
 from bub.logging_utils import configure_logging
 
@@ -147,9 +146,9 @@ def run(
 async def _run_once(runtime: AppRuntime, session_id: str, message: str) -> None:
     import rich
 
-    async with runtime.graceful_shutdown() as stop_event:
+    async with runtime.graceful_shutdown():
         try:
-            result = await wait_until_stopped(runtime.handle_input(session_id, message), stop_event)
+            result = await runtime.handle_input(session_id, message)
             if result.error:
                 rich.print(f"[red]Error:[/red] {result.error}", file=sys.stderr)
             else:
