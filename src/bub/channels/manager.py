@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable, Iterable
 
 from loguru import logger
@@ -48,26 +49,36 @@ class ChannelManager:
             self._unsub_outbound = None
 
     async def _process_inbound(self, message: InboundMessage) -> None:
-        result = await self.runtime.handle_input(message.session_id, message.render())
-        parts = [part for part in (result.immediate_output, result.assistant_output) if part]
-        if result.error:
-            parts.append(f"error: {result.error}")
-        output = "\n\n".join(parts).strip()
-        if not output:
-            return
+        try:
+            result = await self.runtime.handle_input(message.session_id, message.render())
+            parts = [part for part in (result.immediate_output, result.assistant_output) if part]
+            if result.error:
+                parts.append(f"error: {result.error}")
+            output = "\n\n".join(parts).strip()
+            if not output:
+                return
 
-        # Extract message_id for reply functionality in group chats
-        reply_to_message_id = message.metadata.get("message_id")
+            # Extract message_id for reply functionality in group chats
+            reply_to_message_id = message.metadata.get("message_id")
 
-        await self.bus.publish_outbound(
-            OutboundMessage(
-                channel=message.channel,
-                chat_id=message.chat_id,
-                content=output,
-                metadata={"session_id": message.session_id},
-                reply_to_message_id=reply_to_message_id,
+            await self.bus.publish_outbound(
+                OutboundMessage(
+                    channel=message.channel,
+                    chat_id=message.chat_id,
+                    content=output,
+                    metadata={"session_id": message.session_id},
+                    reply_to_message_id=reply_to_message_id,
+                )
             )
-        )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception(
+                "channel.inbound.error channel={} chat_id={} session_id={}",
+                message.channel,
+                message.chat_id,
+                message.session_id,
+            )
 
     async def _process_outbound(self, message: OutboundMessage) -> None:
         try:

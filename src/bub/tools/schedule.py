@@ -5,6 +5,8 @@ import sys
 
 from loguru import logger
 
+SCHEDULE_SUBPROCESS_TIMEOUT_SECONDS = 300
+
 
 def run_scheduled_reminder(message: str, session_id: str, workspace: str | None = None) -> None:
     if session_id.startswith("telegram:"):
@@ -16,7 +18,18 @@ def run_scheduled_reminder(message: str, session_id: str, workspace: str | None 
 
     logger.info("running scheduled reminder via bub run session_id={} message={}", session_id, message)
     try:
-        completed = subprocess.run(command, check=True, cwd=workspace)  # noqa: S603
+        completed = subprocess.run(  # noqa: S603
+            command,
+            check=True,
+            cwd=workspace,
+            timeout=SCHEDULE_SUBPROCESS_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        logger.error(
+            "scheduled reminder timed out after {}s session_id={}",
+            SCHEDULE_SUBPROCESS_TIMEOUT_SECONDS,
+            session_id,
+        )
     except subprocess.CalledProcessError as exc:
         logger.error("scheduled reminder failed with exit={}", exc.returncode)
     else:
