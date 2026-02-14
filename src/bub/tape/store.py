@@ -166,7 +166,7 @@ class FileTapeStore:
             prefix = f"{self._paths.workspace_hash}__"
             for path in self._paths.tape_root.glob(f"{prefix}*{TAPE_FILE_SUFFIX}"):
                 encoded = path.name.removeprefix(prefix).removesuffix(TAPE_FILE_SUFFIX)
-                if not encoded:
+                if not encoded or "__" in encoded:
                     continue
                 tapes.append(unquote(encoded))
             return sorted(set(tapes))

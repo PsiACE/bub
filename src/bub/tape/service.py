@@ -157,13 +157,10 @@ class TapeService:
                 payload_text = json.dumps(entry.payload, ensure_ascii=False)
                 entry_meta = getattr(entry, "meta", {})
                 meta_text = json.dumps(entry_meta, ensure_ascii=False)
-                kind_text = entry.kind.lower()
 
                 if (
-                    normalized_query in payload_text.lower()
-                    or normalized_query in meta_text.lower()
-                    or normalized_query in kind_text
-                ) or self._is_fuzzy_match(normalized_query, payload_text, meta_text, kind_text):
+                    normalized_query in payload_text.lower() or normalized_query in meta_text.lower()
+                ) or self._is_fuzzy_match(normalized_query, payload_text, meta_text):
                     results.append(entry)
                     count += 1
                     if count >= limit:
@@ -171,7 +168,7 @@ class TapeService:
         return results
 
     @staticmethod
-    def _is_fuzzy_match(normalized_query: str, payload_text: str, meta_text: str, kind_text: str) -> bool:
+    def _is_fuzzy_match(normalized_query: str, payload_text: str, meta_text: str) -> bool:
         if len(normalized_query) < MIN_FUZZY_QUERY_LENGTH:
             return False
 
@@ -181,11 +178,7 @@ class TapeService:
         query_phrase = " ".join(query_tokens)
         window_size = len(query_tokens)
 
-        source_tokens = (
-            WORD_PATTERN.findall(payload_text.lower())
-            + WORD_PATTERN.findall(meta_text.lower())
-            + WORD_PATTERN.findall(kind_text)
-        )
+        source_tokens = WORD_PATTERN.findall(payload_text.lower()) + WORD_PATTERN.findall(meta_text.lower())
         if not source_tokens:
             return False
 
