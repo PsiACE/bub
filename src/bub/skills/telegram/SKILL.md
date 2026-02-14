@@ -1,168 +1,143 @@
 ---
 name: telegram
-description: Telegram Bot API integration for sending messages, notifications, and managing bot interactions. Use when Bub needs to (1) Send messages via Telegram bot, (2) Push notifications to Telegram channels or groups, (3) Interact with Telegram Bot API endpoints, (4) Test and validate Telegram bot functionality, or (5) Send any response to Telegram users.
+description: |
+  Telegram Bot skill for sending and editing Telegram messages via Bot API.
+  Use when Bub needs to: (1) Send a message to a Telegram user/group/channel,
+  (2) Reply to a specific Telegram message with reply_to_message_id,
+  (3) Edit an existing Telegram message, or (4) Push proactive Telegram notifications
+  when working outside an active Telegram session.
 ---
 
-# Telegram Bot Skill
+# Telegram Skill
 
-Send messages via Telegram Bot API using the bundled Python script.
+Agent-facing execution guide for Telegram outbound communication.
 
-## Prerequisites
+Assumption: `BUB_TELEGRAM_TOKEN` is already available.
 
-1. Create a bot via [@BotFather](https://t.me/botfather) and obtain the bot token
-2. Get the chat_id (user/group/channel) to send messages to
-3. Set environment variable: `BUB_TELEGRAM_TOKEN`
+## Trigger Conditions
 
-## Quick Start
+Use this skill when the task requires Telegram Bot API actions:
 
-_In the following examples, paths are relative to this skill directory._
+- Send message to one or more `chat_id`
+- Reply to a specific incoming Telegram message
+- Edit an existing Telegram message
+- Send chat action (`typing`, `record_voice`, etc.) during long processing
+- Proactive notification when current session is not Telegram
 
-```bash
-# Send a text message (auto-converted to MarkdownV2)
-uv run ./scripts/telegram_send.py --chat-id <CHAT_ID> --message "Hello from Bub!" -t $BUB_TELEGRAM_TOKEN
+Typical trigger phrases:
 
-# Send with markdown formatting
-uv run ./scripts/telegram_send.py -c <CHAT_ID> -m "*Bold* _italic_ `code`" -t $BUB_TELEGRAM_TOKEN
+- "send to telegram"
+- "reply in telegram"
+- "edit telegram message"
+- "notify telegram group"
 
-# Send to multiple recipients
-uv run ./scripts/telegram_send.py --chat-id "123456,789012" --message "Broadcast message" -t $BUB_TELEGRAM_TOKEN
+## Non-Trigger Conditions
 
-# Reply to a specific message (creates threaded conversation)
-uv run ./scripts/telegram_send.py -c <CHAT_ID> -m "Acknowledged. Working on it..." --reply-to <MESSAGE_ID> -t $BUB_TELEGRAM_TOKEN
+Do not use this skill when:
 
-# Edit an existing message
-uv run ./scripts/telegram_edit.py -c <CHAT_ID> --message-id <MSG_ID> -m "Updated content" -t $BUB_TELEGRAM_TOKEN
-```
+- No Telegram destination (`chat_id`) is provided or derivable
+- The request is not about Telegram delivery
 
-## Communication Etiquette
+## Required Inputs
 
-**CRITICAL: Always follow these etiquette rules when responding on Telegram**
+Collect these before execution:
 
-### 1. Reply to Messages
-When someone assigns a task or asks a question:
-- **ALWAYS** use `reply_to_message_id` to reply directly to their message
-- This creates a threaded conversation and shows you're responding to them specifically
-- Do NOT just send a new message without context
+- `chat_id` (required)
+- message content (required for send/edit)
+- `reply_to_message_id` (required for threaded reply behavior)
+- `message_id` (required for edit)
 
-### 2. Voice Message Response
-When receiving a voice message:
-- **ALWAYS** respond with voice (TTS) when the user sends you a voice message
-- First, transcribe the voice using STT skill(if present)
-- Then convert your response to voice using TTS skill
-- Send the voice message back to the user
+## Execution Policy
 
-### 3. Progress Updates
-For long-running tasks within the same conversation round:
-- First, send a quick acknowledgment message (e.g., "Acknowledged, processing now...")
-- Then, **EDIT** that message to update with progress or results
-- This keeps the chat clean and avoids flooding with multiple messages
+1. If handling a direct user message in Telegram and `message_id` is known, prefer reply mode (`--reply-to`).
+2. For long-running tasks, optionally send one progress message, then edit that same message for final status.
+3. Keep content concise and action-oriented.
+4. Use literal newlines in message text when line breaks are needed.
 
-### 3. Example Pattern
+## Active Response Policy
 
-```
-User: "Please analyze this log file."
-Bot: [replies to user's message] "Acknowledged, analyzing now..." (message_id: 123)
-... processing ...
-Bot: [edits message 123] "Analysis complete. Found 3 issues:" + newline + "1. ..." + newline + "2. ..." + newline + "3. ..."
-```
+When this skill is in scope, prefer proactive and timely Telegram updates:
 
-**Note: Newlines in messages must be literal line breaks (press Enter), not `\n`.**
+- Send an immediate acknowledgment for newly assigned tasks
+- Send progress updates for long-running operations using message edits
+- Send completion notifications when work finishes
+- Send important status or failure notifications without waiting for follow-up prompts
 
----
+Recommended pattern:
 
-## Usage Guidelines
+1. Send a short acknowledgment reply
+2. Continue processing
+3. Edit the acknowledgment message with final result when possible
 
-**IMPORTANT: Active Response Policy**
+## Voice Message Policy
 
-Bub should be more proactive in sending responses:
-- Send progress updates for long-running tasks
-- Send immediate confirmations when receiving commands
-- Send status notifications for important events
-- Send completion messages when tasks finish
-- Be conversational and responsive in interactions
+When the inbound Telegram message is voice:
 
-This ensures users receive timely feedback even when the daemon is running in background mode.
+1. Transcribe the voice input first (use STT skill if available)
+2. Prepare response content based on transcription
+3. Prefer voice response output (use TTS skill if available)
+4. If voice output is unavailable, send a concise text fallback and state limitation
 
----
+## Command Templates
 
-Use this skill to send any message to Telegram:
-- Progress updates during task execution
-- Task completion notifications
-- Responses to user questions
-- Alerts and status messages
-- Any communication via Telegram bot
-- Proactive status updates when not in direct telegram session
-
-## Common Usage Patterns
-
-### Get Chat ID
-
-To find your chat_id, send a message to your bot, then:
+Paths are relative to this skill directory.
 
 ```bash
-curl "https://api.telegram.org/bot${BUB_TELEGRAM_TOKEN}/getUpdates"
+# Send message
+uv run ./scripts/telegram_send.py \
+  --chat-id <CHAT_ID> \
+  --message "<TEXT>"
+
+# Send reply to a specific message
+uv run ./scripts/telegram_send.py \
+  --chat-id <CHAT_ID> \
+  --message "<TEXT>" \
+  --reply-to <MESSAGE_ID>
+
+# Edit existing message
+uv run ./scripts/telegram_edit.py \
+  --chat-id <CHAT_ID> \
+  --message-id <MESSAGE_ID> \
+  --text "<TEXT>"
+
+# Show chat action (typing/progress indicator)
+uv run ./scripts/telegram_typing.py \
+  --chat-id <CHAT_ID> \
+  --action typing
 ```
 
-### Send Progress Updates
+## Script Interface Reference
 
-```bash
-# Progress notification
-uv run ./scripts/telegram_send.py -c <CHAT_ID> -m "⏳ Processing step 2/5..." -t $BUB_TELEGRAM_TOKEN
+### `telegram_send.py`
 
-# With markdown formatting
-uv run ./scripts/telegram_send.py -c <CHAT_ID> -m "✅ *Done*: Build step completed" -t $BUB_TELEGRAM_TOKEN
-```
+- `--chat-id`, `-c`: required, supports comma-separated ids
+- `--message`, `-m`: required
+- `--reply-to`, `-r`: optional
+- `--token`, `-t`: optional (normally not needed)
 
-### Task completion notification
-uv run ./scripts/telegram_send.py -c <CHAT_ID> -m "Task completed! Here are the results..." -t $BUB_TELEGRAM_TOKEN
+### `telegram_edit.py`
 
-## Script Reference
+- `--chat-id`, `-c`: required
+- `--message-id`, `-m`: required
+- `--text`, `-t`: required
+- `--token`: optional (normally not needed)
 
-See `./scripts/telegram_send.py` for the full implementation.
+### `telegram_typing.py`
 
-### Arguments (telegram_send.py)
+- `--chat-id`, `-c`: required
+- `--action`, `-a`: optional, default `typing`
+- `--token`, `-t`: optional (normally not needed)
 
-| Argument | Short | Required | Description |
-|----------|-------|----------|-------------|
-| `--chat-id` | `-c` | Yes | Target chat ID (comma-separated for multiple) |
-| `--message` | `-m` | Yes | Message text to send (markdown supported) |
-| `--token` | `-t` | No | Bot token (defaults to `BUB_TELEGRAM_TOKEN` env var) |
-| `--reply-to` | `-r` | No | Message ID to reply to (creates threaded conversation) |
+## Failure Handling
 
-### Arguments (telegram_edit.py)
+- On HTTP errors, inspect API response text and adjust identifiers/permissions.
+- If edit fails because message is not editable, fall back to a new send.
+- If reply target is invalid, resend without `--reply-to` only when context threading is non-critical.
 
-| Argument | Short | Required | Description |
-|----------|-------|----------|-------------|
-| `--chat-id` | `-c` | Yes | Target chat ID |
-| `--message-id` | `-m` | Yes | ID of the message to edit |
-| `--text` | `-t` | Yes | New message text (markdown supported) |
-| `--token` | | No | Bot token (defaults to `BUB_TELEGRAM_TOKEN` env var) |
+## Output Contract
 
-### Message Formatting
+When this skill is triggered for message drafting tasks:
 
-All messages are automatically converted to Telegram MarkdownV2 format using `telegramify_markdown`. You can use standard markdown syntax:
-
-- `*bold*` or `_italic_`
-- `` `code` ``
-- `[link](url)`
-- Lists, headers, etc.
-
-**Note: Newlines should be literal line breaks (press Enter), not `\n`.**
-
-- Correct:
-  ```
-  First line
-  Second line
-  ```
-- Incorrect (will not render as a line break):
-  ```
-  First line\nSecond line
-  ```
-
-## Environment Setup
-
-Add to `.env` or export directly:
-
-```bash
-export BUB_TELEGRAM_TOKEN="your_bot_token_here"
-```
+- Return the final Telegram message body only.
+- Do not include process narration or meta commentary in the message body.
+- Apply requested tone directly (short, formal, technical, casual).
