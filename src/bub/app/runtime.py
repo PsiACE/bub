@@ -72,7 +72,6 @@ class AppRuntime:
         self._allowed_skills = _normalize_name_set(allowed_skills)
         self._allowed_tools = _normalize_name_set(allowed_tools)
         self._store = build_tape_store(settings, self.workspace)
-        self.workspace_prompt = read_workspace_agents_prompt(self.workspace)
         self.scheduler = self._default_scheduler()
         self._llm = build_llm(settings, self._store)
         self._sessions: dict[str, SessionRuntime] = {}
@@ -135,7 +134,7 @@ class AppRuntime:
             max_tokens=self.settings.max_tokens,
             model_timeout_seconds=self.settings.model_timeout_seconds,
             base_system_prompt=self.settings.system_prompt,
-            workspace_system_prompt=self.workspace_prompt,
+            get_workspace_system_prompt=lambda: read_workspace_agents_prompt(self.workspace),
         )
         loop = AgentLoop(router=router, model_runner=runner, tape=tape)
         runtime = SessionRuntime(session_id=session_id, loop=loop, tape=tape, model_runner=runner, tool_view=tool_view)
