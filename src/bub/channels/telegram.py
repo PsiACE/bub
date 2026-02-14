@@ -133,7 +133,6 @@ class TelegramChannel(BaseChannel[Message]):
             len(self._config.allow_chats),
             bool(proxy),
         )
-        self._running = True
         builder = Application.builder().token(self._config.token)
         if proxy:
             builder = builder.proxy(proxy).get_updates_proxy(proxy)
