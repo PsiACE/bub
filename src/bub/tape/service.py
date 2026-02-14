@@ -111,7 +111,7 @@ class TapeService:
         state = {"owner": "human"}
         if archive_path is not None:
             state["archived"] = str(archive_path)
-        self._tape.handoff("session/reset", state=state)
+        self._tape.handoff("session/start", state=state)
         return f"Archived: {archive_path}" if archive_path else "ok"
 
     def anchors(self, *, limit: int = 20) -> list[AnchorSummary]:
