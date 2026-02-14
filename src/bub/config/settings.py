@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     discord_allow_from: list[str] = Field(default_factory=list)
     discord_allow_channels: list[str] = Field(default_factory=list)
     discord_command_prefix: str = "!"
+    discord_proxy: str | None = None
 
     @property
     def resolved_api_key(self) -> str | None:

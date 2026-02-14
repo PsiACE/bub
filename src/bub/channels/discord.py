@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
+import platform
+import subprocess
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, cast
@@ -27,6 +30,52 @@ def _message_type(message: discord.Message) -> str:
     return "unknown"
 
 
+def _proxy_from_env() -> str | None:
+    for name in ("HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy", "HTTP_PROXY", "http_proxy"):
+        value = os.getenv(name, "").strip()
+        if value:
+            return value
+    return None
+
+
+def _proxy_from_macos_system() -> str | None:
+    if platform.system() != "Darwin":
+        return None
+    with contextlib.suppress(FileNotFoundError, subprocess.SubprocessError, UnicodeDecodeError):
+        result = subprocess.run(["scutil", "--proxy"], capture_output=True, text=True, check=False, timeout=2)  # noqa: S607
+        if result.returncode != 0 or not result.stdout:
+            return None
+        data: dict[str, str] = {}
+        for line in result.stdout.splitlines():
+            if " : " not in line:
+                continue
+            key, value = line.split(" : ", 1)
+            data[key.strip()] = value.strip()
+        if data.get("HTTPSEnable") == "1":
+            host = data.get("HTTPSProxy")
+            port = data.get("HTTPSPort")
+            if host and port:
+                return f"http://{host}:{port}"
+        if data.get("HTTPEnable") == "1":
+            host = data.get("HTTPProxy")
+            port = data.get("HTTPPort")
+            if host and port:
+                return f"http://{host}:{port}"
+    return None
+
+
+def _resolve_proxy(explicit_proxy: str | None) -> tuple[str | None, str]:
+    if explicit_proxy:
+        return explicit_proxy, "explicit"
+    env_proxy = _proxy_from_env()
+    if env_proxy:
+        return env_proxy, "env"
+    system_proxy = _proxy_from_macos_system()
+    if system_proxy:
+        return system_proxy, "system"
+    return None, "none"
+
+
 @dataclass(frozen=True)
 class DiscordConfig:
     """Discord adapter config."""
@@ -35,6 +84,7 @@ class DiscordConfig:
     allow_from: set[str]
     allow_channels: set[str]
     command_prefix: str = "!"
+    proxy: str | None = None
 
 
 class DiscordChannel(BaseChannel[discord.Message]):
@@ -50,6 +100,7 @@ class DiscordChannel(BaseChannel[discord.Message]):
             allow_from=set(settings.discord_allow_from),
             allow_channels=set(settings.discord_allow_channels),
             command_prefix=settings.discord_command_prefix,
+            proxy=settings.discord_proxy,
         )
         self._bot: commands.Bot | None = None
         self._on_receive: Callable[[discord.Message], Awaitable[None]] | None = None
@@ -64,7 +115,8 @@ class DiscordChannel(BaseChannel[discord.Message]):
         intents.messages = True
         intents.message_content = True
 
-        bot = commands.Bot(command_prefix=self._config.command_prefix, intents=intents, help_command=None)
+        proxy, _ = _resolve_proxy(self._config.proxy)
+        bot = commands.Bot(command_prefix=self._config.command_prefix, intents=intents, help_command=None, proxy=proxy)
         self._bot = bot
 
         @bot.event
@@ -77,9 +129,10 @@ class DiscordChannel(BaseChannel[discord.Message]):
             await self._on_message(message)
 
         logger.info(
-            "discord.start allow_from_count={} allow_channels_count={}",
+            "discord.start allow_from_count={} allow_channels_count={} proxy_enabled={}",
             len(self._config.allow_from),
             len(self._config.allow_channels),
+            bool(proxy),
         )
         try:
             async with bot:

@@ -136,6 +136,7 @@ ignore = [
     "E731",
     # Avoid noisy exception-message rule for CLI/tool errors
     "TRY003",
+    "S603",
 ]
 
 [tool.ruff.lint.per-file-ignores]

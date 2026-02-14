@@ -18,7 +18,7 @@ def run_scheduled_reminder(message: str, session_id: str, workspace: str | None 
 
     logger.info("running scheduled reminder via bub run session_id={} message={}", session_id, message)
     try:
-        completed = subprocess.run(  # noqa: S603
+        completed = subprocess.run(
             command,
             check=True,
             cwd=workspace,

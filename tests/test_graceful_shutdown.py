@@ -36,13 +36,15 @@ class _ChannelRaisesOnStop(BaseChannel[object]):
 
 
 @pytest.mark.asyncio
-async def test_channel_manager_shutdown_ignores_channel_stop_error() -> None:
+async def test_channel_manager_shutdown_propagates_channel_stop_error() -> None:
     manager = ChannelManager(_Runtime())  # type: ignore[arg-type]
     manager.register(_ChannelRaisesOnStop)
 
-    await manager.start()
+    task = asyncio.create_task(manager.run())
     await asyncio.sleep(0.05)
-    await asyncio.wait_for(manager.stop(), timeout=1.0)
+    task.cancel()
+    with pytest.raises(RuntimeError, match="stop failure"):
+        await asyncio.wait_for(task, timeout=1.0)
 
 
 @pytest.mark.asyncio
@@ -65,14 +67,12 @@ async def test_serve_channels_handles_cancelled_error_from_graceful_shutdown() -
             self.runtime = _DummyRuntime()
             self.calls: list[str] = []
 
-        def enabled_channels(self) -> list[str]:
-            return ["telegram"]
-
-        async def start(self) -> None:
+        async def run(self) -> None:
             self.calls.append("start")
-
-        async def stop(self) -> None:
-            self.calls.append("stop")
+            try:
+                await asyncio.Event().wait()
+            finally:
+                self.calls.append("stop")
 
     manager = _DummyManager()
     task = asyncio.create_task(_serve_channels(manager))

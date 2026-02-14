@@ -217,14 +217,12 @@ async def test_serve_channels_stops_manager_on_sigterm(monkeypatch) -> None:
             self.calls: list[str] = []
             self.runtime = _DummyRuntime()
 
-        def enabled_channels(self):
-            return {"telegram"}
-
-        async def start(self) -> None:
+        async def run(self) -> None:
             self.calls.append("start")
-
-        async def stop(self) -> None:
-            self.calls.append("stop")
+            try:
+                await asyncio.Event().wait()
+            finally:
+                self.calls.append("stop")
 
     manager = _DummyManager()
 

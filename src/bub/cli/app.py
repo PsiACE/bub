@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import sys
 from pathlib import Path
 from typing import Annotated
@@ -179,14 +180,17 @@ def message(
 
 
 async def _serve_channels(manager: ChannelManager) -> None:
-    channels = sorted(manager.enabled_channels())
-    logger.info("channels.start enabled={}", channels)
+    task = asyncio.create_task(manager.run())
     try:
-        await manager.start()
         async with manager.runtime.graceful_shutdown() as stop_event:
+            task.add_done_callback(lambda t: stop_event.set())
             await stop_event.wait()
+    except asyncio.CancelledError:
+        pass
     finally:
-        await manager.stop()
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
         logger.info("channels.stop")
 
 

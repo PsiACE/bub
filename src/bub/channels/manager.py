@@ -29,21 +29,22 @@ class ChannelManager:
     def channels(self) -> dict[str, BaseChannel]:
         return dict(self._channels)
 
-    async def start(self) -> None:
+    async def run(self) -> None:
         logger.info("channel.manager.start channels={}", self.enabled_channels())
         for channel in self._channels.values():
             # XXX: Currently we just call the same message handler with itself.
             # But it will be likely decoupled later
             task = asyncio.create_task(channel.start(channel.run_prompt))
             self._channel_tasks.append(task)
-
-    async def stop(self) -> None:
-        for task in self._channel_tasks:
-            task.cancel()
-        with contextlib.suppress(asyncio.CancelledError, Exception):
+        try:
             await asyncio.gather(*self._channel_tasks)
-        self._channel_tasks.clear()
-        logger.info("channel.manager.stop")
+        finally:
+            for task in self._channel_tasks:
+                task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await asyncio.gather(*self._channel_tasks)
+            self._channel_tasks.clear()
+            logger.info("channel.manager.stop")
 
     def enabled_channels(self) -> list[str]:
         return sorted(self._channels)

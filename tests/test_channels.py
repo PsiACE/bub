@@ -46,12 +46,12 @@ async def test_channel_manager_starts_and_stops_registered_channels() -> None:
     manager = ChannelManager(_Runtime())  # type: ignore[arg-type]
     manager.register(_FakeChannel)
 
-    await manager.start()
-
+    task = asyncio.create_task(manager.run())
     channel = manager.channels["fake"]
     await asyncio.wait_for(channel.started.wait(), timeout=1.0)
     assert manager.enabled_channels() == ["fake"]
 
-    await manager.stop()
-
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(task, timeout=1.0)
     assert channel.stopped is True
