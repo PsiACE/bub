@@ -1,4 +1,4 @@
-{% import 'macros/side-nav/section-index-page-title.j2' as index_helper with context %}
+{%- import 'macros/side-nav/section-index-page-title.j2' as index_helper with context -%}
 
 {% macro get_base_class( nav_item ) -%}
     {% set ns = namespace(class="terminal-mkdocs-side-nav-item", is_active_index=false) %}
@@ -35,7 +35,7 @@
                 {%- set ns.class = ns.class ~ " terminal-mkdocs-side-nav-section-no-index" -%}           
             {% endif %}
         {% endif %}
-    {% endif %}
+    {% endif -%}
 
     {{ ns.class|trim }}
 {%- endmacro -%}

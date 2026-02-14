@@ -11,7 +11,7 @@
     
     <meta name="author" content="Chojan Shang"> 
     
-    <link rel="canonical" href="https://bub.build/features/"><link rel="icon" type="image/png" sizes="192x192" href="../img/android-chrome-192x192.png" />
+    <link rel="canonical" href="https://bub.build/discord/"><link rel="icon" type="image/png" sizes="192x192" href="../img/android-chrome-192x192.png" />
 <link rel="icon" type="image/png" sizes="512x512" href="../img/android-chrome-512x512.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="../img/apple-touch-icon.png" />
 <link rel="shortcut icon" type="image/png" sizes="48x48" href="../img/favicon.ico" />
@@ -21,7 +21,7 @@
 
     
  
-<title>Key Features - bub</title>
+<title>Discord - bub</title>
 
 
 <link href="../css/fontawesome/css/fontawesome.min.css" rel="stylesheet">
@@ -103,7 +103,7 @@
                 
                 
                 <li property="itemListElement" typeof="ListItem">
-                    <a href="./" class="menu-item active" property="item" typeof="WebPage">
+                    <a href="../features/" class="menu-item " property="item" typeof="WebPage">
                         <span property="name">Key Features</span>
                     </a>
                     <meta property="position" content="1">
@@ -143,7 +143,7 @@
                 
                 
                 <li property="itemListElement" typeof="ListItem">
-                    <a href="../discord/" class="menu-item " property="item" typeof="WebPage">
+                    <a href="./" class="menu-item active" property="item" typeof="WebPage">
                         <span property="name">Discord</span>
                     </a>
                     <meta property="position" content="6">
@@ -188,7 +188,9 @@
     
     
         
-        <span class="terminal-mkdocs-side-nav-item--active">Key Features</span>
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../features/">Key Features</a>
+        
     
     
     
@@ -251,9 +253,7 @@
     
     
         
-        
-            <a class="terminal-mkdocs-side-nav-item" href="../discord/">Discord</a>
-        
+        <span class="terminal-mkdocs-side-nav-item--active">Discord</span>
     
     
     
@@ -263,60 +263,55 @@
 </nav><hr>
 <nav>
     <ul>
-        <li><a href="#key-features">Key Features</a></li>
-        <li><a href="#1-deterministic-command-routing">1. Deterministic Command Routing</a></li><li><a href="#2-command-failure-recovery">2. Command Failure Recovery</a></li><li><a href="#3-tape-first-session-memory">3. Tape-First Session Memory</a></li><li><a href="#4-unified-tool-skill-view">4. Unified Tool + Skill View</a></li><li><a href="#5-interactive-cli-focused-on-real-work">5. Interactive CLI Focused on Real Work</a></li><li><a href="#6-message-channel-integration-telegram-discord">6. Message Channel Integration (Telegram + Discord)</a></li>
+        <li><a href="#discord-integration">Discord Integration</a></li>
+        <li><a href="#configure">Configure</a></li><li><a href="#run">Run</a></li><li><a href="#runtime-behavior">Runtime Behavior</a></li><li><a href="#security-and-operations">Security and Operations</a></li>
     </ul>
 </nav>
 </aside>
             <main id="terminal-mkdocs-main-content">
 <section id="mkdocs-terminal-content">
-    <h1 id="key-features">Key Features<a class="headerlink" href="#key-features" title="Permanent link">&para;</a></h1>
-<p>This page summarizes the capabilities users rely on most when working with Bub.</p>
-<h2 id="1-deterministic-command-routing">1. Deterministic Command Routing<a class="headerlink" href="#1-deterministic-command-routing" title="Permanent link">&para;</a></h2>
+    <h1 id="discord-integration">Discord Integration<a class="headerlink" href="#discord-integration" title="Permanent link">&para;</a></h1>
+<p>Discord allows Bub to run as a remote coding assistant for team channels, threads, and DMs.</p>
+<h2 id="configure">Configure<a class="headerlink" href="#configure" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">BUB_DISCORD_ENABLED</span><span class="o">=</span><span class="nb">true</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nv">BUB_DISCORD_TOKEN</span><span class="o">=</span>discord_bot_token
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nv">BUB_DISCORD_ALLOW_FROM</span><span class="o">=</span><span class="s1">&#39;[&quot;123456789012345678&quot;,&quot;your_discord_name&quot;]&#39;</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nv">BUB_DISCORD_ALLOW_CHANNELS</span><span class="o">=</span><span class="s1">&#39;[&quot;123456789012345678&quot;]&#39;</span>
+</code></pre></div>
+<p>Optional:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">BUB_DISCORD_COMMAND_PREFIX</span><span class="o">=</span>!
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">BUB_DISCORD_PROXY</span><span class="o">=</span>http://127.0.0.1:7890
+</code></pre></div>
+<p>Notes:</p>
 <ul>
-<li>Command mode is explicit: only line-start <code>,</code> triggers command parsing.</li>
-<li>Known names map to internal commands (for example <code>,help</code>, <code>,tools</code>, <code>,tape.info</code>).</li>
-<li>Other comma-prefixed lines run as shell commands (for example <code>,git status</code>).</li>
+<li>If <code>BUB_DISCORD_ALLOW_FROM</code> is empty, all senders are accepted.</li>
+<li>If <code>BUB_DISCORD_ALLOW_CHANNELS</code> is empty, all channels are accepted.</li>
+<li>In production, use strict allowlists.</li>
 </ul>
-<p>Why it matters: fewer accidental tool calls and more predictable behavior.</p>
-<h2 id="2-command-failure-recovery">2. Command Failure Recovery<a class="headerlink" href="#2-command-failure-recovery" title="Permanent link">&para;</a></h2>
+<h2 id="run">Run<a class="headerlink" href="#run" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>run<span class="w"> </span>bub<span class="w"> </span>message
+</code></pre></div>
+<h2 id="runtime-behavior">Runtime Behavior<a class="headerlink" href="#runtime-behavior" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Successful commands return directly.</li>
-<li>Failed commands are wrapped as structured command blocks and sent back to the model loop.</li>
+<li>Uses <code>discord.py</code> bot runtime.</li>
+<li>Each Discord channel maps to <code>discord:&lt;channel_id&gt;</code> session key.</li>
+<li>Inbound text enters the same <code>AgentLoop</code> used by CLI.</li>
+<li>Outbound immediate output is sent back in-channel (split into chunks when too long).</li>
+<li>Bub processes messages in these cases:</li>
+<li>DM channel</li>
+<li>message includes <code>bub</code></li>
+<li>message starts with <code>!bub</code> (or your configured prefix)</li>
+<li>message mentions the bot</li>
+<li>message replies to a bot message</li>
+<li>thread name starts with <code>bub</code></li>
 </ul>
-<p>Why it matters: the assistant can debug based on real command output instead of generic guesses.</p>
-<h2 id="3-tape-first-session-memory">3. Tape-First Session Memory<a class="headerlink" href="#3-tape-first-session-memory" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Bub writes session activity to append-only tape.</li>
-<li><code>,anchors</code> and <code>,handoff</code> mark phase transitions.</li>
-<li><code>,tape.search</code> and <code>,tape.info</code> help inspect context quickly.</li>
-</ul>
-<p>Why it matters: long tasks stay traceable and easier to resume.</p>
-<h2 id="4-unified-tool-skill-view">4. Unified Tool + Skill View<a class="headerlink" href="#4-unified-tool-skill-view" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Built-in tools and skills share one registry.</li>
-<li>Prompt includes compact tool descriptions first.</li>
-<li>Tool details expand on explicit selection (for example <code>,tool.describe name=fs.read</code>).</li>
-<li><code>$name</code> hints expand details progressively for both tools and skills.</li>
-<li>Hints can come from user input or model output (for example <code>$fs.read</code>, <code>$friendly-python</code>).</li>
-</ul>
-<p>Why it matters: prompt stays focused while advanced capabilities remain available on demand.</p>
-<h2 id="5-interactive-cli-focused-on-real-work">5. Interactive CLI Focused on Real Work<a class="headerlink" href="#5-interactive-cli-focused-on-real-work" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Rich interactive shell with history and completions.</li>
-<li><code>Ctrl-X</code> toggles shell mode for faster command execution.</li>
-<li>Same runtime behavior as channel integrations.</li>
-</ul>
-<p>Why it matters: local debugging and implementation loops are fast and consistent.</p>
-<h2 id="6-message-channel-integration-telegram-discord">6. Message Channel Integration (Telegram + Discord)<a class="headerlink" href="#6-message-channel-integration-telegram-discord" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Optional long-polling Telegram adapter.</li>
-<li>Optional Discord bot adapter.</li>
-<li>Per-chat session isolation (<code>telegram:&lt;chat_id&gt;</code>).</li>
-<li>Per-channel session isolation (<code>discord:&lt;channel_id&gt;</code>).</li>
-<li>Optional sender/chat allowlist for access control.</li>
-</ul>
-<p>Why it matters: you can continue lightweight operations from mobile or remote environments.</p>
+<h2 id="security-and-operations">Security and Operations<a class="headerlink" href="#security-and-operations" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Keep bot token only in <code>.env</code> or a secret manager.</li>
+<li>Restrict <code>BUB_DISCORD_ALLOW_CHANNELS</code> and <code>BUB_DISCORD_ALLOW_FROM</code>.</li>
+<li>Confirm the bot has message-content intent enabled in Discord Developer Portal.</li>
+<li>If no response is observed, verify token, allowlists, intents, and runtime logs.</li>
+</ol>
 </section>
 
             </main>

@@ -1,7 +1,6 @@
 /*! gruvbox_dark.css | MIT License | github.com/Gioni06/terminal.css/issues/9 */
 
 :root {
-    /* Background */
     --gb-dm-bg0: #282828;
     --gb-dm-bg0-hard: #1d2021;
     --gb-dm-bg0-soft: #32302f;
@@ -9,13 +8,11 @@
     --gb-dm-bg2: #504945;
     --gb-dm-bg3: #665c54;
     --gb-dm-bg4: #7c6f64;
-    /* Foreground */
     --gb-dm-fg0: #fbf1c7;
     --gb-dm-fg1: #ebdbb2;
     --gb-dm-fg2: #d5c4a1;
     --gb-dm-fg3: #bdae93;
     --gb-dm-fg4: #a89984;
-    /* Colors */
     --gb-dm-dark-red: #cc241d;
     --gb-dm-dark-green: #98971a;
     --gb-dm-dark-yellow: #d79921;
