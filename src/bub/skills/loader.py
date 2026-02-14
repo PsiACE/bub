@@ -61,6 +61,20 @@ def discover_skills(workspace_path: Path) -> list[SkillMetadata]:
     return sorted(skills_by_name.values(), key=lambda item: item.name.casefold())
 
 
+def load_skill_body(name: str, workspace_path: Path) -> str | None:
+    """Load full SKILL.md content by skill name."""
+
+    lowered = name.casefold()
+    for skill in discover_skills(workspace_path):
+        if skill.name.casefold() != lowered:
+            continue
+        try:
+            return skill.location.read_text(encoding="utf-8")
+        except OSError:
+            return None
+    return None
+
+
 def load_skill_plugin(skill: SkillMetadata) -> object:
     """Load plugin object from one skill entrypoint."""
 

@@ -12,3 +12,8 @@ Kernel responsibilities:
 4. keep failure boundaries small
 
 Everything else ships as skills and can be replaced by user-provided skills.
+
+Builtin baseline in this repository:
+
+- `cli`
+- `runtime`

@@ -1,1 +1,0 @@
-"""Echo model skill."""
