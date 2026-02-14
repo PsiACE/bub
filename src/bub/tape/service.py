@@ -78,7 +78,7 @@ class TapeService:
         return cast(list[TapeEntry], self.tape.read_entries())
 
     def handoff(self, name: str, *, state: dict[str, Any] | None = None) -> list[TapeEntry]:
-        return cast(list[TapeEntry], self._tape.handoff(name, state=state))
+        return cast(list[TapeEntry], self.tape.handoff(name, state=state))
 
     def append_event(self, name: str, data: dict[str, Any]) -> None:
         self.tape.append(TapeEntry.event(name, data=data))

@@ -1,6 +1,6 @@
 [project]
 name = "bub"
-version = "0.2.0"
+version = "0.2.1"
 description = "Bub it. Build it. Tape-first coding agent CLI."
 authors = [{ name = "Chojan Shang", email = "psiace@apache.org" }]
 readme = "README.md"
