@@ -240,7 +240,7 @@ async def test_model_runner_expands_skill_from_hint() -> None:
 
     await runner.run("please follow $friendly-python")
     _, system_prompt, _ = tape.tape.calls[0]
-    assert "<skill_details>" in system_prompt
+    assert "<available_skills>" in system_prompt
     assert "friendly-python" in system_prompt
 
 
@@ -277,7 +277,7 @@ async def test_model_runner_expands_skill_from_assistant_hint() -> None:
 
     await runner.run("no skill hint here")
     _, second_system_prompt, _ = tape.tape.calls[1]
-    assert "<skill_details>" in second_system_prompt
+    assert "<available_skills>" in second_system_prompt
     assert "friendly-python" in second_system_prompt
 
 
@@ -374,5 +374,5 @@ async def test_model_runner_refreshes_skills_from_provider_between_runs() -> Non
     all_skills.append(skill)
     await runner.run("second run")
     _, second_system_prompt, _ = tape.tape.calls[1]
-    assert "<skill_view>" in second_system_prompt
+    assert "<available_skills>" in second_system_prompt
     assert "friendly-python" in second_system_prompt

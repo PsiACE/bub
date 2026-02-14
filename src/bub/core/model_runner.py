@@ -195,16 +195,6 @@ class ModelRunner:
         compact_skills = render_compact_skills(self._list_skills())
         if compact_skills:
             blocks.append(compact_skills)
-
-        if self._expanded_skills:
-            lines = ["<skill_details>"]
-            for name, body in sorted(self._expanded_skills.items()):
-                lines.append(f'  <skill name="{name}">')
-                for line in body.splitlines():
-                    lines.append(f"    {line}")
-                lines.append("  </skill>")
-            lines.append("</skill_details>")
-            blocks.append("\n".join(lines))
         return "\n\n".join(block for block in blocks if block.strip())
 
     def _activate_hints(self, text: str) -> None:

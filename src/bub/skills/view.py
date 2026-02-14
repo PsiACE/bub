@@ -11,8 +11,14 @@ def render_compact_skills(skills: list[SkillMetadata]) -> str:
     if not skills:
         return ""
 
-    lines = ["<skill_view>"]
+    lines = ["<available_skills>"]
     for skill in skills:
-        lines.append(f"  - {skill.name}: {skill.description}")
-    lines.append("</skill_view>")
+        lines.extend([
+            f"  <skill>",
+            f"    <name>{skill.name}</name>",
+            f"    <description>{skill.description}</description>",
+            f"    <location>{skill.location}</location>",
+            f"  </skill>",
+        ])
+    lines.append("</available_skills>")
     return "\n".join(lines)
