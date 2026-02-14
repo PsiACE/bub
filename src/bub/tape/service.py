@@ -8,6 +8,7 @@ import re
 from collections.abc import Generator
 from contextvars import ContextVar
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, cast
 
 from loguru import logger
@@ -103,15 +104,15 @@ class TapeService:
         )
 
     def reset(self, *, archive: bool = False) -> str:
+        archive_path: Path | None = None
         if archive and self._store is not None:
             archive_path = self._store.archive(self._tape.name)
-            self._tape.reset()
-            self.ensure_bootstrap_anchor()
-            if archive_path is not None:
-                return f"archived: {archive_path}"
         self._tape.reset()
-        self.ensure_bootstrap_anchor()
-        return "ok"
+        state = {"owner": "human"}
+        if archive_path is not None:
+            state["archived"] = str(archive_path)
+        self._tape.handoff("session/reset", state=state)
+        return f"Archived: {archive_path}" if archive_path else "ok"
 
     def anchors(self, *, limit: int = 20) -> list[AnchorSummary]:
         entries = [entry for entry in self._tape.read_entries() if entry.kind == "anchor"]
