@@ -62,12 +62,14 @@ When this skill is in scope, prefer proactive and timely Telegram updates:
 - Send progress updates for long-running operations using message edits
 - Send completion notifications when work finishes
 - Send important status or failure notifications without waiting for follow-up prompts
+- If execution is blocked or fails, send a problem report immediately with cause, impact, and next action
 
 Recommended pattern:
 
 1. Send a short acknowledgment reply
 2. Continue processing
-3. Edit the acknowledgment message with final result when possible
+3. If blocked, edit or send an issue update immediately
+4. Edit the acknowledgment message with final result when possible
 
 ## Voice Message Policy
 
@@ -133,6 +135,10 @@ uv run ./scripts/telegram_typing.py \
 - On HTTP errors, inspect API response text and adjust identifiers/permissions.
 - If edit fails because message is not editable, fall back to a new send.
 - If reply target is invalid, resend without `--reply-to` only when context threading is non-critical.
+- For task-level failures (not only API failures), notify the Telegram user with:
+  - what failed
+  - what was already completed
+  - what will happen next (retry/manual action/escalation)
 
 ## Output Contract
 
