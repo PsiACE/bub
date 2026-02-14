@@ -80,6 +80,14 @@ When the inbound Telegram message is voice:
 3. Prefer voice response output (use TTS skill if available)
 4. If voice output is unavailable, send a concise text fallback and state limitation
 
+## Reaction Policy
+
+When an inbound Telegram message evokes a strong emotional response:
+
+1. Send the normal reply first (or in the same handling flow)
+2. Optionally add a Telegram reaction as an emotional signal
+3. Do not use reaction as a replacement for the actual reply
+
 ## Command Templates
 
 Paths are relative to this skill directory.
