@@ -38,12 +38,12 @@ class Settings(BaseSettings):
     max_steps: int = Field(default=20, ge=1)
 
     telegram_enabled: bool = False
-    telegram_token: str | None = Field(default=None, validation_alias="TELEGRAM_BOT_TOKEN")
+    telegram_token: str | None = None
     telegram_allow_from: list[str] = Field(default_factory=list)
     telegram_allow_chats: list[str] = Field(default_factory=list)
 
     discord_enabled: bool = False
-    discord_token: str | None = Field(default=None, validation_alias="DISCORD_BOT_TOKEN")
+    discord_token: str | None = None
     discord_allow_from: list[str] = Field(default_factory=list)
     discord_allow_channels: list[str] = Field(default_factory=list)
     discord_command_prefix: str = "!"
