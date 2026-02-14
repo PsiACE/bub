@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import importlib
+import os
 import signal
 from collections.abc import AsyncGenerator
 from contextlib import suppress
 from dataclasses import dataclass
 from hashlib import md5
 from pathlib import Path
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -26,7 +29,7 @@ from bub.tools import ProgressiveToolView, ToolRegistry
 from bub.tools.builtin import register_builtin_tools
 
 if TYPE_CHECKING:
-    from bub.channels.bus import MessageBus
+    from bub.channels.manager import ChannelManager
 
 
 def _session_slug(session_id: str) -> str:
@@ -70,7 +73,6 @@ class AppRuntime:
         self._allowed_tools = _normalize_name_set(allowed_tools)
         self._store = build_tape_store(settings, self.workspace)
         self.workspace_prompt = read_workspace_agents_prompt(self.workspace)
-        self.bus: MessageBus | None = None
         self.scheduler = self._default_scheduler()
         self._llm = build_llm(settings, self._store)
         self._sessions: dict[str, SessionRuntime] = {}
@@ -167,9 +169,6 @@ class AppRuntime:
             return
         session.reset_context()
 
-    def set_bus(self, bus: MessageBus) -> None:
-        self.bus = bus
-
     @contextlib.asynccontextmanager
     async def graceful_shutdown(self) -> AsyncGenerator[asyncio.Event, None]:
         """Run the runtime indefinitely with graceful shutdown."""
@@ -195,6 +194,24 @@ class AppRuntime:
             for sig in handled_signals:
                 with suppress(NotImplementedError, RuntimeError):
                     loop.remove_signal_handler(sig)
+
+    def install_hooks(self, channel_manager: ChannelManager) -> None:
+        """Install hooks for cross-cutting concerns like channel integration."""
+        hooks_module_str = os.getenv("BUB_HOOKS_MODULE")
+        if not hooks_module_str:
+            return
+        try:
+            module = importlib.import_module(hooks_module_str)
+        except ImportError as e:
+            raise ImportError(f"Failed to import hooks module '{hooks_module_str}'") from e
+        if not hasattr(module, "install"):
+            raise AttributeError(f"Hooks module '{hooks_module_str}' does not have an 'install' function")
+        hooks_context = SimpleNamespace(
+            runtime=self,
+            register_channel=channel_manager.register,
+            default_channels=channel_manager.default_channels,
+        )
+        module.install(hooks_context)
 
 
 def _normalize_name_set(raw: set[str] | None) -> set[str] | None:

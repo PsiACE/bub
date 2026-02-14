@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import sys
 from pathlib import Path
 from typing import Annotated
@@ -13,7 +12,7 @@ from loguru import logger
 
 from bub.app import build_runtime
 from bub.app.runtime import AppRuntime
-from bub.channels import ChannelManager, MessageBus, TelegramChannel, TelegramConfig
+from bub.channels import ChannelManager
 from bub.cli.interactive import InteractiveCli
 from bub.logging_utils import configure_logging
 
@@ -158,15 +157,14 @@ async def _run_once(runtime: AppRuntime, session_id: str, message: str) -> None:
 
 
 @app.command()
-def telegram(
+def message(
     workspace: Annotated[Path | None, typer.Option("--workspace", "-w")] = None,
     model: Annotated[str | None, typer.Option("--model")] = None,
     max_tokens: Annotated[int | None, typer.Option("--max-tokens")] = None,
 ) -> None:
-    """Run Telegram adapter with the same agent loop runtime."""
+    """Run message channels with the same agent loop runtime."""
 
     configure_logging()
-    os.environ["BUB_MESSAGE_CHANNEL"] = "telegram"
     resolved_workspace = (workspace or Path.cwd()).resolve()
     logger.info(
         "telegram.start workspace={} model={} max_tokens={}",
@@ -176,42 +174,15 @@ def telegram(
     )
 
     with build_runtime(resolved_workspace, model=model, max_tokens=max_tokens) as runtime:
-        if not runtime.settings.telegram_enabled:
-            logger.error("telegram.disabled workspace={}", str(resolved_workspace))
-            raise typer.BadParameter(TELEGRAM_DISABLED_ERROR)
-        if not runtime.settings.telegram_token:
-            logger.error("telegram.missing_token workspace={}", str(resolved_workspace))
-            raise typer.BadParameter(TELEGRAM_TOKEN_ERROR)
-
-        bus = MessageBus()
-        runtime.set_bus(bus)
-        manager = ChannelManager(bus, runtime)
-        manager.register(
-            TelegramChannel(
-                bus,
-                TelegramConfig(
-                    token=runtime.settings.telegram_token,
-                    allow_from=set(runtime.settings.telegram_allow_from),
-                    allow_chats=set(runtime.settings.telegram_allow_chats),
-                ),
-            )
-        )
-        try:
-            asyncio.run(_serve_channels(manager))
-        except KeyboardInterrupt:
-            logger.info("telegram.interrupted")
-        except Exception:
-            logger.exception("telegram.crash")
-            raise
-        finally:
-            logger.info("telegram.stop workspace={}", str(resolved_workspace))
+        manager = ChannelManager(runtime)
+        asyncio.run(_serve_channels(manager))
 
 
 async def _serve_channels(manager: ChannelManager) -> None:
     channels = sorted(manager.enabled_channels())
     logger.info("channels.start enabled={}", channels)
-    await manager.start()
     try:
+        await manager.start()
         async with manager.runtime.graceful_shutdown() as stop_event:
             await stop_event.wait()
     finally:

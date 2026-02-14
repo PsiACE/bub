@@ -49,7 +49,6 @@ class _DummyRuntime:
         self.settings = settings
         self.scheduler = scheduler
         self._discovered_skills: list[object] = []
-        self.bus = None
         self.reset_calls: list[str] = []
         self.workspace = Path.cwd()
 
@@ -348,7 +347,6 @@ def test_skills_list_uses_latest_runtime_skills(tmp_path: Path, scheduler: Backg
         def __init__(self, settings: Settings, scheduler: BackgroundScheduler) -> None:
             self.settings = settings
             self.scheduler = scheduler
-            self.bus = None
             self._discovered_skills: list[_Skill] = [_Skill(name="alpha", description="first")]
 
         def discover_skills(self) -> list[_Skill]:

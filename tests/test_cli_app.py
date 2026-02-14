@@ -84,7 +84,7 @@ def test_chat_command_invokes_interactive_runner(monkeypatch, tmp_path: Path) ->
     assert called["run"] is True
 
 
-def test_telegram_command_validates_enabled(monkeypatch, tmp_path: Path) -> None:
+def test_message_command_requires_valid_subcommand_name(monkeypatch, tmp_path: Path) -> None:
     def _fake_build_runtime(workspace: Path, *, model=None, max_tokens=None):
         return DummyRuntime(workspace)
 
@@ -92,7 +92,7 @@ def test_telegram_command_validates_enabled(monkeypatch, tmp_path: Path) -> None
     runner = CliRunner()
     result = runner.invoke(cli_app_module.app, ["telegram", "--workspace", str(tmp_path)])
     assert result.exit_code != 0
-    assert "telegram is disabled" in result.output
+    assert "No such command 'telegram'" in result.output
 
 
 def test_run_command_forwards_allowed_tools_and_skills(monkeypatch, tmp_path: Path) -> None:

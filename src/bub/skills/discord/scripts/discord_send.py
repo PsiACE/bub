@@ -53,7 +53,7 @@ async def send_message(
 
 def main():
     parser = argparse.ArgumentParser(description="Send message to Discord")
-    parser.add_argument("--token", "-t", default=os.environ.get("DISCORD_BOT_TOKEN"))
+    parser.add_argument("--token", "-t", default=os.environ.get("BUB_DISCORD_TOKEN"))
     parser.add_argument("--channel", "-c", type=int, required=True, help="Channel ID")
     parser.add_argument("--message", "-m", required=True, help="Message to send")
     parser.add_argument("--embed", "-e", action="store_true", help="Send as embed")
@@ -61,7 +61,7 @@ def main():
     args = parser.parse_args()
 
     if not args.token:
-        print("Error: DISCORD_BOT_TOKEN not set")
+        print("Error: BUB_DISCORD_TOKEN not set")
         sys.exit(1)
 
     asyncio.run(send_message(args.token, args.channel, args.message, args.embed))

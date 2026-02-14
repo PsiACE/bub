@@ -3,65 +3,88 @@
 from __future__ import annotations
 
 import asyncio
-import html
-import re
+import contextlib
+import json
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
 from loguru import logger
 from telegram import Message, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
-from telegramify_markdown import markdownify as md
 
-from bub.channels.base import BaseChannel
-from bub.channels.bus import MessageBus
-from bub.channels.events import InboundMessage, OutboundMessage
+from bub.app.runtime import AppRuntime
+from bub.channels.base import BaseChannel, exclude_none
+from bub.core.agent_loop import LoopResult
+
+NO_ACCESS_MESSAGE = "You are not allowed to chat with me. Please deploy your own instance of Bub."
 
 
-def exclude_none(d: dict[str, Any]) -> dict[str, Any]:
-    return {k: v for k, v in d.items() if v is not None}
+def _message_type(message: Message) -> str:
+    if getattr(message, "text", None):
+        return "text"
+    if getattr(message, "photo", None):
+        return "photo"
+    if getattr(message, "audio", None):
+        return "audio"
+    if getattr(message, "sticker", None):
+        return "sticker"
+    if getattr(message, "video", None):
+        return "video"
+    if getattr(message, "voice", None):
+        return "voice"
+    if getattr(message, "document", None):
+        return "document"
+    if getattr(message, "video_note", None):
+        return "video_note"
+    return "unknown"
 
 
 class BubMessageFilter(filters.MessageFilter):
     GROUP_CHAT_TYPES: ClassVar[set[str]] = {"group", "supergroup"}
 
+    def _content(self, message: Message) -> str:
+        return (getattr(message, "text", None) or getattr(message, "caption", None) or "").strip()
+
     def filter(self, message: Message) -> bool | dict[str, list[Any]] | None:
-        # Only text messages are allowed
-        text = message.text
-        if not text:
+        msg_type = _message_type(message)
+        if msg_type == "unknown":
             return False
 
-        # Private chat: accept all messages except for commands (starting with /)
+        # Private chat: process all non-command messages and bot commands.
         if message.chat.type == "private":
-            return not filters.COMMAND.filter(message)
+            return True
 
-        # Group chat: only allow `/bot`, mention bot, or reply to bot messages.
+        # Group chat: only process when explicitly addressed to the bot.
         if message.chat.type in self.GROUP_CHAT_TYPES:
             bot = message.get_bot()
             bot_id = bot.id
             bot_username = (bot.username or "").lower()
-            if text.startswith("/bot "):
-                return True
 
-            if self._mentions_bot(message, text, bot_id, bot_username):
-                return not filters.COMMAND.filter(message)
+            mentions_bot = self._mentions_bot(message, bot_id, bot_username)
+            reply_to_bot = self._is_reply_to_bot(message, bot_id)
 
-            if self._is_reply_to_bot(message, bot_id):
-                return not filters.COMMAND.filter(message)
+            if msg_type != "text" and not getattr(message, "caption", None):
+                return reply_to_bot
+
+            return mentions_bot or reply_to_bot
 
         return False
 
-    @staticmethod
-    def _mentions_bot(message: Message, text: str, bot_id: int, bot_username: str) -> bool:
-        for entity in message.entities or ():
+    def _mentions_bot(self, message: Message, bot_id: int, bot_username: str) -> bool:
+        content = self._content(message).lower()
+        mentions_by_keyword = "bub" in content or bool(bot_username and f"@{bot_username}" in content)
+
+        entities = [*(getattr(message, "entities", None) or ()), *(getattr(message, "caption_entities", None) or ())]
+        for entity in entities:
             if entity.type == "mention" and bot_username:
-                mention_text = text[entity.offset : entity.offset + entity.length]
+                mention_text = content[entity.offset : entity.offset + entity.length]
                 if mention_text.lower() == f"@{bot_username}":
                     return True
                 continue
             if entity.type == "text_mention" and entity.user and entity.user.id == bot_id:
                 return True
-        return False
+        return mentions_by_keyword
 
     @staticmethod
     def _is_reply_to_bot(message: Message, bot_id: int) -> bool:
@@ -80,118 +103,116 @@ class TelegramConfig:
     allow_chats: set[str]
 
 
-class TelegramChannel(BaseChannel):
+class TelegramChannel(BaseChannel[Message]):
     """Telegram adapter using long polling mode."""
 
     name = "telegram"
 
-    def __init__(self, bus: MessageBus, config: TelegramConfig) -> None:
-        super().__init__(bus)
-        self._config = config
+    def __init__(self, runtime: AppRuntime) -> None:
+        super().__init__(runtime)
+        settings = runtime.settings
+        assert settings.telegram_token is not None  # noqa: S101
+        self._config = TelegramConfig(
+            token=settings.telegram_token,
+            allow_from=set(settings.telegram_allow_from),
+            allow_chats=set(settings.telegram_allow_chats),
+        )
         self._app: Application | None = None
         self._typing_tasks: dict[str, asyncio.Task[None]] = {}
+        self._on_receive: Callable[[Message], Awaitable[None]] | None = None
 
-    async def start(self) -> None:
-        if not self._config.token:
-            raise RuntimeError("telegram token is empty")
+    async def start(self, on_receive: Callable[[Message], Awaitable[None]]) -> None:
+        self._on_receive = on_receive
         logger.info(
-            "telegram.channel.start allow_from_count={} allow_chats_count={}",
+            "telegram.start allow_from_count={} allow_chats_count={}",
             len(self._config.allow_from),
             len(self._config.allow_chats),
         )
-        self._running = True
         self._app = Application.builder().token(self._config.token).build()
         self._app.add_handler(CommandHandler("start", self._on_start))
-        self._app.add_handler(CommandHandler("help", self._on_help))
-        self._app.add_handler(MessageHandler(BubMessageFilter(), self._on_text, block=False))
+        self._app.add_handler(CommandHandler("bub", self._on_text, has_args=True, block=False))
+        self._app.add_handler(MessageHandler(BubMessageFilter() & ~filters.COMMAND, self._on_text, block=False))
         await self._app.initialize()
         await self._app.start()
         updater = self._app.updater
         if updater is None:
             return
         await updater.start_polling(drop_pending_updates=True, allowed_updates=["message"])
-        logger.info("telegram.channel.polling")
+        logger.info("telegram.polling")
+        try:
+            await asyncio.Event().wait()  # Keep running until stopped
+        finally:
+            for task in self._typing_tasks.values():
+                task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await asyncio.gather(*self._typing_tasks.values())
+            self._typing_tasks.clear()
+            updater = self._app.updater
+            with contextlib.suppress(Exception):
+                if updater is not None and updater.running:
+                    await updater.stop()
+                await self._app.stop()
+                await self._app.shutdown()
+            self._app = None
+            logger.info("telegram.stopped")
 
-    async def stop(self) -> None:
-        self._running = False
-        for task in self._typing_tasks.values():
-            task.cancel()
-        self._typing_tasks.clear()
-        if self._app is None:
+    async def get_session_prompt(self, message: Message) -> tuple[str, str]:
+        chat_id = str(message.chat_id)
+        session_id = f"{self.name}:{chat_id}"
+        content, media = self._parse_message(message)
+        if content.startswith("/bub "):
+            content = content[5:]
+
+        # Pass comma commands directly to the input handler
+        if content.strip().startswith(","):
+            return session_id, content
+
+        metadata: dict[str, Any] = {
+            "message_id": message.message_id,
+            "type": _message_type(message),
+            "username": message.from_user.username if message.from_user else "",
+            "full_name": message.from_user.full_name if message.from_user else "",
+            "sender_id": str(message.from_user.id) if message.from_user else "",
+            "date": message.date.timestamp() if message.date else None,
+        }
+
+        if media:
+            metadata["media"] = media
+            caption = getattr(message, "caption", None)
+            if caption:
+                metadata["caption"] = caption
+
+        reply_meta = self._extract_reply_metadata(message)
+        if reply_meta:
+            metadata["reply_to_message"] = reply_meta
+
+        metadata_json = json.dumps({"chat_id": chat_id, **metadata}, ensure_ascii=False)
+        prompt = f"IMPORTANT: Please reply to this Telegram message unless otherwise instructed.\n\n{content}\n———————\n{metadata_json}"
+        return session_id, prompt
+
+    async def process_output(self, session_id: str, output: LoopResult) -> None:
+        parts = [part for part in (output.immediate_output, output.assistant_output) if part]
+        if output.error:
+            parts.append(f"error: {output.error}")
+        content = "\n\n".join(parts).strip()
+        if not content:
             return
-        updater = self._app.updater
-        if updater is not None and updater.running:
-            await updater.stop()
-        await self._app.stop()
-        await self._app.shutdown()
-        self._app = None
-        logger.info("telegram.channel.stopped")
-
-    async def send(self, message: OutboundMessage) -> None:
-        if self._app is None:
-            return
-        self._stop_typing(message.chat_id)
-
-        # Use expandable blockquote for long messages (over 140 chars)
-        MAX_COLLAPSE_LENGTH = 140
-        raw_content = message.content
-        if len(raw_content) > MAX_COLLAPSE_LENGTH:
-            # Long message: wrap in expandable blockquote
-            # Telegram HTML mode only supports limited tags: b, strong, i, em, u, ins, s, strike, del, code, pre, a, blockquote
-            # For simplicity, escape HTML special chars and use plain text in blockquote
-            text = html.escape(raw_content)
-            # Convert markdown-style bold/italic/code to HTML tags (basic support)
-            # Bold: **text** or __text__
-            text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
-            text = re.sub(r"__(.+?)__", r"<b>\1</b>", text)
-            # Italic: *text* or _text_
-            text = re.sub(r"\*(.+?)\*", r"<i>\1</i>", text)
-            text = re.sub(r"_(.+?)_", r"<i>\1</i>", text)
-            # Code block
-            text = re.sub(r"```(.+?)```", r"<pre>\1</pre>", text, flags=re.DOTALL)
-            # Inline code: `text`
-            text = re.sub(r"`(.+?)`", r"<code>\1</code>", text)
-            text = f"<blockquote expandable>{text}</blockquote>"
-            parse_mode = "HTML"
-        else:
-            # Short message: use MarkdownV2 format
-            text = md(raw_content)
-            parse_mode = "MarkdownV2"
-
-        # In group chats, reply to the original message if reply_to_message_id is provided
-        if message.reply_to_message_id is not None:
-            await self._app.bot.send_message(
-                chat_id=int(message.chat_id),
-                text=text,
-                parse_mode=parse_mode,
-                reply_to_message_id=message.reply_to_message_id,
-            )
-        else:
-            await self._app.bot.send_message(
-                chat_id=int(message.chat_id),
-                text=text,
-                parse_mode=parse_mode,
-            )
+        logger.info("telegram.outbound session_id={} content={}", session_id, content)
+        send_back_text = [output.immediate_output] if output.immediate_output else []
+        # NOTE: assistant output is ignored intentionally to rely on the telegram skill to send messages proactively.
+        # Feel free to override this method to ensure response for every message received.
+        if output.error:
+            send_back_text.append(f"Error: {output.error}")
+        if send_back_text and self._app is not None:
+            await self._app.bot.send_message(chat_id=session_id.split(":", 1)[1], text="\n\n".join(send_back_text))
 
     async def _on_start(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
         if update.message is None:
             return
         if self._config.allow_chats and str(update.message.chat_id) not in self._config.allow_chats:
-            await update.message.reply_text(
-                "You are not allowed to chat with me. Please deploy your own instance of Bub"
-            )
+            await update.message.reply_text(NO_ACCESS_MESSAGE)
             return
         await update.message.reply_text("Bub is online. Send text to start.")
-
-    async def _on_help(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
-        if update.message is None:
-            return
-        await update.message.reply_text(
-            "Commands:\n"
-            "/start - show startup message\n"
-            "/help - show this help\n\n"
-            "All plain text is routed to Bub runtime."
-        )
 
     async def _on_text(self, update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
         if update.message is None or update.effective_user is None:
@@ -207,46 +228,38 @@ class TelegramChannel(BaseChannel):
             await update.message.reply_text("Access denied.")
             return
 
-        text = update.message.text or ""
-        # Strip /bot prefix if present
-        if text.startswith("/bot "):
+        text, _ = self._parse_message(update.message)
+        if text.startswith("/bot ") or text.startswith("/bub "):
             text = text[5:]
 
         logger.info(
-            "telegram.channel.inbound chat_id={} sender_id={} username={} content={}",
+            "telegram.inbound chat_id={} sender_id={} username={} content={}",
             chat_id,
             user.id,
             user.username or "",
             text[:100],  # Log first 100 chars to avoid verbose logs
         )
 
-        self._start_typing(chat_id)
-        try:
-            await self.publish_inbound(
-                InboundMessage(
-                    channel=self.name,
-                    sender_id=str(user.id),
-                    chat_id=chat_id,
-                    content=text,
-                    metadata=exclude_none({
-                        "username": user.username,
-                        "full_name": user.full_name,
-                        "message_id": update.message.message_id,
-                    }),
-                )
-            )
-        except (asyncio.CancelledError, Exception):
-            self._stop_typing(chat_id)
-            raise
+        if self._on_receive is None:
+            logger.warning("telegram.inbound no handler for received messages")
+            return
 
-    def _start_typing(self, chat_id: str) -> None:
-        self._stop_typing(chat_id)
+        await self._start_typing(chat_id)
+        try:
+            await self._on_receive(update.message)
+        finally:
+            await self._stop_typing(chat_id)
+
+    async def _start_typing(self, chat_id: str) -> None:
+        await self._stop_typing(chat_id)
         self._typing_tasks[chat_id] = asyncio.create_task(self._typing_loop(chat_id))
 
-    def _stop_typing(self, chat_id: str) -> None:
+    async def _stop_typing(self, chat_id: str) -> None:
         task = self._typing_tasks.pop(chat_id, None)
         if task is not None:
             task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
 
     async def _typing_loop(self, chat_id: str) -> None:
         try:
@@ -256,5 +269,147 @@ class TelegramChannel(BaseChannel):
         except asyncio.CancelledError:
             return
         except Exception:
-            logger.exception("telegram.channel.typing_loop.error chat_id={}", chat_id)
+            logger.exception("telegram.typing_loop.error chat_id={}", chat_id)
             return
+
+    @classmethod
+    def _parse_message(cls, message: Message) -> tuple[str, dict[str, Any] | None]:
+        msg_type = _message_type(message)
+        if msg_type == "text":
+            return getattr(message, "text", None) or "", None
+        parser = cls._MEDIA_MESSAGE_PARSERS.get(msg_type)
+        if parser is not None:
+            return parser(message)
+        return "[Unknown message type]", None
+
+    @staticmethod
+    def _parse_photo(message: Message) -> tuple[str, dict[str, Any] | None]:
+        caption = getattr(message, "caption", None) or ""
+        formatted = f"[Photo message] Caption: {caption}" if caption else "[Photo message]"
+        photos = getattr(message, "photo", None) or []
+        if not photos:
+            return formatted, None
+        largest = photos[-1]
+        metadata = exclude_none({
+            "file_id": largest.file_id,
+            "file_size": largest.file_size,
+            "width": largest.width,
+            "height": largest.height,
+        })
+        return formatted, metadata
+
+    @staticmethod
+    def _parse_audio(message: Message) -> tuple[str, dict[str, Any] | None]:
+        audio = getattr(message, "audio", None)
+        if audio is None:
+            return "[Audio]", None
+        title = audio.title or "Unknown"
+        performer = audio.performer or ""
+        duration = audio.duration or 0
+        metadata = exclude_none({
+            "file_id": audio.file_id,
+            "file_size": audio.file_size,
+            "duration": audio.duration,
+            "title": audio.title,
+            "performer": audio.performer,
+        })
+        if performer:
+            return f"[Audio: {performer} - {title} ({duration}s)]", metadata
+        return f"[Audio: {title} ({duration}s)]", metadata
+
+    @staticmethod
+    def _parse_sticker(message: Message) -> tuple[str, dict[str, Any] | None]:
+        sticker = getattr(message, "sticker", None)
+        if sticker is None:
+            return "[Sticker]", None
+        emoji = sticker.emoji or ""
+        set_name = sticker.set_name or ""
+        metadata = exclude_none({
+            "file_id": sticker.file_id,
+            "width": sticker.width,
+            "height": sticker.height,
+            "emoji": sticker.emoji,
+            "set_name": sticker.set_name,
+            "is_animated": sticker.is_animated,
+            "is_video": sticker.is_video,
+        })
+        if emoji:
+            return f"[Sticker: {emoji} from {set_name}]", metadata
+        return f"[Sticker from {set_name}]", metadata
+
+    @staticmethod
+    def _parse_video(message: Message) -> tuple[str, dict[str, Any] | None]:
+        video = getattr(message, "video", None)
+        duration = video.duration if video else 0
+        caption = getattr(message, "caption", None) or ""
+        formatted = f"[Video: {duration}s]"
+        formatted = f"{formatted} Caption: {caption}" if caption else formatted
+        if video is None:
+            return formatted, None
+        metadata = exclude_none({
+            "file_id": video.file_id,
+            "file_size": video.file_size,
+            "width": video.width,
+            "height": video.height,
+            "duration": video.duration,
+        })
+        return formatted, metadata
+
+    @staticmethod
+    def _parse_voice(message: Message) -> tuple[str, dict[str, Any] | None]:
+        voice = getattr(message, "voice", None)
+        duration = voice.duration if voice else 0
+        if voice is None:
+            return f"[Voice message: {duration}s]", None
+        metadata = exclude_none({"file_id": voice.file_id, "duration": voice.duration})
+        return f"[Voice message: {duration}s]", metadata
+
+    @staticmethod
+    def _parse_document(message: Message) -> tuple[str, dict[str, Any] | None]:
+        document = getattr(message, "document", None)
+        if document is None:
+            return "[Document]", None
+        file_name = document.file_name or "unknown"
+        mime_type = document.mime_type or "unknown"
+        caption = getattr(message, "caption", None) or ""
+        formatted = f"[Document: {file_name} ({mime_type})]"
+        formatted = f"{formatted} Caption: {caption}" if caption else formatted
+        metadata = exclude_none({
+            "file_id": document.file_id,
+            "file_name": document.file_name,
+            "file_size": document.file_size,
+            "mime_type": document.mime_type,
+        })
+        return formatted, metadata
+
+    @staticmethod
+    def _parse_video_note(message: Message) -> tuple[str, dict[str, Any] | None]:
+        video_note = getattr(message, "video_note", None)
+        duration = video_note.duration if video_note else 0
+        if video_note is None:
+            return f"[Video note: {duration}s]", None
+        metadata = exclude_none({"file_id": video_note.file_id, "duration": video_note.duration})
+        return f"[Video note: {duration}s]", metadata
+
+    @staticmethod
+    def _extract_reply_metadata(message: Message) -> dict[str, Any] | None:
+        reply_to = message.reply_to_message
+        if reply_to is None or reply_to.from_user is None:
+            return None
+        return exclude_none({
+            "message_id": reply_to.message_id,
+            "from_user_id": reply_to.from_user.id,
+            "from_username": reply_to.from_user.username,
+            "from_is_bot": reply_to.from_user.is_bot,
+            "text": (reply_to.text or "")[:100] if reply_to.text else "",
+        })
+
+    _MEDIA_MESSAGE_PARSERS: ClassVar[dict[str, Callable[[Message], tuple[str, dict[str, Any] | None]]]] = {
+        "photo": _parse_photo,
+        "audio": _parse_audio,
+        "sticker": _parse_sticker,
+        "video": _parse_video,
+        "voice": _parse_voice,
+        "document": _parse_document,
+        "video_note": _parse_video_note,
+    }

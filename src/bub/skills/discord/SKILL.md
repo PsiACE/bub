@@ -72,7 +72,7 @@ await channel.send(embed=embed)
 
 Set environment variable:
 ```bash
-export DISCORD_BOT_TOKEN="your_token_here"
+export BUB_DISCORD_TOKEN="your_token_here"
 ```
 
 ### Running the Bot
@@ -83,7 +83,7 @@ import os
 from discord_bot import run_bot
 
 async def main():
-    token = os.environ.get("DISCORD_BOT_TOKEN")
+    token = os.environ.get("BUB_DISCORD_TOKEN")
     await run_bot(token)
 
 asyncio.run(main())
@@ -127,4 +127,4 @@ await ctx.send("Click:", view=view)
 
 ## Environment
 
-- `DISCORD_BOT_TOKEN`: Bot token from Discord Developer Portal
+- `BUB_DISCORD_TOKEN`: Bot token from Discord Developer Portal

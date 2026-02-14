@@ -21,26 +21,32 @@ class Settings(BaseSettings):
         env_parse_none_str="null",
     )
 
-    model: str = Field(default="openrouter:qwen/qwen3-coder-next")
-    api_key: str | None = Field(default=None)
-    api_base: str | None = Field(default=None)
-    ollama_api_key: str | None = Field(default=None)
-    ollama_api_base: str | None = Field(default=None)
+    model: str = "openrouter:qwen/qwen3-coder-next"
+    api_key: str | None = None
+    api_base: str | None = None
+    ollama_api_key: str | None = None
+    ollama_api_base: str | None = None
     llm_api_key: str | None = Field(default=None, validation_alias="LLM_API_KEY")
     openrouter_api_key: str | None = Field(default=None, validation_alias="OPENROUTER_API_KEY")
     max_tokens: int = Field(default=1024, ge=1)
     model_timeout_seconds: int | None = 90
-    system_prompt: str = Field(default="")
+    system_prompt: str = ""
 
-    home: str | None = Field(default=None)
-    workspace_path: str | None = Field(default=None)
-    tape_name: str = Field(default="bub")
+    home: str | None = None
+    workspace_path: str | None = None
+    tape_name: str = "bub"
     max_steps: int = Field(default=20, ge=1)
 
-    telegram_enabled: bool = Field(default=False)
-    telegram_token: str | None = Field(default=None)
+    telegram_enabled: bool = False
+    telegram_token: str | None = Field(default=None, validation_alias="TELEGRAM_BOT_TOKEN")
     telegram_allow_from: list[str] = Field(default_factory=list)
     telegram_allow_chats: list[str] = Field(default_factory=list)
+
+    discord_enabled: bool = False
+    discord_token: str | None = Field(default=None, validation_alias="DISCORD_BOT_TOKEN")
+    discord_allow_from: list[str] = Field(default_factory=list)
+    discord_allow_channels: list[str] = Field(default_factory=list)
+    discord_command_prefix: str = "!"
 
     @property
     def resolved_api_key(self) -> str | None:

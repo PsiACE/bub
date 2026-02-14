@@ -3,95 +3,62 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Iterable
+import contextlib
 
 from loguru import logger
 
 from bub.app.runtime import AppRuntime
 from bub.channels.base import BaseChannel
-from bub.channels.bus import MessageBus
-from bub.channels.events import InboundMessage, OutboundMessage
 
 
 class ChannelManager:
     """Coordinate inbound routing and outbound dispatch for channels."""
 
-    def __init__(self, bus: MessageBus, runtime: AppRuntime) -> None:
-        self.bus = bus
+    def __init__(self, runtime: AppRuntime) -> None:
         self.runtime = runtime
         self._channels: dict[str, BaseChannel] = {}
-        self._unsub_inbound: Callable[[], None] | None = None
-        self._unsub_outbound: Callable[[], None] | None = None
+        self._channel_tasks: list[asyncio.Task[None]] = []
+        for channel_cls in self.default_channels():
+            self.register(channel_cls)
 
-    def register(self, channel: BaseChannel) -> None:
-        self._channels[channel.name] = channel
+    def register[T: type[BaseChannel]](self, channel: T) -> T:
+        self._channels[channel.name] = channel(self.runtime)
+        return channel
 
     @property
     def channels(self) -> dict[str, BaseChannel]:
         return dict(self._channels)
 
     async def start(self) -> None:
-        self._unsub_inbound = self.bus.on_inbound(self._process_inbound)
-        self._unsub_outbound = self.bus.on_outbound(self._process_outbound)
-        logger.info("channel.manager.start channels={}", sorted(self._channels.keys()))
+        logger.info("channel.manager.start channels={}", self.enabled_channels())
         for channel in self._channels.values():
-            await channel.start()
+            # XXX: Currently we just call the same message handler with itself.
+            # But it will be likely decoupled later
+            task = asyncio.create_task(channel.start(channel.run_prompt))
+            self._channel_tasks.append(task)
 
     async def stop(self) -> None:
+        for task in self._channel_tasks:
+            task.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await asyncio.gather(*self._channel_tasks)
+        self._channel_tasks.clear()
         logger.info("channel.manager.stop")
-        for channel in self._channels.values():
-            await channel.stop()
-        if self._unsub_inbound is not None:
-            self._unsub_inbound()
-            self._unsub_inbound = None
-        if self._unsub_outbound is not None:
-            self._unsub_outbound()
-            self._unsub_outbound = None
 
-    async def _process_inbound(self, message: InboundMessage) -> None:
-        try:
-            result = await self.runtime.handle_input(message.session_id, message.render())
-            parts = [part for part in (result.immediate_output, result.assistant_output) if part]
-            if result.error:
-                parts.append(f"error: {result.error}")
-            output = "\n\n".join(parts).strip()
-            if not output:
-                return
+    def enabled_channels(self) -> list[str]:
+        return sorted(self._channels)
 
-            # Extract message_id for reply functionality in group chats
-            reply_to_message_id = message.metadata.get("message_id")
+    def default_channels(self) -> list[type[BaseChannel]]:
+        """Return the built-in channels."""
 
-            await self.bus.publish_outbound(
-                OutboundMessage(
-                    channel=message.channel,
-                    chat_id=message.chat_id,
-                    content=output,
-                    metadata={"session_id": message.session_id},
-                    reply_to_message_id=reply_to_message_id,
-                )
-            )
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            logger.exception(
-                "channel.inbound.error channel={} chat_id={} session_id={}",
-                message.channel,
-                message.chat_id,
-                message.session_id,
-            )
+        result: list[type[BaseChannel]] = []
 
-    async def _process_outbound(self, message: OutboundMessage) -> None:
-        try:
-            channel = self._channels.get(message.channel)
-            if channel is None:
-                return
-            await channel.send(message)
-        except Exception:
-            logger.exception(
-                "channel.outbound.error channel={} chat_id={}",
-                message.channel,
-                message.chat_id,
-            )
+        if self.runtime.settings.telegram_enabled:
+            from bub.channels.telegram import TelegramChannel
 
-    def enabled_channels(self) -> Iterable[str]:
-        return self._channels.keys()
+            result.append(TelegramChannel)
+        if self.runtime.settings.discord_enabled:
+            from bub.channels.discord import DiscordChannel
+
+            result.append(DiscordChannel)
+        return result

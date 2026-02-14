@@ -128,9 +128,9 @@ async def run_bot(token: str) -> None:
 
 def main() -> None:
     """Entry point."""
-    token = os.environ.get("DISCORD_BOT_TOKEN")
+    token = os.environ.get("BUB_DISCORD_TOKEN")
     if token is None:
-        print("Error: DISCORD_BOT_TOKEN not set")
+        print("Error: BUB_DISCORD_TOKEN not set")
         return
 
     asyncio.run(run_bot(token))

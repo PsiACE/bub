@@ -3,35 +3,48 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Any
 
-from bub.channels.bus import MessageBus
-from bub.channels.events import InboundMessage, OutboundMessage
+from loguru import logger
+
+from bub.app.runtime import AppRuntime
+
+if TYPE_CHECKING:
+    from bub.core import LoopResult
 
 
-class BaseChannel(ABC):
+def exclude_none(d: dict[str, Any]) -> dict[str, Any]:
+    return {k: v for k, v in d.items() if v is not None}
+
+
+class BaseChannel[T](ABC):
     """Abstract base class for channel adapters."""
 
-    name = "base"
+    name: str = "base"
 
-    def __init__(self, bus: MessageBus) -> None:
-        self.bus = bus
-        self._running = False
-
-    @abstractmethod
-    async def start(self) -> None:
-        """Start adapter and begin ingesting inbound messages."""
+    def __init__(self, runtime: AppRuntime) -> None:
+        self.runtime = runtime
 
     @abstractmethod
-    async def stop(self) -> None:
-        """Stop adapter and cleanup resources."""
+    async def start(self, on_receive: Callable[[T], Awaitable[None]]) -> None:
+        """Start the channel and set up the receive callback."""
 
     @abstractmethod
-    async def send(self, message: OutboundMessage) -> None:
-        """Send one outbound message to external channel."""
+    async def get_session_prompt(self, message: T) -> tuple[str, str]:
+        """Get the session id and prompt text for the given message."""
+        pass
 
-    async def publish_inbound(self, message: InboundMessage) -> None:
-        await self.bus.publish_inbound(message)
+    @abstractmethod
+    async def process_output(self, session_id: str, output: LoopResult) -> None:
+        """Process the output returned by the LLM."""
+        pass
 
-    @property
-    def is_running(self) -> bool:
-        return self._running
+    async def run_prompt(self, message: T) -> None:
+        """Run a prompt based on the received message."""
+        try:
+            session_id, prompt = await self.get_session_prompt(message)
+            output = await self.runtime.handle_input(session_id, prompt)
+            await self.process_output(session_id, output)
+        except Exception:
+            logger.exception("{}.agent.error", self.name)

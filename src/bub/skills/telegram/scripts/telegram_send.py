@@ -17,7 +17,6 @@ Usage:
     python telegram_send.py --chat-id <CHAT_ID> --message "Hello!"
     python telegram_send.py -c 123456 -m "*Bold* _italic_"
 """
-
 import argparse
 import os
 import sys

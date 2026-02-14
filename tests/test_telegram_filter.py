@@ -29,10 +29,15 @@ class DummyMessage:
         bot_username: str = "BubBot",
         entities: list[DummyEntity] | None = None,
         reply_to_message: object | None = None,
+        caption: str | None = None,
+        photo: list[object] | None = None,
     ) -> None:
         self.text = text
+        self.caption = caption
+        self.photo = photo
         self.chat = SimpleNamespace(type=chat_type)
         self.entities = entities or []
+        self.caption_entities = []
         self.reply_to_message = reply_to_message
         self._bot_id = bot_id
         self._bot_username = bot_username
@@ -43,7 +48,7 @@ class DummyMessage:
 
 def test_group_allows_bot_prefix() -> None:
     message = DummyMessage(text="/bot hello", chat_type="group")
-    assert BubMessageFilter().filter(message) is True
+    assert BubMessageFilter().filter(message) is False
 
 
 def test_group_allows_at_mention_by_username_entity() -> None:
@@ -72,4 +77,24 @@ def test_group_allows_reply_to_bot_message() -> None:
 
 def test_group_rejects_unrelated_text() -> None:
     message = DummyMessage(text="hello world", chat_type="group")
+    assert BubMessageFilter().filter(message) is False
+
+
+def test_private_allows_media_without_text() -> None:
+    message = DummyMessage(text="", chat_type="private", photo=[object()])
+    assert BubMessageFilter().filter(message) is True
+
+
+def test_private_rejects_non_bot_command() -> None:
+    message = DummyMessage(text="/start", chat_type="private")
+    assert BubMessageFilter().filter(message) is True
+
+
+def test_private_allows_bub_command() -> None:
+    message = DummyMessage(text="/bub summarize", chat_type="private")
+    assert BubMessageFilter().filter(message) is True
+
+
+def test_group_rejects_media_without_reply_or_mention() -> None:
+    message = DummyMessage(text="", chat_type="group", photo=[object()])
     assert BubMessageFilter().filter(message) is False
