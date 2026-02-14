@@ -61,18 +61,16 @@ def test_installer_expands_home_in_dest(monkeypatch, tmp_path: Path) -> None:
 
     monkeypatch.setattr(module, "_prepare_repo", _fake_prepare_repo)
 
-    exit_code = module.main(
-        [
-            "--repo",
-            "owner/repo",
-            "--path",
-            "skills/demo",
-            "--dest",
-            "~/installed-skills",
-            "--method",
-            "download",
-        ]
-    )
+    exit_code = module.main([
+        "--repo",
+        "owner/repo",
+        "--path",
+        "skills/demo",
+        "--dest",
+        "~/installed-skills",
+        "--method",
+        "download",
+    ])
 
     expected = (fake_home / "installed-skills" / "demo").resolve()
     assert exit_code == 0
