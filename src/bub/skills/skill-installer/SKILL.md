@@ -60,6 +60,7 @@ All of these scripts use network, so when running in the sandbox, request escala
 - Otherwise installs into `~/.agent/skills/<skill-name>` (global).
 - Multiple `--path` values install multiple skills in one run, each named from the path basename unless `--name` is supplied.
 - Options: `--ref <ref>` (default `main`), `--dest <path>`, `--method auto|download|git`.
+- When using `~` in paths, prefer `$HOME/...` in docs and examples. Quoted `"~"` does not expand in shell, and subprocess arguments may bypass shell expansion entirely.
 
 ## Notes
 

@@ -52,7 +52,7 @@ def chat(
     """Run interactive CLI."""
 
     configure_logging(profile="chat")
-    resolved_workspace = (workspace or Path.cwd()).resolve()
+    resolved_workspace = (workspace.expanduser() if workspace else Path.cwd()).resolve()
     logger.info(
         "chat.start workspace={} model={} max_tokens={}",
         str(resolved_workspace),
@@ -121,7 +121,7 @@ def run(
     """Run a single message and exit, useful for quick testing or one-off commands."""
 
     configure_logging()
-    resolved_workspace = (workspace or Path.cwd()).resolve()
+    resolved_workspace = (workspace.expanduser() if workspace else Path.cwd()).resolve()
     allowed_tools = _parse_subset(tools)
     allowed_skills = _parse_subset(skills)
     logger.info(
@@ -166,7 +166,7 @@ def message(
     """Run message channels with the same agent loop runtime."""
 
     configure_logging()
-    resolved_workspace = (workspace or Path.cwd()).resolve()
+    resolved_workspace = (workspace.expanduser() if workspace else Path.cwd()).resolve()
     logger.info(
         "telegram.start workspace={} model={} max_tokens={}",
         str(resolved_workspace),

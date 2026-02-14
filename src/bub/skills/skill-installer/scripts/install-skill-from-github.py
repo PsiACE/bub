@@ -280,7 +280,7 @@ def main(argv: list[str]) -> int:
             raise InstallError("No skill paths provided.")
         for path in source.paths:
             _validate_relative_path(path)
-        dest_root = args.dest or _default_dest()
+        dest_root = os.path.expanduser(args.dest) if args.dest else _default_dest()
         tmp_dir = tempfile.mkdtemp(prefix="skill-install-", dir=_tmp_root())
         try:
             repo_root = _prepare_repo(source, args.method, tmp_dir)
