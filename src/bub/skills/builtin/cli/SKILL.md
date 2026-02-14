@@ -1,8 +1,8 @@
 ---
-name: cli-core
+name: cli
 description: Register base framework CLI commands via hooks.
 kind: command
-entrypoint: bub.skills.builtin.cli_core.plugin:plugin
+entrypoint: bub.skills.builtin.cli.plugin:plugin
 ---
 
 # CLI Core Skill

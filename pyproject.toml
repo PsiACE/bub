@@ -33,13 +33,6 @@ dependencies = [
     "loguru>=0.7.2",
     "telegramify-markdown>=0.5.4",
     "apscheduler>=3.11.2",
-    "aiohttp>=3.13.3",
-    "rapidfuzz>=3.14.1",
-    "discord-py>=2.6.4",
-    "requests>=2.32.5",
-    "python-dotenv>=1.2.1",
-    "any-llm-sdk[anthropic,vertexai]>=1.8.0",
-    "httpx[socks]>=0.28.1",
 ]
 
 [project.urls]
