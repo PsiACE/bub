@@ -78,7 +78,7 @@ class TapeService:
         return cast(list[TapeEntry], self.tape.read_entries())
 
     def handoff(self, name: str, *, state: dict[str, Any] | None = None) -> list[TapeEntry]:
-        return cast(list[TapeEntry], self.tape.handoff(name, state=state))
+        return cast(list[TapeEntry], self._tape.handoff(name, state=state))
 
     def append_event(self, name: str, data: dict[str, Any]) -> None:
         self.tape.append(TapeEntry.event(name, data=data))
@@ -87,7 +87,7 @@ class TapeService:
         self.tape.append(TapeEntry.system(content))
 
     def info(self) -> TapeInfo:
-        entries = self.read_entries()
+        entries = self._tape.read_entries()
         anchors = [entry for entry in entries if entry.kind == "anchor"]
         last_anchor = anchors[-1].payload.get("name") if anchors else None
         if last_anchor is not None:
@@ -95,7 +95,7 @@ class TapeService:
         else:
             entries_since_last_anchor = len(entries)
         return TapeInfo(
-            name=self.tape.name,
+            name=self._tape.name,
             entries=len(entries),
             anchors=len(anchors),
             last_anchor=str(last_anchor) if last_anchor else None,
@@ -104,17 +104,17 @@ class TapeService:
 
     def reset(self, *, archive: bool = False) -> str:
         if archive and self._store is not None:
-            archive_path = self._store.archive(self.tape.name)
-            self.tape.reset()
+            archive_path = self._store.archive(self._tape.name)
+            self._tape.reset()
             self.ensure_bootstrap_anchor()
             if archive_path is not None:
                 return f"archived: {archive_path}"
-        self.tape.reset()
+        self._tape.reset()
         self.ensure_bootstrap_anchor()
         return "ok"
 
     def anchors(self, *, limit: int = 20) -> list[AnchorSummary]:
-        entries = [entry for entry in self.read_entries() if entry.kind == "anchor"]
+        entries = [entry for entry in self._tape.read_entries() if entry.kind == "anchor"]
         results: list[AnchorSummary] = []
         for entry in entries[-limit:]:
             name = str(entry.payload.get("name", "-"))
