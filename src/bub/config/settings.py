@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     tape_name: str = "bub"
     max_steps: int = Field(default=20, ge=1)
 
+    proactive_response: bool = False
+
     telegram_enabled: bool = False
     telegram_token: str | None = None
     telegram_allow_from: list[str] = Field(default_factory=list)

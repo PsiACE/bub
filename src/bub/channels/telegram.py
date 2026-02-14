@@ -199,6 +199,8 @@ class TelegramChannel(BaseChannel[Message]):
             return
         logger.info("telegram.outbound session_id={} content={}", session_id, content)
         send_back_text = [output.immediate_output] if output.immediate_output else []
+        if not self.runtime.settings.proactive_response:
+            send_back_text.extend([output.assistant_output] if output.assistant_output else [])
         # NOTE: assistant output is ignored intentionally to rely on the telegram skill to send messages proactively.
         # Feel free to override this method to ensure response for every message received.
         if output.error:

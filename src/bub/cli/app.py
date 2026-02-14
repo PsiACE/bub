@@ -162,19 +162,22 @@ def message(
     workspace: Annotated[Path | None, typer.Option("--workspace", "-w")] = None,
     model: Annotated[str | None, typer.Option("--model")] = None,
     max_tokens: Annotated[int | None, typer.Option("--max-tokens")] = None,
+    proactive_response: Annotated[bool, typer.Option("--proactive-response", envvar="BUB_PROACTIVE_RESPONSE")] = False,
 ) -> None:
     """Run message channels with the same agent loop runtime."""
 
     configure_logging()
     resolved_workspace = (workspace.expanduser() if workspace else Path.cwd()).resolve()
     logger.info(
-        "telegram.start workspace={} model={} max_tokens={}",
+        "telegram.start workspace={} model={} max_tokens={}, proactive_response={}",
         str(resolved_workspace),
         model or "<default>",
         max_tokens if max_tokens is not None else "<default>",
+        proactive_response,
     )
 
     with build_runtime(resolved_workspace, model=model, max_tokens=max_tokens) as runtime:
+        runtime.settings.proactive_response = proactive_response
         manager = ChannelManager(runtime)
         asyncio.run(_serve_channels(manager))
 
