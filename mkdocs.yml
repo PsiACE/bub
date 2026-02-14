@@ -10,9 +10,11 @@ copyright: Maintained by <a href="https://psiace.me">Chojan Shang</a>.
 nav:
   - Home: index.md
   - Key Features: features.md
+  - Deployment: deployment.md
   - Architecture: architecture.md
   - Interactive CLI: cli.md
   - Telegram: telegram.md
+  - Discord: discord.md
 
 plugins:
   - search

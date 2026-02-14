@@ -43,10 +43,12 @@ Why it matters: prompt stays focused while advanced capabilities remain availabl
 
 Why it matters: local debugging and implementation loops are fast and consistent.
 
-## 6. Telegram Channel Integration
+## 6. Message Channel Integration (Telegram + Discord)
 
 - Optional long-polling Telegram adapter.
+- Optional Discord bot adapter.
 - Per-chat session isolation (`telegram:<chat_id>`).
+- Per-channel session isolation (`discord:<channel_id>`).
 - Optional sender/chat allowlist for access control.
 
 Why it matters: you can continue lightweight operations from mobile or remote environments.

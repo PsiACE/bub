@@ -68,16 +68,28 @@ Common commands:
 BUB_TELEGRAM_ENABLED=true
 BUB_TELEGRAM_TOKEN=123456:token
 BUB_TELEGRAM_ALLOW_FROM='["123456789","your_username"]'
-uv run bub telegram
+uv run bub message
+```
+
+## Discord (Optional)
+
+```bash
+BUB_DISCORD_ENABLED=true
+BUB_DISCORD_TOKEN=discord_bot_token
+BUB_DISCORD_ALLOW_FROM='["123456789012345678","your_discord_name"]'
+BUB_DISCORD_ALLOW_CHANNELS='["123456789012345678"]'
+uv run bub message
 ```
 
 ## Documentation
 
 - `docs/index.md`: getting started and usage overview
+- `docs/deployment.md`: local + Docker deployment playbook
 - `docs/features.md`: key capabilities and why they matter
 - `docs/cli.md`: interactive CLI workflow and troubleshooting
 - `docs/architecture.md`: agent loop, tape, anchor, and tool/skill design
 - `docs/telegram.md`: Telegram integration and operations
+- `docs/discord.md`: Discord integration and operations
 
 ## Development
 
