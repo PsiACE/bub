@@ -12,6 +12,7 @@ class _Settings:
         self.telegram_token = "test-token"  # noqa: S105
         self.telegram_allow_from: list[str] = []
         self.telegram_allow_chats: list[str] = []
+        self.telegram_proxy: str | None = None
 
 
 class _Runtime:
