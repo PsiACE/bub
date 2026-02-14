@@ -10,12 +10,25 @@ Bub is a **batteries-included, hook-first AI framework**.
 Bub is a collaborative agent for shared delivery workflows, evolving into a framework that helps other agents operate with the same collaboration model.
 It is not a personal-assistant shell: it is designed for shared environments where work must be inspectable, handoff-friendly, and operationally reliable.
 
-> Documentation: <https://bub.build>
+- model execution and tool loop
+- command routing and runtime tape behavior
+- input listener hooks (normalize + session resolution) in the same runtime process
+- CLI command registration
+- channel/bus behaviors provided by project skills
 
 Built on [Republic](https://github.com/bubbuild/republic), Bub treats context as explicit assembly from verifiable interaction history, rather than opaque inherited state.
 This aligns with [Socialized Evaluation](https://psiace.me/posts/im-and-socialized-evaluation/): systems are judged by how well teams can inspect, review, and continue work together.
 
-## What Bub Provides
+- `cli`
+- `runtime` (Republic-driven runtime battery with routing, tools, and tape-backed sessions)
+
+## Runtime Defaults
+
+- Without usable Republic model credentials, the framework still runs and returns prompt text as output.
+- `runtime` can be controlled with environment variables:
+  - `BUB_RUNTIME_ENABLED=1|0|auto`
+  - `BUB_MODEL`, `BUB_API_KEY`, `BUB_API_BASE`
+  - `BUB_RUNTIME_MAX_STEPS`, `BUB_RUNTIME_MAX_TOKENS`, `BUB_RUNTIME_MODEL_TIMEOUT_SECONDS`
 
 - Multi-operator collaboration in shared delivery environments.
 - Explicit command boundaries for predictable execution.
@@ -32,6 +45,7 @@ uv sync
 uv run bub run "hello"
 uv run bub hooks
 uv run bub skills
+BUB_RUNTIME_ENABLED=1 uv run bub run ",help"
 ```
 
 ## Skill Layout

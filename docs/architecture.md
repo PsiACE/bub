@@ -12,6 +12,11 @@ Those concerns are provided by skills through hooks.
 The framework is batteries-included: default skills provide a runnable baseline,
 while every battery can be overridden by project or global skills.
 
+Current builtin baseline:
+
+- `cli` skill: registers `run`, `skills`, and `hooks` commands
+- `runtime` skill: input listener hooks, model runtime, tool loop, command-compatible routing
+
 ## Hook Pipeline
 
 1. `normalize_inbound`
@@ -33,7 +38,7 @@ while every battery can be overridden by project or global skills.
 
 - Skill load failures are isolated and tracked in `failed_skills`.
 - Hook runtime failures are isolated per plugin and reported via `on_error`.
-- If no model skill returns output, the framework falls back to prompt echo to keep the process alive.
+- If no model skill returns output, the framework falls back to the prompt text to keep the process alive.
 
 ## Skill Resolution
 

@@ -82,6 +82,8 @@ class BubFramework:
         try:
             normalized = await self._hook_runtime.call_first("normalize_inbound", message=inbound)
             message = normalized if normalized is not None else inbound
+            if isinstance(message, dict):
+                message.setdefault("workspace", str(self.workspace))
             session_id = await self._hook_runtime.call_first("resolve_session", message=message) or self._default_session_id(
                 message
             )

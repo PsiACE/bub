@@ -1,1 +1,0 @@
-"""Input/bus skill."""

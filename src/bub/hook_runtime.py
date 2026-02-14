@@ -23,6 +23,8 @@ class HookRuntime:
         for impl in self._iter_hookimpls(hook_name):
             call_kwargs = self._kwargs_for_impl(impl, kwargs)
             value = await self._invoke_impl_async(hook_name=hook_name, impl=impl, call_kwargs=call_kwargs, kwargs=kwargs)
+            if value is _SKIP_VALUE:
+                continue
             if value is not None:
                 return value
         return None
