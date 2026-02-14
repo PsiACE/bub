@@ -6,7 +6,6 @@ from bub.cli.interactive import InteractiveCli
 class _DummyRuntime:
     def __init__(self) -> None:
         self.workspace = Path.cwd()
-        self.registry = type("_Registry", (), {"descriptors": staticmethod(lambda: [])})()
 
         class _Settings:
             model = "openrouter:test"
@@ -30,6 +29,7 @@ class _DummyRuntime:
 
         class _Session:
             tape = _Tape()
+            tool_view = type("_ToolView", (), {"all_tools": staticmethod(lambda: [])})()
 
         return _Session()
 

@@ -42,14 +42,14 @@ After installing a skill, tell the user: "Restart Bub to pick up new skills."
 
 All of these scripts use network, so when running in the sandbox, request escalation when running them.
 
-- `scripts/list-skills.py` (prints skills list with installed annotations)
-- `scripts/list-skills.py --format json`
-- Example (experimental list): `scripts/list-skills.py --path skills/.experimental`
-- `scripts/install-skill-from-github.py --repo <owner>/<repo> --path <path/to/skill> [<path/to/skill> ...]`
-- `scripts/install-skill-from-github.py --url https://github.com/<owner>/<repo>/tree/<ref>/<path>`
-- Example (experimental skill): `scripts/install-skill-from-github.py --repo openai/skills --path skills/.experimental/<skill-name>`
-- Project-local install example: `BUB_SKILLS_HOME="$workspace/.agent/skills" scripts/install-skill-from-github.py --repo openai/skills --path skills/.curated/<skill-name>`
-- Global install example: `scripts/install-skill-from-github.py --repo openai/skills --path skills/.curated/<skill-name>`
+- `uv run scripts/list-skills.py` (prints skills list with installed annotations)
+- `uv run scripts/list-skills.py --format json`
+- Example (experimental list): `uv run scripts/list-skills.py --path skills/.experimental`
+- `uv run scripts/install-skill-from-github.py --repo <owner>/<repo> --path <path/to/skill> [<path/to/skill> ...]`
+- `uv run scripts/install-skill-from-github.py --url https://github.com/<owner>/<repo>/tree/<ref>/<path>`
+- Example (experimental skill): `uv run scripts/install-skill-from-github.py --repo openai/skills --path skills/.experimental/<skill-name>`
+- Project-local install example: `BUB_SKILLS_HOME="$workspace/.agent/skills" uv run scripts/install-skill-from-github.py --repo openai/skills --path skills/.curated/<skill-name>`
+- Global install example: `uv run scripts/install-skill-from-github.py --repo openai/skills --path skills/.curated/<skill-name>`
 
 ## Behavior and Options
 

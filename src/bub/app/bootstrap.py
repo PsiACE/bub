@@ -25,6 +25,7 @@ def build_runtime(
     max_tokens: int | None = None,
     allowed_tools: set[str] | None = None,
     allowed_skills: set[str] | None = None,
+    enable_scheduler: bool = True,
 ) -> AppRuntime:
     """Build app runtime for one workspace."""
 
@@ -42,5 +43,6 @@ def build_runtime(
         settings,
         allowed_tools=allowed_tools,
         allowed_skills=allowed_skills,
+        enable_scheduler=enable_scheduler,
     )
     return _runtime

@@ -18,6 +18,13 @@ class ProgressiveToolView:
         if self.registry.has(name):
             self.expanded.add(name)
 
+    def all_tools(self) -> list[str]:
+        return [descriptor.name for descriptor in self.registry.descriptors()]
+
+    def reset(self) -> None:
+        """Clear expanded tool details for a fresh prompt context."""
+        self.expanded.clear()
+
     def note_hint(self, hint: str) -> bool:
         """Expand one tool when hint matches tool name (case-insensitive)."""
 

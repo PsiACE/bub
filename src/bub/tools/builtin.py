@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import shutil
-import subprocess
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib import error as urllib_error
 from urllib import parse as urllib_parse
-from urllib.request import Request, urlopen
 
 import html2markdown
 from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
@@ -30,6 +28,7 @@ if TYPE_CHECKING:
 
 DEFAULT_OLLAMA_WEB_API_BASE = "https://ollama.com/api"
 WEB_REQUEST_TIMEOUT_SECONDS = 20
+SUBPROCESS_TIMEOUT_SECONDS = 30
 MAX_FETCH_BYTES = 1_000_000
 WEB_USER_AGENT = "bub-web-tools/1.0"
 SESSION_ID_ENV_VAR = "BUB_SESSION_ID"
@@ -38,6 +37,9 @@ SESSION_ID_ENV_VAR = "BUB_SESSION_ID"
 class BashInput(BaseModel):
     cmd: str = Field(..., description="Shell command")
     cwd: str | None = Field(default=None, description="Working directory")
+    timeout_seconds: int = Field(
+        default=SUBPROCESS_TIMEOUT_SECONDS, ge=1, description="Maximum seconds to allow command to run"
+    )
 
 
 class ReadInput(BaseModel):
@@ -178,29 +180,34 @@ def register_builtin_tools(
     """Register built-in tools and internal commands."""
     from bub.tools.schedule import run_scheduled_reminder
 
-    support_scheduling = runtime.scheduler.running
     register = registry.register
 
     @register(name="bash", short_description="Run shell command", model=BashInput)
-    def run_bash(params: BashInput) -> str:
-        """Execute bash in workspace. Non-zero exit raises an error."""
+    async def run_bash(params: BashInput) -> str:
+        """Execute bash in workspace. Non-zero exit raises an error.
+        IMPORTANT: please DO NOT use sleep to delay execution, use schedule.add tool instead.
+        """
         cwd = params.cwd or str(workspace)
         executable = shutil.which("bash") or "bash"
         env = dict(os.environ)
         env[SESSION_ID_ENV_VAR] = session_id
-        completed = subprocess.run(  # noqa: S603
-            [executable, "-lc", params.cmd],
+        completed = await asyncio.create_subprocess_exec(
+            executable,
+            "-lc",
+            params.cmd,
             cwd=cwd,
-            capture_output=True,
-            text=True,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
             env=env,
         )
-        stdout = (completed.stdout or "").strip()
-        stderr = (completed.stderr or "").strip()
+        async with asyncio.timeout(params.timeout_seconds):
+            stdout_bytes, stderr_bytes = await completed.communicate()
+        stdout_text = (stdout_bytes or b"").decode("utf-8").strip()
+        stderr_text = (stderr_bytes or b"").decode("utf-8").strip()
         if completed.returncode != 0:
-            message = stderr or stdout or f"exit={completed.returncode}"
+            message = stderr_text or stdout_text or f"exit={completed.returncode}"
             raise RuntimeError(f"exit={completed.returncode}: {message}")
-        return stdout or "(no output)"
+        return stdout_text or "(no output)"
 
     @register(name="fs.read", short_description="Read file content", model=ReadInput)
     def fs_read(params: ReadInput) -> str:
@@ -239,31 +246,23 @@ def register_builtin_tools(
         file_path.write_text(updated, encoding="utf-8")
         return f"updated: {file_path} occurrences=1"
 
-    def _fetch_markdown_from_url(raw_url: str) -> str:
+    async def _fetch_markdown_from_url(raw_url: str) -> str:
+        import aiohttp
+
         url = _normalize_url(raw_url)
         if not url:
             return "error: invalid url"
 
-        request = Request(  # noqa: S310
-            url,
-            headers={
-                "User-Agent": WEB_USER_AGENT,
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            },
-        )
         try:
-            with urlopen(request, timeout=WEB_REQUEST_TIMEOUT_SECONDS) as response:  # noqa: S310
-                body_bytes = response.read(MAX_FETCH_BYTES + 1)
-                truncated = len(body_bytes) > MAX_FETCH_BYTES
-                if truncated:
-                    body_bytes = body_bytes[:MAX_FETCH_BYTES]
-                charset = response.headers.get_content_charset() or "utf-8"
-        except urllib_error.URLError as exc:
-            return f"error: {exc!s}"
-        except OSError as exc:
-            return f"error: {exc!s}"
-
-        content = body_bytes.decode(charset, errors="replace")
+            async with (
+                aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=WEB_REQUEST_TIMEOUT_SECONDS)) as session,
+                session.get(url, headers={"User-Agent": WEB_USER_AGENT}) as response,
+            ):
+                content_bytes = await response.content.read(MAX_FETCH_BYTES + 1)
+                truncated = len(content_bytes) > MAX_FETCH_BYTES
+                content = content_bytes[:MAX_FETCH_BYTES].decode("utf-8", errors="replace")
+        except aiohttp.ClientError as exc:
+            return f"HTTP error: {exc!s}"
         rendered = _html_to_markdown(content).strip()
         if not rendered:
             return "error: empty response body"
@@ -272,72 +271,80 @@ def register_builtin_tools(
         return rendered
 
     @register(name="web.fetch", short_description="Fetch URL as markdown", model=FetchInput)
-    def web_fetch_default(params: FetchInput) -> str:
+    async def web_fetch_default(params: FetchInput) -> str:
         """Fetch URL and convert HTML to markdown-like text."""
-        return _fetch_markdown_from_url(params.url)
+        return await _fetch_markdown_from_url(params.url)
 
-    if support_scheduling:
-
-        @register(name="schedule.add", short_description="Add a cron schedule", model=ScheduleAddInput, context=True)
-        def schedule_add(params: ScheduleAddInput, context: ToolContext) -> str:
-            """Create or replace a cron-based scheduled shell command."""
-            job_id = str(uuid.uuid4())[:8]
-            if params.after_seconds is not None:
-                trigger = DateTrigger(run_date=datetime.now(UTC) + timedelta(seconds=params.after_seconds))
-            elif params.interval_seconds is not None:
-                trigger = IntervalTrigger(seconds=params.interval_seconds)
-            else:
-                try:
-                    trigger = CronTrigger.from_crontab(params.cron)
-                except ValueError as exc:
-                    raise RuntimeError(f"invalid cron expression: {params.cron}") from exc
-
+    @register(name="schedule.add", short_description="Add a cron schedule", model=ScheduleAddInput, context=True)
+    def schedule_add(params: ScheduleAddInput, context: ToolContext) -> str:
+        """Schedule a reminder message to be sent to current session in the future. You can specify either of the following scheduling options:
+        - after_seconds: run once after this many seconds from now
+        - interval_seconds: run repeatedly at this interval
+        - cron: run with cron expression in crontab format: minute hour day month day_of_week
+        """
+        job_id = str(uuid.uuid4())[:8]
+        if params.after_seconds is not None:
+            trigger = DateTrigger(run_date=datetime.now(UTC) + timedelta(seconds=params.after_seconds))
+        elif params.interval_seconds is not None:
+            trigger = IntervalTrigger(seconds=params.interval_seconds)
+        else:
             try:
-                job = runtime.scheduler.add_job(
-                    run_scheduled_reminder,
-                    trigger=trigger,
-                    id=job_id,
-                    kwargs={"message": params.message, "session_id": session_id},
-                    coalesce=True,
-                    max_instances=1,
-                )
-            except ConflictingIdError as exc:
-                raise RuntimeError(f"job id already exists: {job_id}") from exc
+                trigger = CronTrigger.from_crontab(params.cron)
+            except ValueError as exc:
+                raise RuntimeError(f"invalid cron expression: {params.cron}") from exc
 
+        try:
+            job = runtime.scheduler.add_job(
+                run_scheduled_reminder,
+                trigger=trigger,
+                id=job_id,
+                kwargs={"message": params.message, "session_id": session_id, "workspace": str(runtime.workspace)},
+                coalesce=True,
+                max_instances=1,
+            )
+        except ConflictingIdError as exc:
+            raise RuntimeError(f"job id already exists: {job_id}") from exc
+
+        next_run = "-"
+        if isinstance(job.next_run_time, datetime):
+            next_run = job.next_run_time.isoformat()
+        return f"scheduled: {job.id} next={next_run}"
+
+    @register(name="schedule.remove", short_description="Remove a scheduled job", model=ScheduleRemoveInput)
+    def schedule_remove(params: ScheduleRemoveInput) -> str:
+        """Remove one scheduled job by id."""
+        try:
+            runtime.scheduler.remove_job(params.job_id)
+        except JobLookupError as exc:
+            raise RuntimeError(f"job not found: {params.job_id}") from exc
+        return f"removed: {params.job_id}"
+
+    @register(name="schedule.list", short_description="List scheduled jobs", model=EmptyInput)
+    def schedule_list(_params: EmptyInput) -> str:
+        """List scheduled jobs for current workspace."""
+        jobs = runtime.scheduler.get_jobs()
+        rows: list[str] = []
+        for job in jobs:
             next_run = "-"
             if isinstance(job.next_run_time, datetime):
                 next_run = job.next_run_time.isoformat()
-            return f"scheduled: {job.id} next={next_run}"
+            message = str(job.kwargs.get("message", ""))
+            job_session = job.kwargs.get("session_id")
+            if job_session and job_session != session_id:
+                continue
+            rows.append(f"{job.id} next={next_run} msg={message}")
 
-        @register(name="schedule.remove", short_description="Remove a scheduled job", model=ScheduleRemoveInput)
-        def schedule_remove(params: ScheduleRemoveInput) -> str:
-            """Remove one scheduled job by id."""
-            try:
-                runtime.scheduler.remove_job(params.job_id)
-            except JobLookupError as exc:
-                raise RuntimeError(f"job not found: {params.job_id}") from exc
-            return f"removed: {params.job_id}"
+        if not rows:
+            return "(no scheduled jobs)"
 
-        @register(name="schedule.list", short_description="List scheduled jobs", model=EmptyInput)
-        def schedule_list(_params: EmptyInput) -> str:
-            """List scheduled jobs for current workspace."""
-            jobs = runtime.scheduler.get_jobs()
-            if not jobs:
-                return "(no scheduled jobs)"
-
-            rows: list[str] = []
-            for job in jobs:
-                next_run = "-"
-                if isinstance(job.next_run_time, datetime):
-                    next_run = job.next_run_time.isoformat()
-                message = str(job.kwargs.get("message", ""))
-                rows.append(f"{job.id} next={next_run} msg={message}")
-            return "\n".join(rows)
+        return "\n".join(rows)
 
     if runtime.settings.ollama_api_key:
 
         @register(name="web.search", short_description="Search the web", model=SearchInput)
-        def web_search_ollama(params: SearchInput) -> str:
+        async def web_search_ollama(params: SearchInput) -> str:
+            import aiohttp
+
             api_key = runtime.settings.ollama_api_key
             if not api_key:
                 return "error: ollama api key is not configured"
@@ -351,28 +358,22 @@ def register_builtin_tools(
                 "query": params.query,
                 "max_results": params.max_results,
             }
-            request = Request(  # noqa: S310
-                endpoint,
-                data=json.dumps(payload).encode("utf-8"),
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {api_key}",
-                    "User-Agent": WEB_USER_AGENT,
-                },
-                method="POST",
-            )
             try:
-                with urlopen(request, timeout=WEB_REQUEST_TIMEOUT_SECONDS) as response:  # noqa: S310
-                    response_body = response.read().decode("utf-8", errors="replace")
-            except urllib_error.HTTPError as exc:
-                detail = exc.read().decode("utf-8", errors="replace").strip()
-                if detail:
-                    return f"error: http {exc.code}: {detail}"
-                return f"error: http {exc.code}"
-            except urllib_error.URLError as exc:
-                return f"error: {exc!s}"
-            except OSError as exc:
-                return f"error: {exc!s}"
+                async with (
+                    aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=WEB_REQUEST_TIMEOUT_SECONDS)) as session,
+                    session.post(
+                        endpoint,
+                        json=payload,
+                        headers={
+                            "Content-Type": "application/json",
+                            "Authorization": f"Bearer {api_key}",
+                            "User-Agent": WEB_USER_AGENT,
+                        },
+                    ) as response,
+                ):
+                    response_body = await response.text()
+            except aiohttp.ClientError as exc:
+                return f"HTTP error: {exc!s}"
 
             try:
                 data = json.loads(response_body)
@@ -448,9 +449,25 @@ def register_builtin_tools(
 
     @register(name="tape.info", short_description="Show tape summary", model=EmptyInput)
     def tape_info(_params: EmptyInput) -> str:
-        """Show tape summary with entry and anchor counts."""
+        """Show tape summary with entry and anchor counts. It includes the following fields:
+        - tape: tape name
+        - entries: total number of entries
+        - anchors: total number of anchors
+        - last_anchor: name of last anchor or '-'
+        - entries_since_last_anchor: number of entries since last anchor
+        - approximate_context_length: approximate total length of message contents
+        """
         info = tape.info()
-        return f"tape={info.name} entries={info.entries} anchors={info.anchors} last_anchor={info.last_anchor or '-'}"
+        messages = tape.tape.read_messages()
+        approximate_context_length = sum(len(msg.get("content", "")) for msg in messages)
+        return "\n".join((
+            f"tape={info.name}",
+            f"entries={info.entries}",
+            f"anchors={info.anchors}",
+            f"last_anchor={info.last_anchor or '-'}",
+            f"entries_since_last_anchor={info.entries_since_last_anchor}",
+            f"approximate_context_length={approximate_context_length}",
+        ))
 
     @register(name="tape.search", short_description="Search tape entries", model=TapeSearchInput)
     def tape_search(params: TapeSearchInput) -> str:
@@ -463,7 +480,9 @@ def register_builtin_tools(
     @register(name="tape.reset", short_description="Reset tape", model=TapeResetInput)
     def tape_reset(params: TapeResetInput) -> str:
         """Reset current tape; can archive before clearing."""
-        return tape.reset(archive=params.archive)
+        result = tape.reset(archive=params.archive)
+        runtime.reset_session_context(session_id)
+        return result
 
     @register(name="skills.list", short_description="List skills", model=EmptyInput)
     def list_skills(_params: EmptyInput) -> str:

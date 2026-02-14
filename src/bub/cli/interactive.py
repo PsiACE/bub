@@ -30,6 +30,10 @@ class InteractiveCli:
         self._prompt = self._build_prompt()
 
     async def run(self) -> None:
+        async with self._runtime.graceful_shutdown():
+            return await self._run()
+
+    async def _run(self) -> None:
         self._renderer.welcome(model=self._runtime.settings.model, workspace=str(self._runtime.workspace))
         while True:
             try:
@@ -72,7 +76,7 @@ class InteractiveCli:
         history_file = self._history_file(self._runtime.settings.resolve_home(), self._runtime.workspace)
         history_file.parent.mkdir(parents=True, exist_ok=True)
         history = FileHistory(str(history_file))
-        tool_names = sorted((f",{tool.name}" for tool in self._runtime.registry.descriptors()), key=_tool_sort_key)
+        tool_names = sorted((f",{tool}" for tool in self._session.tool_view.all_tools()), key=_tool_sort_key)
         completer = WordCompleter(tool_names, ignore_case=True)
         return PromptSession(
             completer=completer,

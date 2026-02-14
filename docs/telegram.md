@@ -8,11 +8,14 @@ Telegram allows Bub to run as a remote coding assistant entry point for lightwei
 BUB_TELEGRAM_ENABLED=true
 BUB_TELEGRAM_TOKEN=123456:token
 BUB_TELEGRAM_ALLOW_FROM=["123456789","your_username"]
+BUB_TELEGRAM_ALLOW_CHATS=["123456789","-1001234567890"]
 ```
 
 Notes:
 
 - If `BUB_TELEGRAM_ALLOW_FROM` is empty, all senders are accepted.
+- If `BUB_TELEGRAM_ALLOW_CHATS` is empty, all chats are accepted.
+- If `BUB_TELEGRAM_ALLOW_CHATS` is not empty, only listed `chat_id` values are allowed.
 - In production, use a strict allowlist.
 
 ## Run

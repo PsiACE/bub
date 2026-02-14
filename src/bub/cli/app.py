@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import sys
 from pathlib import Path
 from typing import Annotated
@@ -11,7 +12,8 @@ import typer
 from loguru import logger
 
 from bub.app import build_runtime
-from bub.channels import ChannelManager, MessageBus, TelegramChannel, TelegramConfig
+from bub.app.runtime import AppRuntime
+from bub.channels import ChannelManager
 from bub.cli.interactive import InteractiveCli
 from bub.logging_utils import configure_logging
 
@@ -44,6 +46,8 @@ def chat(
     workspace: Annotated[Path | None, typer.Option("--workspace", "-w")] = None,
     model: Annotated[str | None, typer.Option("--model")] = None,
     max_tokens: Annotated[int | None, typer.Option("--max-tokens")] = None,
+    session_id: Annotated[str, typer.Option("--session-id", envvar="BUB_SESSION_ID")] = "cli",
+    disable_scheduler: Annotated[bool, typer.Option("--disable-scheduler", envvar="BUB_DISABLE_SCHEDULER")] = False,
 ) -> None:
     """Run interactive CLI."""
 
@@ -55,9 +59,40 @@ def chat(
         model or "<default>",
         max_tokens if max_tokens is not None else "<default>",
     )
-    runtime = build_runtime(resolved_workspace, model=model, max_tokens=max_tokens)
-    cli = InteractiveCli(runtime)
-    asyncio.run(cli.run())
+    with build_runtime(
+        resolved_workspace, model=model, max_tokens=max_tokens, enable_scheduler=not disable_scheduler
+    ) as runtime:
+        cli = InteractiveCli(runtime, session_id=session_id)
+        asyncio.run(cli.run())
+
+
+@app.command()
+def idle(
+    workspace: Annotated[Path | None, typer.Option("--workspace", "-w")] = None,
+    model: Annotated[str | None, typer.Option("--model")] = None,
+    max_tokens: Annotated[int | None, typer.Option("--max-tokens")] = None,
+) -> None:
+    """Start the scheduler only, this is a good option for running a completely autonomous agent."""
+    from apscheduler.schedulers.blocking import BlockingScheduler
+
+    from bub.app.jobstore import JSONJobStore
+    from bub.config.settings import load_settings
+
+    configure_logging(profile="chat")
+    resolved_workspace = (workspace or Path.cwd()).resolve()
+    logger.info(
+        "idle.start workspace={} model={} max_tokens={}",
+        str(resolved_workspace),
+        model or "<default>",
+        max_tokens if max_tokens is not None else "<default>",
+    )
+    settings = load_settings(resolved_workspace)
+    job_store = JSONJobStore(settings.resolve_home() / "jobs.json")
+    scheduler = BlockingScheduler(jobstores={"default": job_store})
+    try:
+        scheduler.start()
+    finally:
+        logger.info("idle.stop workspace={}", str(resolved_workspace))
 
 
 @app.command()
@@ -81,11 +116,11 @@ def run(
             help="Allowed skill names (repeatable or comma-separated).",
         ),
     ] = None,
+    disable_scheduler: Annotated[bool, typer.Option("--disable-scheduler", envvar="BUB_DISABLE_SCHEDULER")] = False,
 ) -> None:
     """Run a single message and exit, useful for quick testing or one-off commands."""
-    import rich
 
-    configure_logging(profile="chat")
+    configure_logging()
     resolved_workspace = (workspace.expanduser() if workspace else Path.cwd()).resolve()
     allowed_tools = _parse_subset(tools)
     allowed_skills = _parse_subset(skills)
@@ -97,27 +132,38 @@ def run(
         ",".join(sorted(allowed_tools)) if allowed_tools else "<all>",
         ",".join(sorted(allowed_skills)) if allowed_skills else "<all>",
     )
-    runtime = build_runtime(
+    with build_runtime(
         resolved_workspace,
         model=model,
         max_tokens=max_tokens,
         allowed_tools=allowed_tools,
         allowed_skills=allowed_skills,
-    )
-    result = asyncio.run(runtime.handle_input(session_id, message))
-    if result.error:
-        rich.print(f"[red]Error:[/red] {result.error}", file=sys.stderr)
-    else:
-        rich.print(result.assistant_output or result.immediate_output or "")
+        enable_scheduler=not disable_scheduler,
+    ) as runtime:
+        asyncio.run(_run_once(runtime, session_id, message))
+
+
+async def _run_once(runtime: AppRuntime, session_id: str, message: str) -> None:
+    import rich
+
+    async with runtime.graceful_shutdown():
+        try:
+            result = await runtime.handle_input(session_id, message)
+            if result.error:
+                rich.print(f"[red]Error:[/red] {result.error}", file=sys.stderr)
+            else:
+                rich.print(result.assistant_output or result.immediate_output or "")
+        except asyncio.CancelledError:
+            rich.print("[yellow]Operation interrupted.[/yellow]", file=sys.stderr)
 
 
 @app.command()
-def telegram(
+def message(
     workspace: Annotated[Path | None, typer.Option("--workspace", "-w")] = None,
     model: Annotated[str | None, typer.Option("--model")] = None,
     max_tokens: Annotated[int | None, typer.Option("--max-tokens")] = None,
 ) -> None:
-    """Run Telegram adapter with the same agent loop runtime."""
+    """Run message channels with the same agent loop runtime."""
 
     configure_logging()
     resolved_workspace = (workspace.expanduser() if workspace else Path.cwd()).resolve()
@@ -129,45 +175,22 @@ def telegram(
     )
 
     with build_runtime(resolved_workspace, model=model, max_tokens=max_tokens) as runtime:
-        token = runtime.settings.telegram_token
-        if not runtime.settings.telegram_enabled:
-            logger.error("telegram.disabled workspace={}", str(resolved_workspace))
-            raise typer.BadParameter(TELEGRAM_DISABLED_ERROR)
-        if not token:
-            logger.error("telegram.missing_token workspace={}", str(resolved_workspace))
-            raise typer.BadParameter(TELEGRAM_TOKEN_ERROR)
-
-        bus = MessageBus()
-        runtime.set_bus(bus)
-        manager = ChannelManager(bus, runtime)
-        manager.register(
-            TelegramChannel(
-                bus,
-                TelegramConfig(
-                    token=token,
-                    allow_from=set(runtime.settings.telegram_allow_from),
-                ),
-            )
-        )
-        try:
-            asyncio.run(_serve_channels(manager))
-        except KeyboardInterrupt:
-            logger.info("telegram.interrupted")
-        except Exception:
-            logger.exception("telegram.crash")
-            raise
-        finally:
-            logger.info("telegram.stop workspace={}", str(resolved_workspace))
+        manager = ChannelManager(runtime)
+        asyncio.run(_serve_channels(manager))
 
 
 async def _serve_channels(manager: ChannelManager) -> None:
-    channels = sorted(manager.enabled_channels())
-    logger.info("channels.start enabled={}", channels)
-    await manager.start()
+    task = asyncio.create_task(manager.run())
     try:
-        await asyncio.Event().wait()
+        async with manager.runtime.graceful_shutdown() as stop_event:
+            task.add_done_callback(lambda t: stop_event.set())
+            await stop_event.wait()
+    except asyncio.CancelledError:
+        pass
     finally:
-        await manager.stop()
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
         logger.info("channels.stop")
 
 

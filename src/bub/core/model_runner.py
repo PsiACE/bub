@@ -6,6 +6,7 @@ import asyncio
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import ClassVar
 
 from loguru import logger
 from republic import Tool, ToolAutoResult
@@ -45,6 +46,8 @@ class _PromptState:
 class ModelRunner:
     """Runs assistant loop over tape with command-aware follow-up handling."""
 
+    DEFAULT_HEADERS: ClassVar[dict[str, str]] = {"HTTP-Referer": "https://bub.build/", "X-Title": "Bub"}
+
     def __init__(
         self,
         *,
@@ -74,6 +77,10 @@ class ModelRunner:
         self._base_system_prompt = base_system_prompt.strip()
         self._workspace_system_prompt = workspace_system_prompt.strip()
         self._expanded_skills: dict[str, str] = {}
+
+    def reset_context(self) -> None:
+        """Clear volatile model-side context caches within one session."""
+        self._expanded_skills.clear()
 
     async def run(self, prompt: str) -> ModelTurnResult:
         state = _PromptState(prompt=prompt)
@@ -121,7 +128,7 @@ class ModelRunner:
                 break
 
             self._activate_hints(assistant_text)
-            route = self._router.route_assistant(assistant_text)
+            route = await self._router.route_assistant(assistant_text)
             self._consume_route(state, route)
             if not route.next_prompt:
                 break
@@ -164,6 +171,7 @@ class ModelRunner:
                     system_prompt=system_prompt,
                     max_tokens=self._max_tokens,
                     tools=self._tools,
+                    extra_headers=self.DEFAULT_HEADERS,
                 )
                 return _ChatResult.from_tool_auto(output)
         except TimeoutError:

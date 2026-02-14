@@ -12,7 +12,7 @@ class FakeRouter:
     def __init__(self) -> None:
         self._calls = 0
 
-    def route_assistant(self, raw: str) -> AssistantRouteResult:
+    async def route_assistant(self, raw: str) -> AssistantRouteResult:
         self._calls += 1
         if self._calls == 1:
             assert raw == "assistant-first"
@@ -22,13 +22,13 @@ class FakeRouter:
 
 
 class SingleStepRouter:
-    def route_assistant(self, raw: str) -> AssistantRouteResult:
+    async def route_assistant(self, raw: str) -> AssistantRouteResult:
         assert raw == "assistant-only"
         return AssistantRouteResult(visible_text="done", next_prompt="", exit_requested=False)
 
 
 class AnySingleStepRouter:
-    def route_assistant(self, raw: str) -> AssistantRouteResult:
+    async def route_assistant(self, raw: str) -> AssistantRouteResult:
         assert raw
         return AssistantRouteResult(visible_text="done", next_prompt="", exit_requested=False)
 
@@ -39,7 +39,7 @@ class FollowupRouter:
         self._first = first
         self._second = second
 
-    def route_assistant(self, raw: str) -> AssistantRouteResult:
+    async def route_assistant(self, raw: str) -> AssistantRouteResult:
         self._calls += 1
         if self._calls == 1:
             assert raw == self._first
@@ -51,7 +51,7 @@ class FollowupRouter:
 
 
 class ToolFollowupRouter:
-    def route_assistant(self, raw: str) -> AssistantRouteResult:
+    async def route_assistant(self, raw: str) -> AssistantRouteResult:
         assert raw == "assistant-after-tool"
         return AssistantRouteResult(visible_text="tool done", next_prompt="", exit_requested=False)
 
@@ -92,6 +92,7 @@ class FakeTapeImpl:
         system_prompt: str,
         max_tokens: int,
         tools: list[object],
+        extra_headers: dict[str, str] | None = None,
     ) -> ToolAutoResult:
         self.calls.append((prompt, system_prompt, max_tokens))
         return self.outputs.pop(0)

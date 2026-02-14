@@ -30,6 +30,10 @@ dependencies = [
     "loguru>=0.7.2",
     "telegramify-markdown>=0.5.4",
     "apscheduler>=3.11.2",
+    "aiohttp>=3.13.3",
+    "rapidfuzz>=3.14.1",
+    "discord-py>=2.6.4",
+    "requests>=2.32.5",
 ]
 
 [project.urls]
@@ -69,8 +73,7 @@ paths = ["src"]
 [tool.mypy]
 files = ["src"]
 exclude = [
-    '^src/bub/skills/skill-creator/scripts/.*$',
-    '^src/bub/skills/skill-installer/scripts/.*$',
+    '^src/bub/skills/.*$',
 ]
 disallow_untyped_defs = false
 disallow_any_unimported = false
@@ -89,8 +92,7 @@ target-version = "py312"
 line-length = 120
 fix = true
 extend-exclude = [
-    "src/bub/skills/skill-creator/scripts",
-    "src/bub/skills/skill-installer/scripts",
+    "src/bub/skills",
     "backup",
 ]
 
@@ -134,6 +136,7 @@ ignore = [
     "E731",
     # Avoid noisy exception-message rule for CLI/tool errors
     "TRY003",
+    "S603",
 ]
 
 [tool.ruff.lint.per-file-ignores]

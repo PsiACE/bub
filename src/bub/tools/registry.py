@@ -3,21 +3,18 @@
 from __future__ import annotations
 
 import builtins
+import inspect
 import json
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from copy import deepcopy
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, ParamSpec, TypeVar
+from typing import Any, cast
 
 from loguru import logger
 from pydantic import BaseModel
 from republic import Tool, ToolContext, tool_from_model
-
-HandlerT = TypeVar("HandlerT", bound=Callable)
-P = ParamSpec("P")
-T = TypeVar("T")
 
 
 def _shorten_text(text: str, width: int = 30, placeholder: str = "...") -> str:
@@ -65,7 +62,7 @@ class ToolRegistry:
         context: bool = False,
         source: str = "builtin",
     ) -> Callable[[Callable], ToolDescriptor | None]:
-        def decorator(func: Callable[P, T]) -> ToolDescriptor | None:
+        def decorator[**P, T](func: Callable[P, T | Awaitable[T]]) -> ToolDescriptor | None:
             tool_detail = detail or func.__doc__ or ""
             if (
                 self._allowed_tools is not None
@@ -75,19 +72,23 @@ class ToolRegistry:
                 return None
 
             @wraps(func)
-            def handler(*args: Any, **kwargs: Any) -> T:
+            async def handler(*args: P.args, **kwargs: P.kwargs) -> T:
                 context_arg = kwargs.get("context") if context else None
                 call_kwargs = {key: value for key, value in kwargs.items() if key != "context"}
                 if args and isinstance(args[0], BaseModel):
                     call_kwargs.update(args[0].model_dump())
-                self._log_tool_call(name, call_kwargs, context_arg)
+                self._log_tool_call(name, call_kwargs, cast("ToolContext | None", context_arg))
 
                 start = time.monotonic()
                 try:
-                    return func(*args, **kwargs)
+                    result = func(*args, **kwargs)
+                    if inspect.isawaitable(result):
+                        result = await result
                 except Exception:
                     logger.exception("tool.call.error name={}", name)
                     raise
+                else:
+                    return result
                 finally:
                     duration = time.monotonic() - start
                     logger.info("tool.call.end name={} duration={:.3f}ms", name, duration * 1000)
@@ -190,17 +191,9 @@ class ToolRegistry:
                 value = value + "]"
             params.append(f"{key}={value}")
         params_str = ", ".join(params)
-        run_id = context.run_id if context is not None else "-"
-        tape = context.tape if context is not None else "-"
-        logger.info(
-            "tool.call.start name={} run_id={} tape={} {{ {} }}",
-            name,
-            run_id,
-            tape,
-            params_str,
-        )
+        logger.info("tool.call.start name={} {{ {} }}", name, params_str)
 
-    def execute(
+    async def execute(
         self,
         name: str,
         *,
@@ -212,5 +205,8 @@ class ToolRegistry:
             raise KeyError(name)
 
         if descriptor.tool.context:
-            return descriptor.tool.run(context=context, **kwargs)
-        return descriptor.tool.run(**kwargs)
+            kwargs["context"] = context
+        result = descriptor.tool.run(context=context, **kwargs)
+        if inspect.isawaitable(result):
+            result = await result
+        return result
