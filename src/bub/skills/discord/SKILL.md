@@ -11,6 +11,19 @@ description: |
 
 Send messages and interact with Discord using discord.py.
 
+## Response Contract (Important)
+
+When the user asks to send or draft a Discord message:
+
+- Return only the final message content intended for Discord.
+- Do not include action narration or meta text such as:
+  - "I already prepared..."
+  - "I can switch to another version..."
+  - "If you want, I can..."
+- Do not prepend or append explanatory wrappers around the message body.
+- If a style is requested (short, technical, casual), apply it directly in the final message.
+- Keep the message concise unless the user explicitly requests detail.
+
 ## Quick Start
 
 ```bash

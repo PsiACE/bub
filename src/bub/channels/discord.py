@@ -174,7 +174,7 @@ class DiscordChannel(BaseChannel[discord.Message]):
 
         metadata_json = json.dumps({"channel_id": channel_id, **exclude_none(metadata)}, ensure_ascii=False)
         prompt = (
-            "IMPORTANT: Please reply to this Discord message unless otherwise instructed.\n\n"
+            "IMPORTANT: Please reply to this $discord message unless otherwise instructed.\n\n"
             f"{content}\n———————\n{metadata_json}"
         )
         self._latest_message_by_session[session_id] = message
@@ -185,7 +185,11 @@ class DiscordChannel(BaseChannel[discord.Message]):
         if output.error:
             parts.append(f"Error: {output.error}")
         content = "\n\n".join(parts).strip()
-        if not content or self._bot is None:
+        if content:
+            print(content, flush=True)
+
+        send_content = output.immediate_output.strip()
+        if not send_content:
             return
 
         channel = await self._resolve_channel(session_id)
@@ -195,7 +199,7 @@ class DiscordChannel(BaseChannel[discord.Message]):
 
         source = self._latest_message_by_session.get(session_id)
         reference = source.to_reference(fail_if_not_exists=False) if source is not None else None
-        for chunk in self._chunk_message(content):
+        for chunk in self._chunk_message(send_content):
             kwargs: dict[str, Any] = {"content": chunk}
             if reference is not None:
                 kwargs["reference"] = reference
@@ -241,6 +245,9 @@ class DiscordChannel(BaseChannel[discord.Message]):
         if self._config.allow_channels and channel_id not in self._config.allow_channels:
             return False
 
+        if not message.content.strip():
+            return False
+
         sender_tokens = {str(message.author.id), message.author.name}
         if getattr(message.author, "global_name", None):
             sender_tokens.add(cast(str, message.author.global_name))
@@ -252,10 +259,12 @@ class DiscordChannel(BaseChannel[discord.Message]):
             )
             return False
 
-        if isinstance(message.channel, discord.DMChannel):
-            return True
-
-        if message.content.startswith(f"{self._config.command_prefix}bub"):
+        if (
+            isinstance(message.channel, discord.DMChannel)
+            or "bub" in message.content.lower()
+            or self._is_bub_scoped_thread(message)
+            or message.content.startswith(f"{self._config.command_prefix}bub")
+        ):
             return True
 
         bot_user = self._bot.user if self._bot is not None else None
@@ -269,6 +278,15 @@ class DiscordChannel(BaseChannel[discord.Message]):
             return False
         resolved = ref.resolved
         return bool(isinstance(resolved, discord.Message) and resolved.author and resolved.author.id == bot_user.id)
+
+    @staticmethod
+    def _is_bub_scoped_thread(message: discord.Message) -> bool:
+        channel = message.channel
+        thread_name = getattr(channel, "name", None)
+        if not isinstance(thread_name, str):
+            return False
+        is_thread = isinstance(channel, discord.Thread) or getattr(channel, "parent", None) is not None
+        return is_thread and thread_name.lower().startswith("bub")
 
     @staticmethod
     def _parse_message(message: discord.Message) -> tuple[str, dict[str, Any] | None]:
