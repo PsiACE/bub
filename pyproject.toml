@@ -24,7 +24,6 @@ dependencies = [
     "republic>=0.3.0",
     "rich>=13.0.0",
     "prompt-toolkit>=3.0.0",
-    "blinker>=1.8.2",
     "python-telegram-bot>=21.0",
     "html2markdown>=0.1.7",
     "loguru>=0.7.2",
