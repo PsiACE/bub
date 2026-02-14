@@ -74,7 +74,7 @@ Bot: [edits message 123] "Analysis complete. Found 3 issues:" + newline + "1. ..
 
 **IMPORTANT: Active Response Policy**
 
-When `BUB_MESSAGE_CHANNEL` environment variable is NOT set to "telegram", Bub should be more proactive in sending responses:
+Bub should be more proactive in sending responses:
 - Send progress updates for long-running tasks
 - Send immediate confirmations when receiving commands
 - Send status notifications for important events
@@ -107,18 +107,18 @@ curl "https://api.telegram.org/bot${BUB_TELEGRAM_TOKEN}/getUpdates"
 
 ```bash
 # Progress notification
-uv run ~/.agent/skills/telegram/scripts/telegram_send.py -c <CHAT_ID> -m "⏳ Processing step 2/5..." -t $BUB_TELEGRAM_TOKEN
+uv run ./scripts/telegram_send.py -c <CHAT_ID> -m "⏳ Processing step 2/5..." -t $BUB_TELEGRAM_TOKEN
 
 # With markdown formatting
-uv run ~/.agent/skills/telegram/scripts/telegram_send.py -c <CHAT_ID> -m "✅ *Done*: Build step completed" -t $BUB_TELEGRAM_TOKEN
+uv run ./scripts/telegram_send.py -c <CHAT_ID> -m "✅ *Done*: Build step completed" -t $BUB_TELEGRAM_TOKEN
 ```
 
 ### Task completion notification
-uv run ~/.agent/skills/telegram/scripts/telegram_send.py -c <CHAT_ID> -m "Task completed! Here are the results..." -t $BUB_TELEGRAM_TOKEN
+uv run ./scripts/telegram_send.py -c <CHAT_ID> -m "Task completed! Here are the results..." -t $BUB_TELEGRAM_TOKEN
 
 ## Script Reference
 
-See `scripts/telegram_send.py` for the full implementation.
+See `./scripts/telegram_send.py` for the full implementation.
 
 ### Arguments (telegram_send.py)
 
