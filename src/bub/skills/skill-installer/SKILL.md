@@ -9,12 +9,10 @@ metadata:
 
 Helps install skills. By default these are from https://github.com/openai/skills/tree/main/skills/.curated, but users can also provide other locations. Experimental skills live in https://github.com/openai/skills/tree/main/skills/.experimental and can be installed the same way.
 
-Use the helper scripts based on the task:
+Use `npx skills` based on the task:
 - List skills when the user asks what is available, or if the user uses this skill without specifying what to do. Default listing is `.curated`, but you can pass `--path skills/.experimental` when they ask about experimental skills.
 - Install from the curated list when the user provides a skill name.
 - Install from another repo when the user provides a GitHub repo/path (including private repos).
-
-Install skills with the helper scripts.
 
 ## Install Location Policy
 
@@ -38,34 +36,29 @@ Which ones would you like installed?
 
 After installing a skill, tell the user: "Restart Bub to pick up new skills."
 
-## Scripts
+## Commands
 
-All of these scripts use network, so when running in the sandbox, request escalation when running them.
+All of these commands use network.
 
-- `uv run scripts/list-skills.py` (prints skills list with installed annotations)
-- `uv run scripts/list-skills.py --format json`
-- Example (experimental list): `uv run scripts/list-skills.py --path skills/.experimental`
-- `uv run scripts/install-skill-from-github.py --repo <owner>/<repo> --path <path/to/skill> [<path/to/skill> ...]`
-- `uv run scripts/install-skill-from-github.py --url https://github.com/<owner>/<repo>/tree/<ref>/<path>`
-- Example (experimental skill): `uv run scripts/install-skill-from-github.py --repo openai/skills --path skills/.experimental/<skill-name>`
-- Project-local install example: `BUB_SKILLS_HOME="$workspace/.agent/skills" uv run scripts/install-skill-from-github.py --repo openai/skills --path skills/.curated/<skill-name>`
-- Global install example: `uv run scripts/install-skill-from-github.py --repo openai/skills --path skills/.curated/<skill-name>`
+- List curated skills: `npx skills add openai/skills --list --skill '*' --agent antigravity --yes`
+- List experimental skills: `npx skills add https://github.com/openai/skills/tree/main/skills/.experimental --list --skill '*' --agent antigravity --yes`
+- Install curated skill (project-local): `npx skills add https://github.com/openai/skills/tree/main/skills/.curated/<skill-name> --agent antigravity --yes`
+- Install curated skill (global): `npx skills add https://github.com/openai/skills/tree/main/skills/.curated/<skill-name> --agent antigravity --yes --global`
+- Install from URL: `npx skills add https://github.com/<owner>/<repo>/tree/<ref>/<path> --agent antigravity --yes`
+- Install from shorthand: `npx skills add <owner>/<repo>@<skill-name> --agent antigravity --yes`
+- Show installed skills in current scope: `npx skills list`
+- Show installed global skills: `npx skills list --global`
 
 ## Behavior and Options
 
-- Defaults to direct download for public GitHub repos.
-- If download fails with auth/permission errors, falls back to git sparse checkout.
-- Aborts if the destination skill directory already exists.
-- Installs into `$workspace/.agent/skills/<skill-name>` when `BUB_SKILLS_HOME="$workspace/.agent/skills"` is set.
-- Otherwise installs into `~/.agent/skills/<skill-name>` (global).
-- Multiple `--path` values install multiple skills in one run, each named from the path basename unless `--name` is supplied.
-- Options: `--ref <ref>` (default `main`), `--dest <path>`, `--method auto|download|git`.
-- When using `~` in paths, prefer `$HOME/...` in docs and examples. Quoted `"~"` does not expand in shell, and subprocess arguments may bypass shell expansion entirely.
+- `npx skills add` handles discovery and installation directly.
+- Use project scope by default; use `--global` for cross-workspace availability.
+- Always pass `--agent antigravity` so install location matches Bub discovery (`.agent/skills`).
+- Prefer non-interactive usage with `--yes` when you already know the target skill.
 
 ## Notes
 
-- Curated listing is fetched from `https://github.com/openai/skills/tree/main/skills/.curated` via the GitHub API. If it is unavailable, explain the error and exit.
-- Private GitHub repos can be accessed via existing git credentials or optional `GITHUB_TOKEN`/`GH_TOKEN` for download.
-- Git fallback tries HTTPS first, then SSH.
+- Curated/experimental listings are resolved by `npx skills add ... --list`.
+- Private GitHub repos depend on `npx skills` auth support and your local git/npm credentials.
 - The skills at https://github.com/openai/skills/tree/main/skills/.system are preinstalled, so no need to help users install those. If they ask, just explain this. If they insist, you can download and overwrite.
-- Installed annotations come from the active skills directory (`$workspace/.agent/skills` when `BUB_SKILLS_HOME` is set, otherwise `~/.agent/skills`).
+- Installed annotations come from `npx skills list` in the active scope.

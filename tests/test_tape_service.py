@@ -104,4 +104,4 @@ def test_search_respects_limit_for_exact_match() -> None:
     matches = service.search("alpha", limit=1)
 
     assert len(matches) == 1
-    assert matches[0].id == 2
+    assert matches[0].id == 3

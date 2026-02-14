@@ -142,25 +142,32 @@ class TapeService:
             query = query.kinds(*kinds)
         return cast(list[TapeEntry], query.all())
 
-    def search(self, query: str, *, limit: int = 20) -> list[TapeEntry]:
+    def search(self, query: str, *, limit: int = 20, all_tapes: bool = False) -> list[TapeEntry]:
         normalized_query = query.strip().lower()
         if not normalized_query:
             return []
         results: list[TapeEntry] = []
-        for entry in self.read_entries():
-            payload_text = json.dumps(entry.payload, ensure_ascii=False)
-            entry_meta = getattr(entry, "meta", {})
-            meta_text = json.dumps(entry_meta, ensure_ascii=False)
-            kind_text = entry.kind.lower()
+        tapes = [self.tape]
+        if all_tapes:
+            tapes = [self._llm.tape(name) for name in self._store.list_tapes()]
 
-            if (
-                normalized_query in payload_text.lower()
-                or normalized_query in meta_text.lower()
-                or normalized_query in kind_text
-            ) or self._is_fuzzy_match(normalized_query, payload_text, meta_text, kind_text):
-                results.append(entry)
-                if len(results) >= limit:
-                    break
+        for tape in tapes:
+            count = 0
+            for entry in reversed(tape.read_entries()):
+                payload_text = json.dumps(entry.payload, ensure_ascii=False)
+                entry_meta = getattr(entry, "meta", {})
+                meta_text = json.dumps(entry_meta, ensure_ascii=False)
+                kind_text = entry.kind.lower()
+
+                if (
+                    normalized_query in payload_text.lower()
+                    or normalized_query in meta_text.lower()
+                    or normalized_query in kind_text
+                ) or self._is_fuzzy_match(normalized_query, payload_text, meta_text, kind_text):
+                    results.append(entry)
+                    count += 1
+                    if count >= limit:
+                        break
         return results
 
     @staticmethod

@@ -82,6 +82,7 @@ class ToolNameInput(BaseModel):
 class TapeSearchInput(BaseModel):
     query: str = Field(..., description="Query")
     limit: int = Field(default=20, ge=1)
+    all_tapes: bool = Field(default=False, description="Search all tapes instead of current tape")
 
 
 class TapeResetInput(BaseModel):
@@ -471,8 +472,8 @@ def register_builtin_tools(
 
     @register(name="tape.search", short_description="Search tape entries", model=TapeSearchInput)
     def tape_search(params: TapeSearchInput) -> str:
-        """Search entries in tape by query."""
-        entries = tape.search(params.query, limit=params.limit)
+        """Search entries in tape by query. In reverse order."""
+        entries = tape.search(params.query, limit=params.limit, all_tapes=params.all_tapes)
         if not entries:
             return "(no matches)"
         return "\n".join(f"#{entry.id} {entry.kind} {entry.payload}" for entry in entries)
