@@ -33,6 +33,7 @@ dependencies = [
     "rapidfuzz>=3.14.1",
     "discord-py>=2.6.4",
     "requests>=2.32.5",
+    "python-dotenv>=1.2.1",
 ]
 
 [project.urls]

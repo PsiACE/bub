@@ -188,9 +188,14 @@ def register_builtin_tools(
         """Execute bash in workspace. Non-zero exit raises an error.
         IMPORTANT: please DO NOT use sleep to delay execution, use schedule.add tool instead.
         """
+        import dotenv
+
         cwd = params.cwd or str(workspace)
         executable = shutil.which("bash") or "bash"
         env = dict(os.environ)
+        workspace_env = workspace / ".env"
+        if workspace_env.is_file():
+            env.update((k, v) for k, v in dotenv.dotenv_values(workspace_env).items() if v is not None)
         env[SESSION_ID_ENV_VAR] = session_id
         completed = await asyncio.create_subprocess_exec(
             executable,
