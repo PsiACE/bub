@@ -15,6 +15,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandl
 
 from bub.app.runtime import AppRuntime
 from bub.channels.base import BaseChannel, exclude_none
+from bub.channels.utils import resolve_proxy
 from bub.core.agent_loop import LoopResult
 
 NO_ACCESS_MESSAGE = "You are not allowed to chat with me. Please deploy your own instance of Bub."
@@ -101,6 +102,7 @@ class TelegramConfig:
     token: str
     allow_from: set[str]
     allow_chats: set[str]
+    proxy: str | None = None
 
 
 class TelegramChannel(BaseChannel[Message]):
@@ -116,6 +118,7 @@ class TelegramChannel(BaseChannel[Message]):
             token=settings.telegram_token,
             allow_from=set(settings.telegram_allow_from),
             allow_chats=set(settings.telegram_allow_chats),
+            proxy=settings.telegram_proxy,
         )
         self._app: Application | None = None
         self._typing_tasks: dict[str, asyncio.Task[None]] = {}
@@ -123,12 +126,17 @@ class TelegramChannel(BaseChannel[Message]):
 
     async def start(self, on_receive: Callable[[Message], Awaitable[None]]) -> None:
         self._on_receive = on_receive
+        proxy, _ = resolve_proxy(self._config.proxy)
         logger.info(
-            "telegram.start allow_from_count={} allow_chats_count={}",
+            "telegram.start allow_from_count={} allow_chats_count={} proxy_enabled={}",
             len(self._config.allow_from),
             len(self._config.allow_chats),
+            bool(proxy),
         )
-        self._app = Application.builder().token(self._config.token).build()
+        builder = Application.builder().token(self._config.token)
+        if proxy:
+            builder = builder.proxy(proxy).get_updates_proxy(proxy)
+        self._app = builder.build()
         self._app.add_handler(CommandHandler("start", self._on_start))
         self._app.add_handler(CommandHandler("bub", self._on_text, has_args=True, block=False))
         self._app.add_handler(MessageHandler(BubMessageFilter() & ~filters.COMMAND, self._on_text, block=False))

@@ -15,6 +15,7 @@ def _build_channel() -> TelegramChannel:
             telegram_token="token",  # noqa: S106
             telegram_allow_from=[],
             telegram_allow_chats=[],
+            telegram_proxy=None,
         )
     )
     return TelegramChannel(runtime)

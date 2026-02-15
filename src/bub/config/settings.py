@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     telegram_token: str | None = None
     telegram_allow_from: list[str] = Field(default_factory=list)
     telegram_allow_chats: list[str] = Field(default_factory=list)
+    telegram_proxy: str | None = Field(default=None)
 
     discord_enabled: bool = False
     discord_token: str | None = None
