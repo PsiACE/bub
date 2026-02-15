@@ -13,9 +13,6 @@ Telegram Bot Message Editor
 Edit an existing message via Telegram Bot API.
 Uses telegramify_markdown to convert markdown to Telegram MarkdownV2 format.
 
-Usage:
-    python telegram_edit.py --chat-id <CHAT_ID> --message-id <MSG_ID> --message "Updated!"
-    python telegram_edit.py -c 123456 -m 789 -m "New content"
 """
 
 import argparse

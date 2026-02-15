@@ -109,11 +109,6 @@ uv run ./scripts/telegram_edit.py \
   --chat-id <CHAT_ID> \
   --message-id <MESSAGE_ID> \
   --text "<TEXT>"
-
-# Show chat action (typing/progress indicator)
-uv run ./scripts/telegram_typing.py \
-  --chat-id <CHAT_ID> \
-  --action typing
 ```
 
 ## Script Interface Reference
@@ -131,12 +126,6 @@ uv run ./scripts/telegram_typing.py \
 - `--message-id`, `-m`: required
 - `--text`, `-t`: required
 - `--token`: optional (normally not needed)
-
-### `telegram_typing.py`
-
-- `--chat-id`, `-c`: required
-- `--action`, `-a`: optional, default `typing`
-- `--token`, `-t`: optional (normally not needed)
 
 ## Failure Handling
 
