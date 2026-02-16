@@ -16,6 +16,9 @@ class _Settings:
 class _Runtime:
     settings = _Settings()
 
+    def install_hooks(self, manager: ChannelManager) -> None:
+        pass
+
 
 class _ChannelRaisesOnStop(BaseChannel[object]):
     name = "bad"
