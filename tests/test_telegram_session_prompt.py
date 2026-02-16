@@ -25,6 +25,7 @@ def _build_message(*, text: str = "hello", chat_id: int = 123, message_id: int =
     user = SimpleNamespace(id=42, username="tester", full_name="Test User", is_bot=False)
     return SimpleNamespace(
         chat_id=chat_id,
+        chat=SimpleNamespace(type="private"),
         message_id=message_id,
         text=text,
         caption=None,
@@ -49,8 +50,7 @@ async def test_get_session_prompt_wraps_text_with_notice_and_metadata() -> None:
     session_id, prompt = await channel.get_session_prompt(message)  # type: ignore[arg-type]
 
     assert session_id == "telegram:123"
-    assert prompt.startswith("IMPORTANT: Please reply to this Telegram message unless otherwise instructed.\n\n")
-    assert "\n\nhello world\n———————\n" in prompt
+    assert prompt.startswith("hello world\n———————\n")
 
     metadata_json = prompt.split("\n———————\n", 1)[1]
     data = json.loads(metadata_json)
