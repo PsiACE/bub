@@ -20,6 +20,7 @@ class ChannelManager:
         self._channel_tasks: list[asyncio.Task[None]] = []
         for channel_cls in self.default_channels():
             self.register(channel_cls)
+        runtime.install_hooks(self)
 
     def register[T: type[BaseChannel]](self, channel: T) -> T:
         self._channels[channel.name] = channel(self.runtime)
@@ -51,7 +52,6 @@ class ChannelManager:
 
     def default_channels(self) -> list[type[BaseChannel]]:
         """Return the built-in channels."""
-
         result: list[type[BaseChannel]] = []
 
         if self.runtime.settings.telegram_enabled:
