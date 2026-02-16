@@ -178,6 +178,7 @@ class TelegramChannel(BaseChannel[Message]):
 
         # Pass comma commands directly to the input handler
         if content.strip().startswith(","):
+            logger.info("telegram.inbound.command chat_id={} content={}", chat_id, content)
             return session_id, content
 
         metadata: dict[str, Any] = {
@@ -188,6 +189,13 @@ class TelegramChannel(BaseChannel[Message]):
             "sender_id": str(message.from_user.id) if message.from_user else "",
             "date": message.date.timestamp() if message.date else None,
         }
+        logger.info(
+            "telegram.inbound.message chat_id={} user_id={} username={} content={}",
+            chat_id,
+            metadata["sender_id"],
+            metadata["username"],
+            content,
+        )
 
         if media:
             metadata["media"] = media
@@ -247,18 +255,9 @@ class TelegramChannel(BaseChannel[Message]):
         if text.startswith("/bot ") or text.startswith("/bub "):
             text = text[5:]
 
-        logger.info(
-            "telegram.inbound chat_id={} sender_id={} username={} content={}",
-            chat_id,
-            user.id,
-            user.username or "",
-            text[:100],  # Log first 100 chars to avoid verbose logs
-        )
-
         if self._on_receive is None:
             logger.warning("telegram.inbound no handler for received messages")
             return
-
         await self._start_typing(chat_id)
         try:
             await self._on_receive(update.message)
