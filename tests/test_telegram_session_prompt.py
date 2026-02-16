@@ -58,6 +58,7 @@ async def test_get_session_prompt_wraps_text_with_notice_and_metadata() -> None:
     assert data["message_id"] == 10
     assert data["type"] == "text"
     assert data["sender_id"] == "42"
+    assert data["sender_is_bot"] is False
 
 
 @pytest.mark.asyncio

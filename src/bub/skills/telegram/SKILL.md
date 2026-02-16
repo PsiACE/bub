@@ -28,9 +28,11 @@ Collect these before execution:
 ## Execution Policy
 
 1. If handling a direct user message in Telegram and `message_id` is known, prefer reply mode (`--reply-to`).
-2. For long-running tasks, optionally send one progress message, then edit that same message for final status.
-3. Keep content concise and action-oriented.
-4. Use literal newlines in message text when line breaks are needed.
+2. If source metadata says sender is a bot (`sender_is_bot=true`), do not use reply mode.
+3. In the bot-source case, send a normal message and prefix content with `@<sender_id>` (or the provided source user id).
+4. For long-running tasks, optionally send one progress message, then edit that same message for final status.
+5. Keep content concise and action-oriented.
+6. Use literal newlines in message text when line breaks are needed.
 
 ## Active Response Policy
 
@@ -82,6 +84,13 @@ uv run ./scripts/telegram_send.py \
   --message "<TEXT>" \
   --reply-to <MESSAGE_ID>
 
+# Source message sender is bot: no direct reply, use @user_id style
+uv run ./scripts/telegram_send.py \
+  --chat-id <CHAT_ID> \
+  --message "<TEXT>" \
+  --source-is-bot \
+  --source-user-id <USER_ID>
+
 # Edit existing message
 uv run ./scripts/telegram_edit.py \
   --chat-id <CHAT_ID> \
@@ -99,6 +108,8 @@ For other actions that not covered by these scripts, use `curl` to call Telegram
 - `--message`, `-m`: required
 - `--reply-to`, `-r`: optional
 - `--token`, `-t`: optional (normally not needed)
+- `--source-is-bot`: optional flag, disables reply mode and switches to `@user_id` style
+- `--source-user-id`: optional, required when `--source-is-bot` is set
 
 ### `telegram_edit.py`
 

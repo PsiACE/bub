@@ -71,7 +71,13 @@ def edit_message(bot_token: str, chat_id: str, message_id: int, text: str) -> di
     return response.json()
 
 
-def send_message(bot_token: str, chat_id: str, text: str, reply_to_message_id: int | None = None) -> dict:
+def send_message(
+    bot_token: str,
+    chat_id: str,
+    text: str,
+    reply_to_message_id: int | None = None,
+    mention_user_id: str | None = None,
+) -> dict:
     """
     Send a message via Telegram Bot API.
 
@@ -82,6 +88,7 @@ def send_message(bot_token: str, chat_id: str, text: str, reply_to_message_id: i
         chat_id: Target chat ID
         text: Message text (will be converted to MarkdownV2)
         reply_to_message_id: Optional message ID to reply to
+        mention_user_id: Optional user ID to prefix with @ mention style
 
     Returns:
         API response as dict
@@ -90,6 +97,8 @@ def send_message(bot_token: str, chat_id: str, text: str, reply_to_message_id: i
 
     # Unescape \\n sequences to real newlines (bash/argparse converts real newlines to \\n)
     text = unescape_newlines(text)
+    if mention_user_id:
+        text = f"@{mention_user_id} {text}"
 
     # Convert markdown to Telegram MarkdownV2 format
     converted_text = markdownify(text).rstrip("\n")
@@ -109,34 +118,10 @@ def send_message(bot_token: str, chat_id: str, text: str, reply_to_message_id: i
     return response.json()
 
 
-def send_to_multiple(bot_token: str, chat_ids: list[str], text: str) -> list[dict]:
-    """
-    Send message to multiple chat IDs.
-
-    Args:
-        bot_token: Telegram bot token
-        chat_ids: List of target chat IDs
-        text: Message text (will be converted to MarkdownV2)
-
-    Returns:
-        List of API responses
-    """
-    results = []
-    for chat_id in chat_ids:
-        try:
-            result = send_message(bot_token, chat_id.strip(), text)
-            results.append({"chat_id": chat_id, "success": True, "response": result})
-            print(f"✅ Sent to {chat_id}")
-        except Exception as e:
-            results.append({"chat_id": chat_id, "success": False, "error": str(e)})
-            print(f"❌ Failed to send to {chat_id}: {e}")
-    return results
-
-
 def main():
     parser = argparse.ArgumentParser(description="Send messages via Telegram Bot API (auto-converts to MarkdownV2)")
     parser.add_argument(
-        "--chat-id", "-c", required=True, help="Target chat ID (comma-separated for multiple recipients)"
+        "--chat-id", "-c", required=True, help="Target chat ID"
     )
     parser.add_argument(
         "--message",
@@ -146,6 +131,15 @@ def main():
     )
     parser.add_argument("--token", "-t", help="Bot token (defaults to BUB_TELEGRAM_TOKEN env var)")
     parser.add_argument("--reply-to", "-r", type=int, help="Message ID to reply to (creates threaded conversation)")
+    parser.add_argument(
+        "--source-is-bot",
+        action="store_true",
+        help="Set when source message sender is a bot; disables reply mode and switches to @user_id style send",
+    )
+    parser.add_argument(
+        "--source-user-id",
+        help="Source user ID for @user_id prefix when --source-is-bot is enabled",
+    )
 
     args = parser.parse_args()
 
@@ -156,26 +150,27 @@ def main():
         sys.exit(1)
 
     # Parse chat IDs
-    chat_ids = [cid.strip() for cid in args.chat_id.split(",")]
+    chat_id = args.chat_id.strip()
+    reply_to = args.reply_to
+    mention_user_id = None
+    if args.source_is_bot:
+        if not args.source_user_id:
+            print("❌ Error: --source-user-id is required when --source-is-bot is enabled")
+            sys.exit(1)
+        reply_to = None
+        mention_user_id = args.source_user_id
 
     # Send messages
-    if len(chat_ids) == 1:
-        try:
-            result = send_message(bot_token, chat_ids[0], args.message, args.reply_to)
-            print(f"✅ Message sent successfully to {chat_ids[0]} (MarkdownV2)")
-        except requests.HTTPError as e:
-            print(f"❌ HTTP Error: {e}")
-            print(f"   Response: {e.response.text}")
-            sys.exit(1)
-        except Exception as e:
-            print(f"❌ Error: {e}")
-            sys.exit(1)
-    else:
-        print(f"📤 Sending to {len(chat_ids)} recipients...")
-        results = send_to_multiple(bot_token, chat_ids, args.message)
-
-        success_count = sum(1 for r in results if r["success"])
-        print(f"\n📊 Summary: {success_count}/{len(chat_ids)} messages sent")
+    try:
+        send_message(bot_token, chat_id, args.message, reply_to, mention_user_id)
+        print(f"✅ Message sent successfully to {chat_id} (MarkdownV2)")
+    except requests.HTTPError as e:
+        print(f"❌ HTTP Error: {e}")
+        print(f"   Response: {e.response.text}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

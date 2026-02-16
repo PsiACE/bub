@@ -187,6 +187,7 @@ class TelegramChannel(BaseChannel[Message]):
             "username": message.from_user.username if message.from_user else "",
             "full_name": message.from_user.full_name if message.from_user else "",
             "sender_id": str(message.from_user.id) if message.from_user else "",
+            "sender_is_bot": message.from_user.is_bot if message.from_user else None,
             "date": message.date.timestamp() if message.date else None,
         }
         logger.info(
