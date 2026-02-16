@@ -5,6 +5,8 @@ description: |
   Use when Bub needs to: (1) Send messages to Discord channels, (2) Create Discord bot with discord.py,
   (3) Handle Discord events (on_message, on_member_join, etc.), (4) Work with Discord webhooks,
   or (5) Any Discord-related functionality.
+metadata:
+  channel: discord
 ---
 
 # Discord Bot Skill

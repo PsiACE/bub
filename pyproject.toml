@@ -34,6 +34,7 @@ dependencies = [
     "discord-py>=2.6.4",
     "requests>=2.32.5",
     "python-dotenv>=1.2.1",
+    "any-llm-sdk[anthropic]>=1.8.0",
 ]
 
 [project.urls]

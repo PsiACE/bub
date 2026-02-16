@@ -6,6 +6,8 @@ description: |
   (2) Reply to a specific Telegram message with reply_to_message_id,
   (3) Edit an existing Telegram message, or (4) Push proactive Telegram notifications
   when working outside an active Telegram session.
+metadata:
+  channel: telegram
 ---
 
 # Telegram Skill
@@ -13,30 +15,6 @@ description: |
 Agent-facing execution guide for Telegram outbound communication.
 
 Assumption: `BUB_TELEGRAM_TOKEN` is already available.
-
-## Trigger Conditions
-
-Use this skill when the task requires Telegram Bot API actions:
-
-- Send message to one or more `chat_id`
-- Reply to a specific incoming Telegram message
-- Edit an existing Telegram message
-- Send chat action (`typing`, `record_voice`, etc.) during long processing
-- Proactive notification when current session is not Telegram
-
-Typical trigger phrases:
-
-- "send to telegram"
-- "reply in telegram"
-- "edit telegram message"
-- "notify telegram group"
-
-## Non-Trigger Conditions
-
-Do not use this skill when:
-
-- No Telegram destination (`chat_id`) is provided or derivable
-- The request is not about Telegram delivery
 
 ## Required Inputs
 
@@ -111,6 +89,8 @@ uv run ./scripts/telegram_edit.py \
   --text "<TEXT>"
 ```
 
+For other actions that not covered by these scripts, use `curl` to call Telegram Bot API directly with the provided token.
+
 ## Script Interface Reference
 
 ### `telegram_send.py`
@@ -136,11 +116,3 @@ uv run ./scripts/telegram_edit.py \
   - what failed
   - what was already completed
   - what will happen next (retry/manual action/escalation)
-
-## Output Contract
-
-When this skill is triggered for message drafting tasks:
-
-- Return the final Telegram message body only.
-- Do not include process narration or meta commentary in the message body.
-- Apply requested tone directly (short, formal, technical, casual).

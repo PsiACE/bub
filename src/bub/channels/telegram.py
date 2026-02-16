@@ -95,6 +95,9 @@ class BubMessageFilter(filters.MessageFilter):
         return reply_to_message.from_user.id == bot_id
 
 
+MESSAGE_FILTER = BubMessageFilter()
+
+
 @dataclass(frozen=True)
 class TelegramConfig:
     """Telegram adapter config."""
@@ -139,7 +142,7 @@ class TelegramChannel(BaseChannel[Message]):
         self._app = builder.build()
         self._app.add_handler(CommandHandler("start", self._on_start))
         self._app.add_handler(CommandHandler("bub", self._on_text, has_args=True, block=False))
-        self._app.add_handler(MessageHandler(BubMessageFilter() & ~filters.COMMAND, self._on_text, block=False))
+        self._app.add_handler(MessageHandler(~filters.COMMAND, self._on_text, block=False))
         await self._app.initialize()
         await self._app.start()
         updater = self._app.updater
@@ -164,7 +167,9 @@ class TelegramChannel(BaseChannel[Message]):
             self._app = None
             logger.info("telegram.stopped")
 
-    async def get_session_prompt(self, message: Message) -> tuple[str, str]:
+    async def get_session_prompt(self, message: Message) -> tuple[str, str] | None:
+        if MESSAGE_FILTER.filter(message) is False:
+            return None
         chat_id = str(message.chat_id)
         session_id = f"{self.name}:{chat_id}"
         content, media = self._parse_message(message)
@@ -194,8 +199,8 @@ class TelegramChannel(BaseChannel[Message]):
         if reply_meta:
             metadata["reply_to_message"] = reply_meta
 
-        metadata_json = json.dumps({"chat_id": chat_id, **metadata}, ensure_ascii=False)
-        prompt = f"IMPORTANT: Please reply to this Telegram message unless otherwise instructed.\n\n{content}\n———————\n{metadata_json}"
+        metadata_json = json.dumps({"channel": self.name, "chat_id": chat_id, **metadata}, ensure_ascii=False)
+        prompt = f"{content}\n———————\n{metadata_json}"
         return session_id, prompt
 
     async def process_output(self, session_id: str, output: LoopResult) -> None:

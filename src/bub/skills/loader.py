@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
 
 import yaml
 
@@ -18,7 +19,8 @@ class SkillMetadata:
     name: str
     description: str
     location: Path
-    source: str
+    metadata: dict[str, Any] | None = None
+    source: str = "unknown"
 
 
 def discover_skills(workspace_path: Path) -> list[SkillMetadata]:
@@ -73,11 +75,12 @@ def _read_skill(skill_dir: Path, *, source: str) -> SkillMetadata | None:
     metadata = _parse_frontmatter(content)
     name = str(metadata.get("name") or skill_dir.name).strip()
     description = str(metadata.get("description") or "No description provided.").strip()
+    meta = cast(dict[str, Any], metadata.get("metadata"))
 
     if not name:
         return None
 
-    return SkillMetadata(name=name, description=description, location=skill_file.resolve(), source=source)
+    return SkillMetadata(name=name, description=description, location=skill_file.resolve(), source=source, metadata=meta)
 
 
 def _parse_frontmatter(content: str) -> dict[str, object]:

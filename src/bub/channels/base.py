@@ -31,8 +31,10 @@ class BaseChannel[T](ABC):
         """Start the channel and set up the receive callback."""
 
     @abstractmethod
-    async def get_session_prompt(self, message: T) -> tuple[str, str]:
-        """Get the session id and prompt text for the given message."""
+    async def get_session_prompt(self, message: T) -> tuple[str, str] | None:
+        """Get the session id and prompt text for the given message.
+        If None is returned, the message will be ignored.
+        """
         pass
 
     @abstractmethod
@@ -43,7 +45,10 @@ class BaseChannel[T](ABC):
     async def run_prompt(self, message: T) -> None:
         """Run a prompt based on the received message."""
         try:
-            session_id, prompt = await self.get_session_prompt(message)
+            result = await self.get_session_prompt(message)
+            if result is None:
+                return
+            session_id, prompt = result
             output = await self.runtime.handle_input(session_id, prompt)
             await self.process_output(session_id, output)
         except Exception:

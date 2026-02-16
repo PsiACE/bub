@@ -93,7 +93,7 @@ class DiscordChannel(BaseChannel[discord.Message]):
             self._bot = None
             logger.info("discord.stopped")
 
-    async def get_session_prompt(self, message: discord.Message) -> tuple[str, str]:
+    async def get_session_prompt(self, message: discord.Message) -> tuple[str, str] | None:
         channel_id = str(message.channel.id)
         session_id = f"{self.name}:{channel_id}"
         content, media = self._parse_message(message)
@@ -124,7 +124,9 @@ class DiscordChannel(BaseChannel[discord.Message]):
         if reply_meta:
             metadata["reply_to_message"] = reply_meta
 
-        metadata_json = json.dumps({"channel_id": channel_id, **exclude_none(metadata)}, ensure_ascii=False)
+        metadata_json = json.dumps(
+            {"channel": "discord", "channel_id": channel_id, **exclude_none(metadata)}, ensure_ascii=False
+        )
         prompt = (
             "IMPORTANT: Please reply to this $discord message unless otherwise instructed.\n\n"
             f"{content}\n———————\n{metadata_json}"

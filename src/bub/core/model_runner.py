@@ -13,7 +13,7 @@ from republic import Tool, ToolAutoResult
 
 from bub.core.router import AssistantRouteResult, InputRouter
 from bub.skills.loader import SkillMetadata
-from bub.skills.view import render_compact_skills
+from bub.skills.view import render_skill_prompt
 from bub.tape.service import TapeService
 from bub.tools.progressive import ProgressiveToolView
 from bub.tools.view import render_tool_prompt_block
@@ -192,7 +192,7 @@ class ModelRunner:
         blocks.append(_runtime_contract())
         blocks.append(render_tool_prompt_block(self._tool_view))
 
-        compact_skills = render_compact_skills(self._list_skills())
+        compact_skills = render_skill_prompt(self._list_skills())
         if compact_skills:
             blocks.append(compact_skills)
         return "\n\n".join(block for block in blocks if block.strip())
@@ -240,11 +240,19 @@ class _ChatResult:
 def _runtime_contract() -> str:
     return (
         "<runtime_contract>\n"
-        "1) Use function calling tools for all actions (file ops, shell, web, tape, skills).\n"
+        "1) Use tool calls for all actions (file ops, shell, web, tape, skills).\n"
         "2) Do not emit comma-prefixed commands in normal flow; use tool calls instead.\n"
         "3) If a compatibility fallback is required, runtime can still parse comma commands.\n"
         "4) Never emit '<command ...>' blocks yourself; those are runtime-generated.\n"
         "5) When enough evidence is collected, return plain natural language answer.\n"
         "6) Use '$name' hints to request detail expansion for tools/skills when needed.\n"
         "</runtime_contract>"
+        "<response_instruct>"
+        "Route your response to the same channel the message came from (inferred from `channel` in the message metadata).\n"
+        "There is a skill named `{channel}` for each channel that you need to figure out how to send a reponse to that channel.\n"
+        "**Response rules:**\n"
+        "- Not every event requires a response; it is OK to finish without replying.\n"
+        "- If needed, you may respond more than once because the input may contain multiple intents.\n"
+        "- **If a response is needed, send it via the channel-specific skill(s) before finish.**\n"
+        "</response_instruct>"
     )
