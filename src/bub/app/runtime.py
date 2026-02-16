@@ -196,9 +196,12 @@ class AppRuntime:
 
     def install_hooks(self, channel_manager: ChannelManager) -> None:
         """Install hooks for cross-cutting concerns like channel integration."""
+        import sys
+
         hooks_module_str = os.getenv("BUB_HOOKS_MODULE")
         if not hooks_module_str:
             return
+        logger.info("sys.path for hooks module: {}", sys.path)
         try:
             module = importlib.import_module(hooks_module_str)
         except ImportError as e:
