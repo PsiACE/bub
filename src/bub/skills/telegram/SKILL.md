@@ -29,7 +29,7 @@ Collect these before execution:
 
 1. If handling a direct user message in Telegram and `message_id` is known, prefer reply mode (`--reply-to`).
 2. If source metadata says sender is a bot (`sender_is_bot=true`), do not use reply mode.
-3. In the bot-source case, send a normal message and prefix content with `@<sender_id>` (or the provided source user id).
+3. In the bot-source case, send a normal message and prefix content with `@<sender_username>` (or the provided source username).
 4. For long-running tasks, optionally send one progress message, then edit that same message for final status.
 5. Keep content concise and action-oriented.
 6. Use literal newlines in message text when line breaks are needed.
@@ -89,7 +89,7 @@ uv run ./scripts/telegram_send.py \
   --chat-id <CHAT_ID> \
   --message "<TEXT>" \
   --source-is-bot \
-  --source-user-id <USER_ID>
+  --source-username <USERNAME>
 
 # Edit existing message
 uv run ./scripts/telegram_edit.py \

@@ -76,7 +76,7 @@ def send_message(
     chat_id: str,
     text: str,
     reply_to_message_id: int | None = None,
-    mention_user_id: str | None = None,
+    mention_username: str | None = None,
 ) -> dict:
     """
     Send a message via Telegram Bot API.
@@ -88,7 +88,7 @@ def send_message(
         chat_id: Target chat ID
         text: Message text (will be converted to MarkdownV2)
         reply_to_message_id: Optional message ID to reply to
-        mention_user_id: Optional user ID to prefix with @ mention style
+        mention_username: Optional username to prefix with @ mention style
 
     Returns:
         API response as dict
@@ -97,8 +97,8 @@ def send_message(
 
     # Unescape \\n sequences to real newlines (bash/argparse converts real newlines to \\n)
     text = unescape_newlines(text)
-    if mention_user_id:
-        text = f"@{mention_user_id} {text}"
+    if mention_username:
+        text = f"@{mention_username} {text}"
 
     # Convert markdown to Telegram MarkdownV2 format
     converted_text = markdownify(text).rstrip("\n")
@@ -134,11 +134,11 @@ def main():
     parser.add_argument(
         "--source-is-bot",
         action="store_true",
-        help="Set when source message sender is a bot; disables reply mode and switches to @user_id style send",
+        help="Set when source message sender is a bot; disables reply mode and switches to @username style send",
     )
     parser.add_argument(
-        "--source-user-id",
-        help="Source user ID for @user_id prefix when --source-is-bot is enabled",
+        "--source-username",
+        help="Source username for @username prefix when --source-is-bot is enabled",
     )
 
     args = parser.parse_args()
@@ -152,17 +152,17 @@ def main():
     # Parse chat IDs
     chat_id = args.chat_id.strip()
     reply_to = args.reply_to
-    mention_user_id = None
+    mention_username = None
     if args.source_is_bot:
-        if not args.source_user_id:
-            print("❌ Error: --source-user-id is required when --source-is-bot is enabled")
+        if not args.source_username:
+            print("❌ Error: --source-username is required when --source-is-bot is enabled")
             sys.exit(1)
         reply_to = None
-        mention_user_id = args.source_user_id
+        mention_username = args.source_username
 
     # Send messages
     try:
-        send_message(bot_token, chat_id, args.message, reply_to, mention_user_id)
+        send_message(bot_token, chat_id, args.message, reply_to, mention_username)
         print(f"✅ Message sent successfully to {chat_id} (MarkdownV2)")
     except requests.HTTPError as e:
         print(f"❌ HTTP Error: {e}")
