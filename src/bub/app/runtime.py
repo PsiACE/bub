@@ -135,6 +135,7 @@ class AppRuntime:
             model_timeout_seconds=self.settings.model_timeout_seconds,
             base_system_prompt=self.settings.system_prompt,
             get_workspace_system_prompt=lambda: read_workspace_agents_prompt(self.workspace),
+            allow_assistant_commands=self.settings.allow_assistant_commands,
         )
         loop = AgentLoop(router=router, model_runner=runner, tape=tape)
         runtime = SessionRuntime(session_id=session_id, loop=loop, tape=tape, model_runner=runner, tool_view=tool_view)

@@ -109,7 +109,10 @@ class InputRouter:
             exit_requested=False,
         )
 
-    async def route_assistant(self, raw: str) -> AssistantRouteResult:
+    async def route_assistant(self, raw: str, *, allow_commands: bool = False) -> AssistantRouteResult:
+        if not allow_commands:
+            return AssistantRouteResult(visible_text=raw.strip(), next_prompt="", exit_requested=False)
+
         visible_lines: list[str] = []
         command_blocks: list[str] = []
         exit_requested = False
