@@ -161,15 +161,16 @@ def main():
         mention_username = args.source_username
 
     # Send messages
+    # Use ASCII status tags for better PowerShell rendering.
     try:
         send_message(bot_token, chat_id, args.message, reply_to, mention_username)
-        print(f"✅ Message sent successfully to {chat_id} (MarkdownV2)")
+        print(f"[OK] Message sent successfully to {chat_id} (MarkdownV2)")
     except requests.HTTPError as e:
-        print(f"❌ HTTP Error: {e}")
+        print(f"[ERROR] HTTP Error: {e}")
         print(f"   Response: {e.response.text}")
         sys.exit(1)
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"[ERROR] {e}")
         sys.exit(1)
 
 

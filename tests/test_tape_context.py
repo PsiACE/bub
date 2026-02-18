@@ -46,4 +46,86 @@ def test_default_tape_context_handles_result_without_calls() -> None:
     entries = [TapeEntry.tool_result([{"status": "ok"}])]
     messages = context.select(entries, context)
 
-    assert messages == [{"role": "tool", "content": '{"status": "ok"}'}]
+    assert messages == []
+
+
+def test_default_tape_context_splits_concatenated_tool_arguments() -> None:
+    context = default_tape_context()
+    assert context.select is not None
+
+    entries = [
+        TapeEntry.tool_call(
+            [
+                {
+                    "id": "call-1",
+                    "type": "function",
+                    "function": {
+                        "name": "bash",
+                        "arguments": '{"cmd":"echo 1"}{"cmd":"echo 2"}',
+                    },
+                }
+            ]
+        ),
+        TapeEntry.tool_result(["ok-1", "ok-2"]),
+    ]
+
+    messages = context.select(entries, context)
+    assert messages[0]["role"] == "assistant"
+    assert len(messages[0]["tool_calls"]) == 2
+    assert messages[0]["tool_calls"][0]["function"]["arguments"] == '{"cmd":"echo 1"}'
+    assert messages[0]["tool_calls"][1]["function"]["arguments"] == '{"cmd":"echo 2"}'
+    assert messages[1]["tool_call_id"] == "call-1"
+    assert messages[2]["tool_call_id"] == "call-1__2"
+
+
+def test_default_tape_context_drops_invalid_tool_call_arguments() -> None:
+    context = default_tape_context()
+    assert context.select is not None
+
+    entries = [
+        TapeEntry.tool_call(
+            [
+                {
+                    "id": "call-1",
+                    "type": "function",
+                    "function": {
+                        "name": "bash",
+                        "arguments": '{"cmd":"echo 1"}this-is-bad',
+                    },
+                }
+            ]
+        ),
+        TapeEntry.tool_result(["ignored"]),
+    ]
+
+    messages = context.select(entries, context)
+    assert messages == []
+
+
+def test_default_tape_context_trims_unmatched_split_tool_calls() -> None:
+    context = default_tape_context()
+    assert context.select is not None
+
+    entries = [
+        TapeEntry.tool_call(
+            [
+                {
+                    "id": "call-1",
+                    "type": "function",
+                    "function": {
+                        "name": "bash",
+                        "arguments": '{"cmd":"echo 1"}{"cmd":"echo 2"}',
+                    },
+                }
+            ]
+        ),
+        TapeEntry.tool_result(["only-one-result"]),
+    ]
+
+    messages = context.select(entries, context)
+    assert len(messages) == 2
+    assert messages[0]["role"] == "assistant"
+    assert len(messages[0]["tool_calls"]) == 1
+    assert messages[0]["tool_calls"][0]["id"] == "call-1"
+    assert messages[1]["role"] == "tool"
+    assert messages[1]["tool_call_id"] == "call-1"

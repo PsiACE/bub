@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Any
 
 import pytest
 from republic import ToolAutoResult
@@ -80,22 +81,106 @@ class FakeToolView:
         return False
 
 
+@dataclass(frozen=True)
+class FakeStreamEvent:
+    kind: str
+    data: dict[str, Any]
+
+
+@dataclass
+class FakeAsyncStreamEvents:
+    events: list[FakeStreamEvent]
+    error: object | None = None
+
+    def __aiter__(self):
+        async def _iterator():
+            for event in self.events:
+                yield event
+
+        return _iterator()
+
+
+def _stream_from_tool_auto(output: ToolAutoResult) -> FakeAsyncStreamEvents:
+    if output.kind == "text":
+        text = output.text or ""
+        return FakeAsyncStreamEvents(
+            events=[
+                FakeStreamEvent("text", {"delta": text}),
+                FakeStreamEvent(
+                    "final",
+                    {
+                        "text": text,
+                        "tool_calls": [],
+                        "tool_results": [],
+                        "usage": None,
+                        "ok": True,
+                    },
+                ),
+            ]
+        )
+
+    if output.kind == "tools":
+        events = [
+            FakeStreamEvent("tool_call", {"index": idx, "call": call}) for idx, call in enumerate(output.tool_calls)
+        ]
+        events.extend(
+            [FakeStreamEvent("tool_result", {"index": idx, "result": result}) for idx, result in enumerate(output.tool_results)]
+        )
+        events.append(
+            FakeStreamEvent(
+                "final",
+                {
+                    "text": None,
+                    "tool_calls": output.tool_calls,
+                    "tool_results": output.tool_results,
+                    "usage": None,
+                    "ok": True,
+                },
+            )
+        )
+        return FakeAsyncStreamEvents(events=events)
+
+    error_kind = output.error.kind.value if output.error is not None else "unknown"
+    error_message = output.error.message if output.error is not None else "unknown"
+    return FakeAsyncStreamEvents(
+        events=[
+            FakeStreamEvent("error", {"kind": error_kind, "message": error_message}),
+            FakeStreamEvent(
+                "final",
+                {
+                    "text": None,
+                    "tool_calls": output.tool_calls,
+                    "tool_results": output.tool_results,
+                    "usage": None,
+                    "ok": False,
+                },
+            ),
+        ]
+    )
+
+
 @dataclass
 class FakeTapeImpl:
-    outputs: list[ToolAutoResult]
+    outputs: list[ToolAutoResult | FakeAsyncStreamEvents]
     calls: list[tuple[str, str, int]] = field(default_factory=list)
+    parallel_tool_calls_values: list[bool | None] = field(default_factory=list)
 
-    async def run_tools_async(
+    async def stream_events_async(
         self,
         *,
         prompt: str,
         system_prompt: str,
         max_tokens: int,
         tools: list[object],
+        parallel_tool_calls: bool | None = None,
         extra_headers: dict[str, str] | None = None,
-    ) -> ToolAutoResult:
+    ) -> FakeAsyncStreamEvents:
         self.calls.append((prompt, system_prompt, max_tokens))
-        return self.outputs.pop(0)
+        self.parallel_tool_calls_values.append(parallel_tool_calls)
+        output = self.outputs.pop(0)
+        if isinstance(output, FakeAsyncStreamEvents):
+            return output
+        return _stream_from_tool_auto(output)
 
 
 @dataclass
@@ -376,3 +461,131 @@ async def test_model_runner_refreshes_skills_from_provider_between_runs() -> Non
     _, second_system_prompt, _ = tape.tape.calls[1]
     assert "<available_skills>" in second_system_prompt
     assert "friendly-python" in second_system_prompt
+
+
+@pytest.mark.asyncio
+async def test_model_runner_reports_stream_error_event() -> None:
+    tape = FakeTapeService(
+        FakeTapeImpl(
+            outputs=[
+                FakeAsyncStreamEvents(
+                    events=[
+                        FakeStreamEvent(
+                            "error",
+                            {
+                                "kind": "provider",
+                                "message": "non-streaming is not supported",
+                            },
+                        ),
+                        FakeStreamEvent(
+                            "final",
+                            {
+                                "text": None,
+                                "tool_calls": [],
+                                "tool_results": [],
+                                "usage": None,
+                                "ok": False,
+                            },
+                        ),
+                    ]
+                )
+            ]
+        )
+    )
+    runner = ModelRunner(
+        tape=tape,  # type: ignore[arg-type]
+        router=AnySingleStepRouter(),  # type: ignore[arg-type]
+        tool_view=FakeToolView(),  # type: ignore[arg-type]
+        tools=[],
+        list_skills=lambda: [],
+        load_skill_body=lambda name: None,
+        model="anthropic:test",
+        max_steps=1,
+        max_tokens=512,
+        model_timeout_seconds=90,
+        base_system_prompt="base",
+        get_workspace_system_prompt=lambda: "",
+    )
+
+    result = await runner.run("start")
+    assert result.error == "provider: non-streaming is not supported"
+    assert tape.tape.parallel_tool_calls_values == [False]
+
+
+@pytest.mark.asyncio
+async def test_model_runner_does_not_send_parallel_tool_calls_to_non_anthropic() -> None:
+    tape = FakeTapeService(FakeTapeImpl(outputs=[ToolAutoResult.text_result("assistant-only")]))
+    runner = ModelRunner(
+        tape=tape,  # type: ignore[arg-type]
+        router=AnySingleStepRouter(),  # type: ignore[arg-type]
+        tool_view=FakeToolView(),  # type: ignore[arg-type]
+        tools=[],
+        list_skills=lambda: [],
+        load_skill_body=lambda name: None,
+        model="gemini:test",
+        max_steps=2,
+        max_tokens=512,
+        model_timeout_seconds=90,
+        base_system_prompt="base",
+        get_workspace_system_prompt=lambda: "",
+    )
+
+    result = await runner.run("start")
+    assert result.error is None
+    assert tape.tape.parallel_tool_calls_values == [None]
+
+
+@pytest.mark.asyncio
+async def test_model_runner_prefers_stream_error_over_tool_followup() -> None:
+    tape = FakeTapeService(
+        FakeTapeImpl(
+            outputs=[
+                FakeAsyncStreamEvents(
+                    events=[
+                        FakeStreamEvent(
+                            "error",
+                            {
+                                "kind": "tool",
+                                "message": "No runnable tools are available.",
+                            },
+                        ),
+                        FakeStreamEvent(
+                            "final",
+                            {
+                                "text": None,
+                                "tool_calls": [
+                                    {
+                                        "id": "call-1",
+                                        "type": "function",
+                                        "function": {"name": "fs.read", "arguments": '{"path":"a.txt"}'},
+                                    }
+                                ],
+                                "tool_results": [],
+                                "usage": None,
+                                "ok": False,
+                            },
+                        ),
+                    ]
+                ),
+                ToolAutoResult.text_result("assistant-only"),
+            ]
+        )
+    )
+    runner = ModelRunner(
+        tape=tape,  # type: ignore[arg-type]
+        router=AnySingleStepRouter(),  # type: ignore[arg-type]
+        tool_view=FakeToolView(),  # type: ignore[arg-type]
+        tools=[],
+        list_skills=lambda: [],
+        load_skill_body=lambda name: None,
+        model="anthropic:test",
+        max_steps=2,
+        max_tokens=512,
+        model_timeout_seconds=90,
+        base_system_prompt="base",
+        get_workspace_system_prompt=lambda: "",
+    )
+
+    result = await runner.run("start")
+    assert result.error == "tool: No runnable tools are available."
+    assert len(tape.tape.calls) == 1
