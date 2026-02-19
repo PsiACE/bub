@@ -31,8 +31,8 @@ Collect these before execution:
 2. If source metadata says sender is a bot (`sender_is_bot=true`), do not use reply mode.
 3. In the bot-source case, send a normal message and prefix content with `@<sender_username>` (or the provided source username).
 4. For long-running tasks, optionally send one progress message, then edit that same message for final status.
-5. Keep content concise and action-oriented.
-6. Use literal newlines in message text when line breaks are needed.
+5. Use literal newlines in message text when line breaks are needed.
+6. Avoid emitting HTML tags in message content; use Markdown for formatting instead.
 
 ## Active Response Policy
 
@@ -62,11 +62,8 @@ When the inbound Telegram message is voice:
 
 ## Reaction Policy
 
-When an inbound Telegram message evokes a strong emotional response:
-
-1. Send the normal reply first (or in the same handling flow)
-2. Optionally add a Telegram reaction as an emotional signal
-3. Do not use reaction as a replacement for the actual reply
+When an inbound Telegram message warrants acknowledgment but does not merit a full reply, use a Telegram reaction as the response.
+But when any explanation or details are needed, use a normal reply instead.
 
 ## Command Templates
 
