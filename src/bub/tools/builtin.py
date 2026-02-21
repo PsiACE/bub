@@ -208,8 +208,8 @@ def register_builtin_tools(
         )
         async with asyncio.timeout(params.timeout_seconds):
             stdout_bytes, stderr_bytes = await completed.communicate()
-        stdout_text = (stdout_bytes or b"").decode("utf-8").strip()
-        stderr_text = (stderr_bytes or b"").decode("utf-8").strip()
+        stdout_text = (stdout_bytes or b"").decode("utf-8", errors="replace").strip()
+        stderr_text = (stderr_bytes or b"").decode("utf-8", errors="replace").strip()
         if completed.returncode != 0:
             message = stderr_text or stdout_text or f"exit={completed.returncode}"
             raise RuntimeError(f"exit={completed.returncode}: {message}")

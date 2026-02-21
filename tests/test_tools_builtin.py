@@ -404,6 +404,29 @@ def test_bash_tool_inherits_runtime_session_id(
     assert kwargs["env"]["BUB_SESSION_ID"] == "cli:test"
 
 
+def test_bash_handles_non_utf8_output(tmp_path: Path, monkeypatch: Any, scheduler: BackgroundScheduler) -> None:
+    class _Completed:
+        returncode = 0
+
+        @staticmethod
+        async def communicate() -> tuple[bytes, bytes]:
+            # GBK-encoded bytes that cannot be decoded as UTF-8
+            return "微软".encode("gbk"), b""
+
+    async def _fake_create_subprocess_exec(*args: Any, **kwargs: Any) -> _Completed:
+        _ = (args, kwargs)
+        return _Completed()
+
+    monkeypatch.setattr("bub.tools.builtin.asyncio.create_subprocess_exec", _fake_create_subprocess_exec)
+
+    settings = Settings(_env_file=None, model="openrouter:test")
+    registry = _build_registry(tmp_path, settings, scheduler)
+    result = _execute_tool(registry, "bash", kwargs={"cmd": "echo hello"})
+
+    # Should contain replacement character instead of raising UnicodeDecodeError
+    assert "�" in result
+
+
 def test_tape_reset_also_clears_session_runtime_context(tmp_path: Path, scheduler: BackgroundScheduler) -> None:
     settings = Settings(_env_file=None, model="openrouter:test")
     runtime = _DummyRuntime(settings, scheduler)
