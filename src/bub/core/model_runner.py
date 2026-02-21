@@ -76,6 +76,7 @@ class ModelRunner:
         self._model_timeout_seconds = model_timeout_seconds
         self._base_system_prompt = base_system_prompt.strip()
         self._get_workspace_system_prompt = get_workspace_system_prompt
+        self._allow_assistant_commands = allow_assistant_commands
         self._expanded_skills: dict[str, str] = {}
 
     def reset_context(self) -> None:
@@ -128,7 +129,7 @@ class ModelRunner:
                 break
 
             self._activate_hints(assistant_text)
-            route = await self._router.route_assistant(assistant_text)
+            route = await self._router.route_assistant(assistant_text, allow_commands=self._allow_assistant_commands)
             self._consume_route(state, route)
             if not route.next_prompt:
                 break

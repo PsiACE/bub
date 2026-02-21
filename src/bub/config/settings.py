@@ -39,6 +39,10 @@ class Settings(BaseSettings):
 
     proactive_response: bool = False
 
+    # Security: by default, ignore comma-prefixed shell/internal commands emitted by the assistant.
+    # Human comma-prefixed commands are still honored.
+    allow_assistant_commands: bool = False
+
     telegram_enabled: bool = False
     telegram_token: str | None = None
     telegram_allow_from: list[str] = Field(default_factory=list)
