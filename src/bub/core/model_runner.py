@@ -6,10 +6,10 @@ import asyncio
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from loguru import logger
-from republic import Tool, ToolAutoResult
+from republic import Tool
 
 from bub.core.router import AssistantRouteResult, InputRouter
 from bub.skills.loader import SkillMetadata
@@ -47,6 +47,7 @@ class ModelRunner:
     """Runs assistant loop over tape with command-aware follow-up handling."""
 
     DEFAULT_HEADERS: ClassVar[dict[str, str]] = {"HTTP-Referer": "https://bub.build/", "X-Title": "Bub"}
+    SERIAL_TOOL_CALL_PROVIDERS: ClassVar[frozenset[str]] = frozenset({"anthropic", "vertexaianthropic"})
 
     def __init__(
         self,
@@ -166,14 +167,20 @@ class ModelRunner:
         system_prompt = self._render_system_prompt()
         try:
             async with asyncio.timeout(self._model_timeout_seconds):
-                output = await self._tape.tape.run_tools_async(
-                    prompt=prompt,
-                    system_prompt=system_prompt,
-                    max_tokens=self._max_tokens,
-                    tools=self._tools,
-                    extra_headers=self.DEFAULT_HEADERS,
+                stream_kwargs: dict[str, Any] = {
+                    "prompt": prompt,
+                    "system_prompt": system_prompt,
+                    "max_tokens": self._max_tokens,
+                    "tools": self._tools,
+                    "extra_headers": self.DEFAULT_HEADERS,
+                }
+                if self._needs_serial_tool_calls():
+                    stream_kwargs["parallel_tool_calls"] = False
+
+                stream = await self._tape.tape.stream_events_async(
+                    **stream_kwargs,
                 )
-                return _ChatResult.from_tool_auto(output)
+                return await self._read_stream_result(stream)
         except TimeoutError:
             return _ChatResult(
                 text="",
@@ -182,6 +189,31 @@ class ModelRunner:
         except Exception as exc:
             logger.exception("model.call.error")
             return _ChatResult(text="", error=f"model_call_error: {exc!s}")
+
+    def _needs_serial_tool_calls(self) -> bool:
+        provider, separator, _ = self._model.partition(":")
+        if not separator:
+            return False
+        return provider.casefold() in self.SERIAL_TOOL_CALL_PROVIDERS
+
+    async def _read_stream_result(self, stream: Any) -> _ChatResult:
+        final_event: dict[str, Any] | None = None
+        error_event: dict[str, Any] | None = None
+        async for event in stream:
+            event_kind = getattr(event, "kind", None)
+            event_data = getattr(event, "data", None)
+            if not isinstance(event_data, dict):
+                continue
+            if event_kind == "error":
+                error_event = event_data
+            elif event_kind == "final":
+                final_event = event_data
+
+        return _ChatResult.from_stream_events(
+            final_event=final_event,
+            stream_error=getattr(stream, "error", None),
+            error_event=error_event,
+        )
 
     def _render_system_prompt(self) -> str:
         blocks: list[str] = []
@@ -223,18 +255,54 @@ class _ChatResult:
     followup_prompt: str | None = None
 
     @classmethod
-    def from_tool_auto(cls, output: ToolAutoResult) -> _ChatResult:
-        if output.kind == "text":
-            return cls(text=output.text or "")
-        if output.kind == "tools":
+    def from_stream_events(
+        cls,
+        *,
+        final_event: dict[str, Any] | None,
+        stream_error: object | None,
+        error_event: dict[str, Any] | None,
+    ) -> _ChatResult:
+        if stream_error is not None:
+            return cls(text="", error=_format_stream_error(stream_error))
+
+        if final_event is None:
+            if error_event is not None:
+                return cls(text="", error=_format_error_event(error_event))
+            return cls(text="", error="stream_events_error: missing final event")
+
+        if final_event.get("ok") is False or error_event is not None:
+            return cls(text="", error=_format_error_event(error_event))
+
+        if final_event.get("tool_calls") or final_event.get("tool_results"):
             return cls(text="", followup_prompt=TOOL_CONTINUE_PROMPT)
 
-        if output.tool_calls or output.tool_results:
-            return cls(text="", followup_prompt=TOOL_CONTINUE_PROMPT)
+        if isinstance(final_text := final_event.get("text"), str):
+            return cls(text=final_text)
 
-        if output.error is None:
-            return cls(text="", error="tool_auto_error: unknown")
-        return cls(text="", error=f"{output.error.kind.value}: {output.error.message}")
+        return cls(text="", error="tool_auto_error: unknown")
+
+
+def _format_stream_error(error: object) -> str:
+    kind = getattr(error, "kind", None)
+    message = getattr(error, "message", None)
+    kind_value = getattr(kind, "value", kind)
+    if isinstance(kind_value, str) and isinstance(message, str):
+        return f"{kind_value}: {message}"
+    if isinstance(message, str):
+        return message
+    return str(error)
+
+
+def _format_error_event(error_event: dict[str, Any] | None) -> str:
+    if error_event is None:
+        return "tool_auto_error: unknown"
+    kind = error_event.get("kind")
+    message = error_event.get("message")
+    if isinstance(kind, str) and isinstance(message, str):
+        return f"{kind}: {message}"
+    if isinstance(message, str):
+        return message
+    return "tool_auto_error: unknown"
 
 
 def _runtime_contract() -> str:
