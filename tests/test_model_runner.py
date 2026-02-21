@@ -123,9 +123,10 @@ def _stream_from_tool_auto(output: ToolAutoResult) -> FakeAsyncStreamEvents:
         events = [
             FakeStreamEvent("tool_call", {"index": idx, "call": call}) for idx, call in enumerate(output.tool_calls)
         ]
-        events.extend(
-            [FakeStreamEvent("tool_result", {"index": idx, "result": result}) for idx, result in enumerate(output.tool_results)]
-        )
+        events.extend([
+            FakeStreamEvent("tool_result", {"index": idx, "result": result})
+            for idx, result in enumerate(output.tool_results)
+        ])
         events.append(
             FakeStreamEvent(
                 "final",

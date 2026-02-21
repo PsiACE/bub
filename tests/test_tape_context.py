@@ -54,18 +54,16 @@ def test_default_tape_context_splits_concatenated_tool_arguments() -> None:
     assert context.select is not None
 
     entries = [
-        TapeEntry.tool_call(
-            [
-                {
-                    "id": "call-1",
-                    "type": "function",
-                    "function": {
-                        "name": "bash",
-                        "arguments": '{"cmd":"echo 1"}{"cmd":"echo 2"}',
-                    },
-                }
-            ]
-        ),
+        TapeEntry.tool_call([
+            {
+                "id": "call-1",
+                "type": "function",
+                "function": {
+                    "name": "bash",
+                    "arguments": '{"cmd":"echo 1"}{"cmd":"echo 2"}',
+                },
+            }
+        ]),
         TapeEntry.tool_result(["ok-1", "ok-2"]),
     ]
 
@@ -83,18 +81,16 @@ def test_default_tape_context_drops_invalid_tool_call_arguments() -> None:
     assert context.select is not None
 
     entries = [
-        TapeEntry.tool_call(
-            [
-                {
-                    "id": "call-1",
-                    "type": "function",
-                    "function": {
-                        "name": "bash",
-                        "arguments": '{"cmd":"echo 1"}this-is-bad',
-                    },
-                }
-            ]
-        ),
+        TapeEntry.tool_call([
+            {
+                "id": "call-1",
+                "type": "function",
+                "function": {
+                    "name": "bash",
+                    "arguments": '{"cmd":"echo 1"}this-is-bad',
+                },
+            }
+        ]),
         TapeEntry.tool_result(["ignored"]),
     ]
 
@@ -107,18 +103,16 @@ def test_default_tape_context_trims_unmatched_split_tool_calls() -> None:
     assert context.select is not None
 
     entries = [
-        TapeEntry.tool_call(
-            [
-                {
-                    "id": "call-1",
-                    "type": "function",
-                    "function": {
-                        "name": "bash",
-                        "arguments": '{"cmd":"echo 1"}{"cmd":"echo 2"}',
-                    },
-                }
-            ]
-        ),
+        TapeEntry.tool_call([
+            {
+                "id": "call-1",
+                "type": "function",
+                "function": {
+                    "name": "bash",
+                    "arguments": '{"cmd":"echo 1"}{"cmd":"echo 2"}',
+                },
+            }
+        ]),
         TapeEntry.tool_result(["only-one-result"]),
     ]
 
