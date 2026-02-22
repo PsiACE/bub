@@ -5,36 +5,24 @@
 [![Commit activity](https://img.shields.io/github/commit-activity/m/bubbuild/bub)](https://github.com/bubbuild/bub/graphs/commit-activity)
 [![License](https://img.shields.io/github/license/bubbuild/bub)](LICENSE)
 
-Bub is a **batteries-included, hook-first AI framework**.
+Bub is a batteries-included, hook-first AI framework with a minimal core and skill-owned behavior.
 
-Bub is a collaborative agent for shared delivery workflows, evolving into a framework that helps other agents operate with the same collaboration model.
-It is not a personal-assistant shell: it is designed for shared environments where work must be inspectable, handoff-friendly, and operationally reliable.
+## Why Bub
 
-- model execution and tool loop
-- command routing and runtime tape behavior
-- input listener hooks (normalize + session resolution) in the same runtime process
-- CLI command registration
-- channel/bus behaviors provided by project skills
+Bub keeps the framework kernel small and stable, and moves runtime capabilities into skills.
+This makes behavior easy to evolve without forking the core.
 
-Built on [Republic](https://github.com/bubbuild/republic), Bub treats context as explicit assembly from verifiable interaction history, rather than opaque inherited state.
-This aligns with [Socialized Evaluation](https://psiace.me/posts/im-and-socialized-evaluation/): systems are judged by how well teams can inspect, review, and continue work together.
+## Design Principles
 
-- `cli`
-- `runtime` (Republic-driven runtime battery with routing, tools, and tape-backed sessions)
+- Minimal kernel for orchestration and safety boundaries
+- Skill-first extension model for runtime behavior
+- Standards-based skill metadata (`SKILL.md`)
+- Predictable override order across project, user, and builtin scopes
 
-## Runtime Defaults
+## Builtin Batteries
 
-- Without usable Republic model credentials, the framework still runs and returns prompt text as output.
-- `runtime` can be controlled with environment variables:
-  - `BUB_RUNTIME_ENABLED=1|0|auto`
-  - `BUB_MODEL`, `BUB_API_KEY`, `BUB_API_BASE`
-  - `BUB_RUNTIME_MAX_STEPS`, `BUB_RUNTIME_MAX_TOKENS`, `BUB_RUNTIME_MODEL_TIMEOUT_SECONDS`
-
-- Multi-operator collaboration in shared delivery environments.
-- Explicit command boundaries for predictable execution.
-- Verifiable history (`tape`, `anchor`, `handoff`) for audit and continuity.
-- Channel-neutral behavior across CLI and message channels.
-- Extensible tools and skills with a unified operator-facing workflow.
+- `cli`: command entrypoints and diagnostics
+- `runtime`: message handling, model/tool execution, and outbound rendering
 
 ## Quick Start
 
@@ -48,55 +36,15 @@ uv run bub skills
 BUB_RUNTIME_ENABLED=1 uv run bub run ",help"
 ```
 
-## Skill Layout
+## Documentation
 
-```bash
-BUB_MODEL=openrouter:qwen/qwen3-coder-next
-BUB_API_KEY=your_key_here
-```
+- `docs/index.md`: overview
+- `docs/features.md`: capability summary
+- `docs/architecture.md`: architecture principles and guarantees
+- `docs/skills.md`: skill authoring and extension model
+- `docs/cli.md`: command usage
 
-1. `<workspace>/.agents/skills`
-2. `~/.agents/skills`
-3. `src/bub_skills/`
-
-```bash
-uv run bub
-```
-
-## Interaction Model
-
-- `hello`: natural language routed to model.
-- `,help`: internal command.
-- `,git status`: shell command.
-- `, ls -la`: shell command (space after comma is optional).
-
-Common commands:
-
-```text
-,help
-,tools
-,tool.describe name=fs.read
-,skills.list
-,skills.describe name=friendly-python
-,handoff name=phase-1 summary="bootstrap done"
-,anchors
-,tape.info
-,tape.search query=error
-,tape.reset archive=true
-,quit
-```
-
-## Channel Runtime
-
-Telegram:
-
-```bash
-BUB_TELEGRAM_TOKEN=123456:token
-BUB_TELEGRAM_ALLOW_USERS=123456789,your_username
-uv run bub message
-```
-
-## Development
+## Development Checks
 
 ```bash
 uv run ruff check .

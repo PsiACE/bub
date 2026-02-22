@@ -6,7 +6,7 @@ from pathlib import Path
 
 from bub.envelope import content_of, field_of, normalize_envelope
 from bub.hookspecs import hookimpl
-from bub.skills.builtin.runtime.engine import RuntimeEngine
+from bub.skills.builtin.runtime.agents.bub.engine import RuntimeEngine
 from bub.types import Envelope, State
 
 

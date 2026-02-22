@@ -6,13 +6,13 @@
 uv run bub run "hello" --channel stdout --chat-id local
 ```
 
-## Force Republic model runtime
+## Run with runtime mode
 
 ```bash
 BUB_RUNTIME_ENABLED=1 uv run bub run "summarize current repo status"
 ```
 
-## Command-compatible mode through runtime
+## Command-style runtime input
 
 ```bash
 BUB_RUNTIME_ENABLED=1 uv run bub run ",help"
@@ -24,6 +24,8 @@ BUB_RUNTIME_ENABLED=1 uv run bub run ",help"
 uv run bub skills
 ```
 
+This command shows discovered skills and their current runtime health.
+
 ## List hook bindings
 
 ```bash
@@ -32,5 +34,6 @@ uv run bub hooks
 
 ## Notes
 
-- If Republic model runtime is unavailable (for example no API key), `bub run` still works and returns prompt text.
-- Session identity defaults to `channel:chat_id` unless `--session-id` is provided.
+- `--workspace` is supported on `run`, `skills`, and `hooks`
+- If runtime model is unavailable, `bub run` still returns a safe textual result
+- Session identity falls back to `channel:chat_id` when not provided explicitly

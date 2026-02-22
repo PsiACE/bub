@@ -9,13 +9,10 @@ copyright: Copyright (c) 2026 Bub Build contributors.
 
 nav:
   - Home: index.md
-  - Key Features: features.md
-  - Posts:
-      - "2026-03-01 · Socialized Evaluation and Agent Partnership": posts/2026-03-01-bub-socialized-evaluation-and-agent-partnership.md
-      - "2025-07-16 · Baby Bub Bootstrap Milestone": posts/2025-07-16-baby-bub-bootstrap-milestone.md
-  - Deployment: deployment.md
   - Architecture: architecture.md
+  - Skills: skills.md
   - CLI: cli.md
+  - Key Features: features.md
 
 plugins:
   - search

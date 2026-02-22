@@ -9,15 +9,15 @@ from bub.framework import BubFramework
 
 def _write_broken_skill(workspace: Path) -> None:
     broken = workspace / ".agent" / "skills" / "broken"
-    broken.mkdir(parents=True)
+    plugin_file = broken / "agents" / "bub" / "plugin.py"
+    plugin_file.parent.mkdir(parents=True)
+    plugin_file.write_text("import missing_module\n", encoding="utf-8")
     (broken / "SKILL.md").write_text(
         "\n".join(
             [
                 "---",
                 "name: broken",
                 "description: broken skill",
-                "kind: model",
-                "entrypoint: missing.module:plugin",
                 "---",
             ]
         ),
@@ -38,10 +38,10 @@ async def test_broken_skill_does_not_break_framework(tmp_path: Path) -> None:
 
 
 def _write_runtime_error_skill(workspace: Path) -> None:
-    package = workspace / "runtime_plugins"
-    package.mkdir(parents=True)
-    (package / "__init__.py").write_text("", encoding="utf-8")
-    (package / "broken_output.py").write_text(
+    skill_dir = workspace / ".agent" / "skills" / "broken-output"
+    plugin_file = skill_dir / "agents" / "bub" / "plugin.py"
+    plugin_file.parent.mkdir(parents=True)
+    plugin_file.write_text(
         "\n".join(
             [
                 "from bub.hookspecs import hookimpl",
@@ -57,16 +57,12 @@ def _write_runtime_error_skill(workspace: Path) -> None:
         encoding="utf-8",
     )
 
-    skill_dir = workspace / ".agent" / "skills" / "broken-output"
-    skill_dir.mkdir(parents=True)
     (skill_dir / "SKILL.md").write_text(
         "\n".join(
             [
                 "---",
                 "name: broken-output",
                 "description: runtime broken output skill",
-                "kind: output",
-                "entrypoint: runtime_plugins.broken_output:plugin",
                 "---",
             ]
         ),
@@ -75,9 +71,8 @@ def _write_runtime_error_skill(workspace: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_runtime_broken_skill_isolated_from_main_flow(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+async def test_runtime_broken_skill_isolated_from_main_flow(tmp_path: Path) -> None:
     _write_runtime_error_skill(tmp_path)
-    monkeypatch.syspath_prepend(str(tmp_path))
 
     framework = BubFramework(tmp_path)
     framework.load_skills()
