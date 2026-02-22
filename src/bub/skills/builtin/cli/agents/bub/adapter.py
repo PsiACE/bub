@@ -1,4 +1,4 @@
-"""Builtin CLI command hooks."""
+"""Builtin CLI command adapter."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from bub.hookspecs import hookimpl
 from bub.skills.loader import skill_bub_agent_profile_path
 
 
-class CliCoreSkill:
+class CliCoreAdapter:
     @hookimpl
     def register_cli_commands(self, app: typer.Typer) -> None:
         self._register_run(app)
@@ -62,8 +62,8 @@ class CliCoreSkill:
             framework = _load_framework(workspace)
             for status in framework.skill_statuses:
                 rendered = f"{status.skill.name} ({status.skill.source}) state={status.state}"
-                if status.plugin_path is not None:
-                    rendered += f" adapter={status.plugin_path}"
+                if status.adapter_path is not None:
+                    rendered += f" adapter={status.adapter_path}"
                 profile_path = skill_bub_agent_profile_path(status.skill)
                 if profile_path.is_file():
                     rendered += f" profile={profile_path}"
@@ -86,11 +86,11 @@ class CliCoreSkill:
             if not report:
                 typer.echo("(no hook implementations)")
                 return
-            for hook_name, plugins in report.items():
-                typer.echo(f"{hook_name}: {', '.join(plugins)}")
+            for hook_name, adapter_names in report.items():
+                typer.echo(f"{hook_name}: {', '.join(adapter_names)}")
 
 
-plugin = CliCoreSkill()
+adapter = CliCoreAdapter()
 
 
 def _load_framework(workspace: Path | None) -> BubFramework:

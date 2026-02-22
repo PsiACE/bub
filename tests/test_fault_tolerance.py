@@ -9,9 +9,9 @@ from bub.framework import BubFramework
 
 def _write_broken_skill(workspace: Path) -> None:
     broken = workspace / ".agent" / "skills" / "broken"
-    plugin_file = broken / "agents" / "bub" / "plugin.py"
-    plugin_file.parent.mkdir(parents=True)
-    plugin_file.write_text("import missing_module\n", encoding="utf-8")
+    adapter_file = broken / "agents" / "bub" / "adapter.py"
+    adapter_file.parent.mkdir(parents=True)
+    adapter_file.write_text("import missing_module\n", encoding="utf-8")
     (broken / "SKILL.md").write_text(
         "\n".join(
             [
@@ -39,9 +39,9 @@ async def test_broken_skill_does_not_break_framework(tmp_path: Path) -> None:
 
 def _write_runtime_error_skill(workspace: Path) -> None:
     skill_dir = workspace / ".agent" / "skills" / "broken-output"
-    plugin_file = skill_dir / "agents" / "bub" / "plugin.py"
-    plugin_file.parent.mkdir(parents=True)
-    plugin_file.write_text(
+    adapter_file = skill_dir / "agents" / "bub" / "adapter.py"
+    adapter_file.parent.mkdir(parents=True)
+    adapter_file.write_text(
         "\n".join(
             [
                 "from bub.hookspecs import hookimpl",
@@ -51,7 +51,7 @@ def _write_runtime_error_skill(workspace: Path) -> None:
                 "    def render_outbound(self, message, session_id, state, model_output):",
                 "        raise RuntimeError('output broke on purpose')",
                 "",
-                "plugin = BrokenOutputSkill()",
+                "adapter = BrokenOutputSkill()",
             ]
         ),
         encoding="utf-8",

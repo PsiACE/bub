@@ -36,7 +36,7 @@ Expected output characteristics:
 
 ## Bub Adapter
 
-- Bub adapter entrypoint: `agents/bub/plugin.py`.
+- Bub adapter entrypoint: `agents/bub/adapter.py`.
 - Bub adapter profile: `agents/bub/agent.yaml`.
 
 ## References

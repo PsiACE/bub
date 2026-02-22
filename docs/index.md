@@ -1,6 +1,6 @@
 # Bub
 
-Bub is a hook-first framework that keeps kernel responsibilities minimal and pushes behavior into skills.
+Bub is a skill-first framework that keeps kernel responsibilities minimal and pushes behavior into skills.
 
 ## Builtin Baseline
 

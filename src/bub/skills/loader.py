@@ -1,4 +1,4 @@
-"""Skill discovery and hook plugin loading."""
+"""Skill discovery and Bub runtime adapter loading."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ PROJECT_SKILLS_DIR = ".agent/skills"
 SKILL_FILE_NAME = "SKILL.md"
 AGENTS_DIR_NAME = "agents"
 BUB_AGENT_DIR_NAME = "bub"
-BUB_PLUGIN_FILE_NAME = "plugin.py"
+BUB_ADAPTER_FILE_NAME = "adapter.py"
 BUB_AGENT_PROFILE_FILE_NAME = "agent.yaml"
 SKILL_SOURCES = ("project", "global", "builtin")
 SKILL_NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -37,10 +37,10 @@ class SkillMetadata:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
-def discover_hook_skills(workspace_path: Path) -> list[SkillMetadata]:
-    """Discover skills that provide a Bub hook plugin module."""
+def discover_adapter_skills(workspace_path: Path) -> list[SkillMetadata]:
+    """Discover skills that provide a Bub runtime adapter module."""
 
-    return [skill for skill in discover_skills(workspace_path) if has_bub_adapter(skill)]
+    return [skill for skill in discover_skills(workspace_path) if has_bub_runtime_adapter(skill)]
 
 
 def discover_skills(workspace_path: Path) -> list[SkillMetadata]:
@@ -77,23 +77,23 @@ def load_skill_body(name: str, workspace_path: Path) -> str | None:
     return None
 
 
-def load_skill_plugin(skill: SkillMetadata) -> object:
-    """Load Bub adapter plugin object from `<skill>/agents/bub/plugin.py`."""
+def load_skill_adapter(skill: SkillMetadata) -> object:
+    """Load Bub adapter object from `<skill>/agents/bub/adapter.py`."""
 
-    plugin_file = skill_bub_plugin_path(skill)
-    if not plugin_file.is_file():
-        raise FileNotFoundError(f"{skill.name}: missing {AGENTS_DIR_NAME}/{BUB_AGENT_DIR_NAME}/{BUB_PLUGIN_FILE_NAME}")
+    adapter_file = skill_bub_adapter_path(skill)
+    if not adapter_file.is_file():
+        raise FileNotFoundError(f"{skill.name}: missing {AGENTS_DIR_NAME}/{BUB_AGENT_DIR_NAME}/{BUB_ADAPTER_FILE_NAME}")
 
-    module_name = _module_name_for_skill(skill=skill, plugin_file=plugin_file)
-    module = _load_module_from_file(module_name=module_name, plugin_file=plugin_file)
-    if not hasattr(module, "plugin"):
+    module_name = _module_name_for_skill(skill=skill, adapter_file=adapter_file)
+    module = _load_module_from_file(module_name=module_name, adapter_file=adapter_file)
+    if not hasattr(module, "adapter"):
         raise AttributeError(
-            f"{skill.name}: {AGENTS_DIR_NAME}/{BUB_AGENT_DIR_NAME}/{BUB_PLUGIN_FILE_NAME} must export attribute `plugin`"
+            f"{skill.name}: {AGENTS_DIR_NAME}/{BUB_AGENT_DIR_NAME}/{BUB_ADAPTER_FILE_NAME} must export attribute `adapter`"
         )
-    plugin = module.plugin
-    if plugin is None:
-        raise TypeError(f"{skill.name}: exported `plugin` must not be None")
-    return plugin
+    adapter = module.adapter
+    if adapter is None:
+        raise TypeError(f"{skill.name}: exported `adapter` must not be None")
+    return adapter
 
 
 def load_bub_agent_profile(skill: SkillMetadata) -> dict[str, object]:
@@ -228,28 +228,28 @@ def _builtin_skills_root() -> Path:
     return Path(__file__).resolve().parent / "builtin"
 
 
-def skill_bub_plugin_path(skill: SkillMetadata) -> Path:
-    return skill.location.parent / AGENTS_DIR_NAME / BUB_AGENT_DIR_NAME / BUB_PLUGIN_FILE_NAME
+def skill_bub_adapter_path(skill: SkillMetadata) -> Path:
+    return skill.location.parent / AGENTS_DIR_NAME / BUB_AGENT_DIR_NAME / BUB_ADAPTER_FILE_NAME
 
 
 def skill_bub_agent_profile_path(skill: SkillMetadata) -> Path:
     return skill.location.parent / AGENTS_DIR_NAME / BUB_AGENT_DIR_NAME / BUB_AGENT_PROFILE_FILE_NAME
 
 
-def has_bub_adapter(skill: SkillMetadata) -> bool:
-    return skill_bub_plugin_path(skill).is_file()
+def has_bub_runtime_adapter(skill: SkillMetadata) -> bool:
+    return skill_bub_adapter_path(skill).is_file()
 
 
-def _module_name_for_skill(*, skill: SkillMetadata, plugin_file: Path) -> str:
-    digest = hashlib.sha256(str(plugin_file).encode("utf-8")).hexdigest()[:12]
+def _module_name_for_skill(*, skill: SkillMetadata, adapter_file: Path) -> str:
+    digest = hashlib.sha256(str(adapter_file).encode("utf-8")).hexdigest()[:12]
     normalized_name = "".join(ch if ch.isalnum() else "_" for ch in f"{skill.source}_{skill.name}".lower())
     return f"bub_skill_{normalized_name}_{digest}"
 
 
-def _load_module_from_file(*, module_name: str, plugin_file: Path) -> ModuleType:
-    spec = importlib_util.spec_from_file_location(module_name, plugin_file)
+def _load_module_from_file(*, module_name: str, adapter_file: Path) -> ModuleType:
+    spec = importlib_util.spec_from_file_location(module_name, adapter_file)
     if spec is None or spec.loader is None:
-        raise ImportError(f"failed to build module spec for {plugin_file}")
+        raise ImportError(f"failed to build module spec for {adapter_file}")
 
     module = importlib_util.module_from_spec(spec)
     sys.modules.pop(module_name, None)

@@ -37,7 +37,7 @@ If names collide, higher-priority scope wins.
 ### Failure Isolation
 
 - Skill load failures are isolated
-- Hook execution failures are isolated per extension
+- Adapter execution failures are isolated per extension
 - The framework keeps the turn loop operational with safe fallbacks
 
 ## Non-goals
@@ -48,5 +48,5 @@ If names collide, higher-priority scope wins.
 
 ## See Also
 
-- `docs/skills.md` for skill contract and layout
-- `docs/cli.md` for command behavior
+- `skills.md` for skill contract and layout
+- `cli.md` for command behavior

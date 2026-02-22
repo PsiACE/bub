@@ -1,4 +1,4 @@
-"""Hook execution runtime with per-plugin fault isolation."""
+"""Hook execution runtime with per-adapter fault isolation."""
 
 from __future__ import annotations
 
@@ -76,7 +76,7 @@ class HookRuntime:
                     await value
             except Exception:
                 logger.opt(exception=True).warning(
-                    "hook.on_error_failed stage={} plugin={}",
+                    "hook.on_error_failed stage={} adapter={}",
                     stage,
                     impl.plugin_name or "<unknown>",
                 )
@@ -90,27 +90,27 @@ class HookRuntime:
                 value = impl.function(**call_kwargs)
             except Exception:
                 logger.opt(exception=True).warning(
-                    "hook.on_error_failed stage={} plugin={}",
+                    "hook.on_error_failed stage={} adapter={}",
                     stage,
                     impl.plugin_name or "<unknown>",
                 )
                 continue
             if inspect.isawaitable(value):
                 logger.warning(
-                    "hook.async_not_supported hook=on_error plugin={}",
+                    "hook.async_not_supported hook=on_error adapter={}",
                     impl.plugin_name or "<unknown>",
                 )
 
     def hook_report(self) -> dict[str, list[str]]:
-        """Build a hook->plugins mapping for diagnostics."""
+        """Build a hook->adapters mapping for diagnostics."""
 
         report: dict[str, list[str]] = {}
         for hook_name, hook_caller in sorted(self._plugin_manager.hook.__dict__.items()):
             if hook_name.startswith("_") or not hasattr(hook_caller, "get_hookimpls"):
                 continue
-            plugin_names = [impl.plugin_name for impl in hook_caller.get_hookimpls()]
-            if plugin_names:
-                report[hook_name] = plugin_names
+            adapter_names = [impl.plugin_name for impl in hook_caller.get_hookimpls()]
+            if adapter_names:
+                report[hook_name] = adapter_names
         return report
 
     async def _invoke_impl_async(
@@ -153,7 +153,7 @@ class HookRuntime:
             return _SKIP_VALUE
         if inspect.isawaitable(value):
             logger.warning(
-                "hook.async_not_supported hook={} plugin={}",
+                "hook.async_not_supported hook={} adapter={}",
                 hook_name,
                 impl.plugin_name or "<unknown>",
             )

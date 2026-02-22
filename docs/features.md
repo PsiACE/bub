@@ -2,7 +2,7 @@
 
 ## Framework
 
-- Hook-first extension model
+- Adapter-based extension model
 - Minimal kernel with clear failure boundaries
 - Deterministic turn orchestration
 

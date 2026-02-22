@@ -4,7 +4,7 @@ from pathlib import Path
 
 from bub.skills.loader import (
     SkillMetadata,
-    discover_hook_skills,
+    discover_adapter_skills,
     discover_skills,
     load_bub_agent_profile,
     load_bub_agent_profile_file,
@@ -12,7 +12,7 @@ from bub.skills.loader import (
 )
 
 
-def _write_skill(root: Path, *, name: str, with_plugin: bool) -> None:
+def _write_skill(root: Path, *, name: str, with_adapter: bool) -> None:
     root.mkdir(parents=True)
     (root / "SKILL.md").write_text(
         "\n".join(
@@ -25,10 +25,10 @@ def _write_skill(root: Path, *, name: str, with_plugin: bool) -> None:
         ),
         encoding="utf-8",
     )
-    if with_plugin:
-        plugin_file = root / "agents" / "bub" / "plugin.py"
-        plugin_file.parent.mkdir(parents=True)
-        plugin_file.write_text(
+    if with_adapter:
+        adapter_file = root / "agents" / "bub" / "adapter.py"
+        adapter_file.parent.mkdir(parents=True)
+        adapter_file.write_text(
             "\n".join(
                 [
                     "from bub.hookspecs import hookimpl",
@@ -38,20 +38,20 @@ def _write_skill(root: Path, *, name: str, with_plugin: bool) -> None:
                     "    def resolve_session(self, message):",
                     "        return None",
                     "",
-                    "plugin = DemoSkill()",
+                    "adapter = DemoSkill()",
                 ]
             ),
             encoding="utf-8",
         )
 
 
-def _write_skill_with_frontmatter(root: Path, *, frontmatter_lines: list[str], with_plugin: bool) -> None:
+def _write_skill_with_frontmatter(root: Path, *, frontmatter_lines: list[str], with_adapter: bool) -> None:
     root.mkdir(parents=True)
     (root / "SKILL.md").write_text("\n".join(frontmatter_lines), encoding="utf-8")
-    if with_plugin:
-        plugin_file = root / "agents" / "bub" / "plugin.py"
-        plugin_file.parent.mkdir(parents=True)
-        plugin_file.write_text(
+    if with_adapter:
+        adapter_file = root / "agents" / "bub" / "adapter.py"
+        adapter_file.parent.mkdir(parents=True)
+        adapter_file.write_text(
             "\n".join(
                 [
                     "from bub.hookspecs import hookimpl",
@@ -61,14 +61,14 @@ def _write_skill_with_frontmatter(root: Path, *, frontmatter_lines: list[str], w
                     "    def resolve_session(self, message):",
                     "        return None",
                     "",
-                    "plugin = DemoSkill()",
+                    "adapter = DemoSkill()",
                 ]
             ),
             encoding="utf-8",
         )
 
 
-def test_discover_hook_skills_respects_project_over_global(monkeypatch, tmp_path: Path) -> None:
+def test_discover_adapter_skills_respects_project_over_global(monkeypatch, tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     fake_home = tmp_path / "home"
@@ -76,40 +76,40 @@ def test_discover_hook_skills_respects_project_over_global(monkeypatch, tmp_path
     _write_skill(
         workspace / ".agent" / "skills" / "demo",
         name="demo",
-        with_plugin=True,
+        with_adapter=True,
     )
     _write_skill(
         fake_home / ".agent" / "skills" / "demo",
         name="demo",
-        with_plugin=True,
+        with_adapter=True,
     )
 
     monkeypatch.setenv("HOME", str(fake_home))
 
-    skills = discover_hook_skills(workspace)
+    skills = discover_adapter_skills(workspace)
     demo = next(skill for skill in skills if skill.name == "demo")
     assert demo.source == "project"
     assert demo.location.parent == workspace / ".agent" / "skills" / "demo"
 
 
-def test_discover_hook_skills_filters_non_hook_skills(tmp_path: Path) -> None:
+def test_discover_adapter_skills_filters_non_adapter_skills(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
     _write_skill(
-        workspace / ".agent" / "skills" / "no-plugin",
-        name="no-plugin",
-        with_plugin=False,
+        workspace / ".agent" / "skills" / "no-adapter",
+        name="no-adapter",
+        with_adapter=False,
     )
     _write_skill(
         workspace / ".agent" / "skills" / "valid",
         name="valid",
-        with_plugin=True,
+        with_adapter=True,
     )
 
-    names = [skill.name for skill in discover_hook_skills(workspace)]
+    names = [skill.name for skill in discover_adapter_skills(workspace)]
     assert "valid" in names
-    assert "no-plugin" not in names
+    assert "no-adapter" not in names
 
 
 def test_discover_skills_rejects_name_mismatch_with_directory(tmp_path: Path) -> None:
@@ -123,7 +123,7 @@ def test_discover_skills_rejects_name_mismatch_with_directory(tmp_path: Path) ->
             "description: mismatch",
             "---",
         ],
-        with_plugin=True,
+        with_adapter=True,
     )
 
     names = {skill.name for skill in discover_skills(workspace)}
@@ -142,7 +142,7 @@ def test_discover_skills_rejects_invalid_name_pattern(tmp_path: Path) -> None:
             "description: invalid pattern",
             "---",
         ],
-        with_plugin=True,
+        with_adapter=True,
     )
 
     names = {skill.name for skill in discover_skills(workspace)}
@@ -160,7 +160,7 @@ def test_discover_skills_rejects_missing_required_description(tmp_path: Path) ->
             "name: no-description",
             "---",
         ],
-        with_plugin=True,
+        with_adapter=True,
     )
 
     names = {skill.name for skill in discover_skills(workspace)}
@@ -181,7 +181,7 @@ def test_discover_skills_rejects_invalid_metadata_type(tmp_path: Path) -> None:
             "  version: 1",
             "---",
         ],
-        with_plugin=True,
+        with_adapter=True,
     )
 
     names = {skill.name for skill in discover_skills(workspace)}
@@ -205,7 +205,7 @@ def test_discover_skills_accepts_spec_optional_fields(tmp_path: Path) -> None:
             "  version: '1.0'",
             "---",
         ],
-        with_plugin=True,
+        with_adapter=True,
     )
 
     names = {skill.name for skill in discover_skills(workspace)}
@@ -224,7 +224,7 @@ def test_discover_skills_rejects_unknown_frontmatter_fields(tmp_path: Path) -> N
             "entrypoint: should-not-be-here",
             "---",
         ],
-        with_plugin=True,
+        with_adapter=True,
     )
 
     names = {skill.name for skill in discover_skills(workspace)}
