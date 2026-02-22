@@ -1,4 +1,4 @@
-"""Builtin runtime hook implementation."""
+"""Builtin runtime adapter."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from bub.skills.builtin.runtime.agents.bub.engine import RuntimeEngine
 from bub.types import Envelope, State
 
 
-class RuntimeSkill:
+class RuntimeAdapter:
     @hookimpl
     def normalize_inbound(self, message: Envelope) -> Envelope:
         envelope = normalize_envelope(message)
@@ -65,4 +65,4 @@ def _engine_for_workspace(workspace: Path) -> RuntimeEngine:
 
 
 _ENGINE_CACHE: dict[Path, RuntimeEngine] = {}
-plugin = RuntimeSkill()
+adapter = RuntimeAdapter()

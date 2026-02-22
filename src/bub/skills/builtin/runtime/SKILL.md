@@ -15,7 +15,7 @@ description: Stateful runtime orchestration skill. Use when implementing or debu
 
 ## Bub Adapter
 
-- Bub adapter entrypoint: `agents/bub/plugin.py`.
+- Bub adapter entrypoint: `agents/bub/adapter.py`.
 - Bub adapter profile: `agents/bub/agent.yaml`.
 
 ## Examples

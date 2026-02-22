@@ -12,9 +12,9 @@ from bub.framework import BubFramework
 
 def _write_stateful_test_skill(workspace: Path) -> None:
     skill_dir = workspace / ".agent" / "skills" / "stateful-hooks"
-    plugin_file = skill_dir / "agents" / "bub" / "plugin.py"
-    plugin_file.parent.mkdir(parents=True)
-    plugin_file.write_text("from fixtures_plugins.stateful_hooks import plugin\n", encoding="utf-8")
+    adapter_file = skill_dir / "agents" / "bub" / "adapter.py"
+    adapter_file.parent.mkdir(parents=True)
+    adapter_file.write_text("from fixtures_plugins.stateful_hooks import adapter\n", encoding="utf-8")
     (skill_dir / "SKILL.md").write_text(
         "\n".join(
             [

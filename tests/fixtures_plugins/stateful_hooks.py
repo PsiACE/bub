@@ -36,4 +36,4 @@ class StatefulHooksSkill:
         self._states[session_id] = dict(state)
 
 
-plugin = StatefulHooksSkill()
+adapter = StatefulHooksSkill()

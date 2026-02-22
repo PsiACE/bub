@@ -14,7 +14,7 @@
 
 ## Failure Isolation
 
-1. Isolate plugin failures from framework core flow.
+1. Isolate adapter failures from framework core flow.
 2. Emit actionable error details for diagnostics.
 3. Keep fallback response behavior deterministic.
 
@@ -22,5 +22,5 @@
 
 1. Message normalization with extra whitespace
 2. Session fallback without explicit `session_id`
-3. Runtime plugin failure does not break core processing
+3. Runtime adapter failure does not break core processing
 4. Outbound fallback when no renderer returns output
