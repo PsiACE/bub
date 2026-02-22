@@ -11,11 +11,18 @@ import typer
 from bub.envelope import field_of
 from bub.framework import BubFramework
 from bub.hookspecs import hookimpl
+from bub.skills.loader import skill_bub_agent_profile_path
 
 
 class CliCoreSkill:
     @hookimpl
     def register_cli_commands(self, app: typer.Typer) -> None:
+        self._register_run(app)
+        self._register_skills(app)
+        self._register_hooks(app)
+
+    @staticmethod
+    def _register_run(app: typer.Typer) -> None:
         @app.command("run")
         def run(
             message: str = typer.Argument(..., help="Inbound message content"),
@@ -44,6 +51,8 @@ class CliCoreSkill:
                 target_chat = str(field_of(outbound, "chat_id", "local"))
                 typer.echo(f"[{target_channel}:{target_chat}] {rendered}")
 
+    @staticmethod
+    def _register_skills(app: typer.Typer) -> None:
         @app.command("skills")
         def list_skills(
             workspace: Path | None = typer.Option(None, "--workspace", "-w"),  # noqa: B008
@@ -51,13 +60,21 @@ class CliCoreSkill:
             """Show loaded and failed skills."""
 
             framework = _load_framework(workspace)
-            for record in framework.loaded_skills:
-                typer.echo(
-                    f"loaded {record.skill.name} ({record.skill.source}) -> {record.skill.metadata.get('entrypoint')}"
-                )
-            for skill_name, error in framework.failed_skills.items():
-                typer.echo(f"failed {skill_name}: {error}")
+            for status in framework.skill_statuses:
+                rendered = f"{status.skill.name} ({status.skill.source}) state={status.state}"
+                if status.plugin_path is not None:
+                    rendered += f" adapter={status.plugin_path}"
+                profile_path = skill_bub_agent_profile_path(status.skill)
+                if profile_path.is_file():
+                    rendered += f" profile={profile_path}"
+                else:
+                    rendered += f" profile=missing:{profile_path}"
+                if status.detail:
+                    rendered += f" detail={status.detail}"
+                typer.echo(rendered)
 
+    @staticmethod
+    def _register_hooks(app: typer.Typer) -> None:
         @app.command("hooks")
         def list_hooks(
             workspace: Path | None = typer.Option(None, "--workspace", "-w"),  # noqa: B008

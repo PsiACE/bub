@@ -9,9 +9,10 @@ copyright: Maintained by <a href="https://psiace.me">Chojan Shang</a>.
 
 nav:
   - Home: index.md
-  - Key Features: features.md
   - Architecture: architecture.md
+  - Skills: skills.md
   - CLI: cli.md
+  - Key Features: features.md
 
 plugins:
   - search

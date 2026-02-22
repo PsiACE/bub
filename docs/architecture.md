@@ -1,50 +1,52 @@
 # Architecture
 
-## Framework Kernel
+Bub uses a minimal-kernel architecture: the core orchestrates a turn, while skills provide behavior.
 
-- `BubFramework`
-- `BubHookSpecs`
-- `Skill Loader`
+## Principles
 
-The kernel only coordinates a turn. It does not own channel, model, or tool behavior.
-Those concerns are provided by skills through hooks.
+- Keep core responsibilities small and stable
+- Put runtime behavior behind explicit extension points
+- Preserve predictable override semantics
+- Prefer graceful degradation over global failure
 
-The framework is batteries-included: default skills provide a runnable baseline,
-while every battery can be overridden by project or global skills.
+## Guarantees
 
-Current builtin baseline:
+### Deterministic Turn Lifecycle
 
-- `cli` skill: registers `run`, `skills`, and `hooks` commands
-- `runtime` skill: input listener hooks, model runtime, tool loop, command-compatible routing
+Each inbound message follows a stable lifecycle:
 
-## Hook Pipeline
+1. normalize input
+2. resolve session
+3. load context/state
+4. build model input
+5. run model/tools
+6. persist state
+7. render outbound messages
+8. dispatch output
 
-1. `normalize_inbound`
-2. `resolve_session`
-3. `load_state`
-4. `build_prompt`
-5. `run_model`
-6. `save_state`
-7. `render_outbound`
-8. `dispatch_outbound`
+### Deterministic Skill Resolution
 
-## Extension Ownership
+Skills are resolved by scope priority:
 
-- `cli` commands are registered by `register_cli_commands`.
-- `bus` instances are provided by `provide_bus`.
-- `message` shape is defined by users and adapted by skills.
+1. project scope
+2. user scope
+3. builtin scope
 
-## Runtime Safety
+If names collide, higher-priority scope wins.
 
-- Skill load failures are isolated and tracked in `failed_skills`.
-- Hook runtime failures are isolated per plugin and reported via `on_error`.
-- If no model skill returns output, the framework falls back to the prompt text to keep the process alive.
+### Failure Isolation
 
-## Skill Resolution
+- Skill load failures are isolated
+- Hook execution failures are isolated per extension
+- The framework keeps the turn loop operational with safe fallbacks
 
-1. workspace `.agent/skills`
-2. user `~/.agent/skills`
-3. builtin skills
+## Non-goals
 
-If two skills share the same name, higher precedence source wins.
-At runtime, project skills execute before global and builtin implementations.
+- Enforcing one global business schema for all messages
+- Hardcoding domain behavior into the kernel
+- Merging duplicate skill names across scopes
+
+## See Also
+
+- `docs/skills.md` for skill contract and layout
+- `docs/cli.md` for command behavior

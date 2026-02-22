@@ -1,19 +1,17 @@
-# Bub Framework
+# Bub
 
-Bub it. Build it.
+Bub is a hook-first framework that keeps kernel responsibilities minimal and pushes behavior into skills.
 
-Bub is a batteries-included, hooks-first AI framework.
-
-Kernel responsibilities:
-
-1. load skills
-2. run hook pipeline
-3. orchestrate envelopes over the bus
-4. keep failure boundaries small
-
-Everything else ships as skills and can be replaced by user-provided skills.
-
-Builtin baseline in this repository:
+## Builtin Baseline
 
 - `cli`
 - `runtime`
+
+Both can be replaced or extended by your own skills.
+
+## Read Next
+
+- `architecture.md`: principles and architectural guarantees
+- `skills.md`: skill authoring and extension model
+- `cli.md`: command usage
+- `features.md`: capability summary

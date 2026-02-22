@@ -2,17 +2,28 @@
 
 from __future__ import annotations
 
+import hashlib
+import re
+import sys
 from dataclasses import dataclass, field
-from importlib import import_module
+from importlib import util as importlib_util
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 import yaml
 
 PROJECT_SKILLS_DIR = ".agent/skills"
 SKILL_FILE_NAME = "SKILL.md"
-HOOK_SKILL_KINDS = frozenset({"hook", "model", "memory", "output", "bus", "tool", "channel", "command"})
+AGENTS_DIR_NAME = "agents"
+BUB_AGENT_DIR_NAME = "bub"
+BUB_PLUGIN_FILE_NAME = "plugin.py"
+BUB_AGENT_PROFILE_FILE_NAME = "agent.yaml"
 SKILL_SOURCES = ("project", "global", "builtin")
+SKILL_NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+ALLOWED_FRONTMATTER_FIELDS = frozenset(
+    {"name", "description", "license", "compatibility", "metadata", "allowed-tools"}
+)
 
 
 @dataclass(frozen=True)
@@ -27,18 +38,9 @@ class SkillMetadata:
 
 
 def discover_hook_skills(workspace_path: Path) -> list[SkillMetadata]:
-    """Discover skills with hook entrypoints."""
+    """Discover skills that provide a Bub hook plugin module."""
 
-    results: list[SkillMetadata] = []
-    for skill in discover_skills(workspace_path):
-        entrypoint = skill.metadata.get("entrypoint")
-        kind = str(skill.metadata.get("kind") or "").strip().lower()
-        if not isinstance(entrypoint, str) or not entrypoint.strip():
-            continue
-        if kind not in HOOK_SKILL_KINDS:
-            continue
-        results.append(skill)
-    return results
+    return [skill for skill in discover_skills(workspace_path) if has_bub_adapter(skill)]
 
 
 def discover_skills(workspace_path: Path) -> list[SkillMetadata]:
@@ -76,19 +78,42 @@ def load_skill_body(name: str, workspace_path: Path) -> str | None:
 
 
 def load_skill_plugin(skill: SkillMetadata) -> object:
-    """Load plugin object from one skill entrypoint."""
+    """Load Bub adapter plugin object from `<skill>/agents/bub/plugin.py`."""
 
-    entrypoint = skill.metadata.get("entrypoint")
-    if not isinstance(entrypoint, str):
-        raise TypeError(f"{skill.name}: entrypoint must be string")
+    plugin_file = skill_bub_plugin_path(skill)
+    if not plugin_file.is_file():
+        raise FileNotFoundError(f"{skill.name}: missing {AGENTS_DIR_NAME}/{BUB_AGENT_DIR_NAME}/{BUB_PLUGIN_FILE_NAME}")
 
-    module_name, sep, attr_name = entrypoint.partition(":")
-    if not sep or not module_name or not attr_name:
-        raise ValueError(f"{skill.name}: invalid entrypoint format '{entrypoint}'")
-
-    module = import_module(module_name)
-    plugin = getattr(module, attr_name)
+    module_name = _module_name_for_skill(skill=skill, plugin_file=plugin_file)
+    module = _load_module_from_file(module_name=module_name, plugin_file=plugin_file)
+    if not hasattr(module, "plugin"):
+        raise AttributeError(
+            f"{skill.name}: {AGENTS_DIR_NAME}/{BUB_AGENT_DIR_NAME}/{BUB_PLUGIN_FILE_NAME} must export attribute `plugin`"
+        )
+    plugin = module.plugin
+    if plugin is None:
+        raise TypeError(f"{skill.name}: exported `plugin` must not be None")
     return plugin
+
+
+def load_bub_agent_profile(skill: SkillMetadata) -> dict[str, object]:
+    """Load Bub adapter profile from `<skill>/agents/bub/agent.yaml`."""
+
+    return load_bub_agent_profile_file(skill_bub_agent_profile_path(skill))
+
+
+def load_bub_agent_profile_file(path: Path) -> dict[str, object]:
+    """Load one Bub adapter profile file as a normalized mapping."""
+
+    if not path.is_file():
+        return {}
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    return {str(key): value for key, value in payload.items() if isinstance(key, str)}
 
 
 def _read_skill(skill_dir: Path, *, source: str) -> SkillMetadata | None:
@@ -102,10 +127,10 @@ def _read_skill(skill_dir: Path, *, source: str) -> SkillMetadata | None:
         return None
 
     metadata = _parse_frontmatter(content)
-    name = str(metadata.get("name") or skill_dir.name).strip()
-    description = str(metadata.get("description") or "No description provided.").strip()
-    if not name:
+    if not _is_valid_frontmatter(skill_dir=skill_dir, metadata=metadata):
         return None
+    name = str(metadata["name"]).strip()
+    description = str(metadata["description"]).strip()
 
     return SkillMetadata(
         name=name,
@@ -134,8 +159,107 @@ def _parse_frontmatter(content: str) -> dict[str, object]:
     return {}
 
 
+def _is_valid_frontmatter(*, skill_dir: Path, metadata: dict[str, object]) -> bool:
+    name = metadata.get("name")
+    description = metadata.get("description")
+    return (
+        _has_only_supported_fields(metadata)
+        and _is_valid_name(name=name, skill_dir=skill_dir)
+        and _is_valid_description(description)
+        and _is_valid_license(metadata.get("license"))
+        and _is_valid_compatibility(metadata.get("compatibility"))
+        and _is_valid_metadata_field(metadata.get("metadata"))
+        and _is_valid_allowed_tools(metadata.get("allowed-tools"))
+    )
+
+
+def _has_only_supported_fields(metadata: dict[str, object]) -> bool:
+    return all(key in ALLOWED_FRONTMATTER_FIELDS for key in metadata)
+
+
+def _is_valid_name(*, name: object, skill_dir: Path) -> bool:
+    if not isinstance(name, str):
+        return False
+    normalized_name = name.strip()
+    if not normalized_name or len(normalized_name) > 64:
+        return False
+    if normalized_name != skill_dir.name:
+        return False
+    return SKILL_NAME_PATTERN.fullmatch(normalized_name) is not None
+
+
+def _is_valid_description(description: object) -> bool:
+    if not isinstance(description, str):
+        return False
+    normalized = description.strip()
+    return bool(normalized) and len(normalized) <= 1024
+
+
+def _is_valid_license(license_value: object) -> bool:
+    if license_value is None:
+        return True
+    return isinstance(license_value, str) and bool(license_value.strip())
+
+
+def _is_valid_compatibility(compatibility: object) -> bool:
+    if compatibility is None:
+        return True
+    if not isinstance(compatibility, str):
+        return False
+    normalized = compatibility.strip()
+    return bool(normalized) and len(normalized) <= 500
+
+
+def _is_valid_metadata_field(metadata_field: object) -> bool:
+    if metadata_field is None:
+        return True
+    if not isinstance(metadata_field, dict):
+        return False
+    return all(isinstance(key, str) and isinstance(value, str) for key, value in metadata_field.items())
+
+
+def _is_valid_allowed_tools(allowed_tools: object) -> bool:
+    if allowed_tools is None:
+        return True
+    return isinstance(allowed_tools, str) and bool(allowed_tools.strip())
+
+
 def _builtin_skills_root() -> Path:
     return Path(__file__).resolve().parent / "builtin"
+
+
+def skill_bub_plugin_path(skill: SkillMetadata) -> Path:
+    return skill.location.parent / AGENTS_DIR_NAME / BUB_AGENT_DIR_NAME / BUB_PLUGIN_FILE_NAME
+
+
+def skill_bub_agent_profile_path(skill: SkillMetadata) -> Path:
+    return skill.location.parent / AGENTS_DIR_NAME / BUB_AGENT_DIR_NAME / BUB_AGENT_PROFILE_FILE_NAME
+
+
+def has_bub_adapter(skill: SkillMetadata) -> bool:
+    return skill_bub_plugin_path(skill).is_file()
+
+
+def _module_name_for_skill(*, skill: SkillMetadata, plugin_file: Path) -> str:
+    digest = hashlib.sha256(str(plugin_file).encode("utf-8")).hexdigest()[:12]
+    normalized_name = "".join(ch if ch.isalnum() else "_" for ch in f"{skill.source}_{skill.name}".lower())
+    return f"bub_skill_{normalized_name}_{digest}"
+
+
+def _load_module_from_file(*, module_name: str, plugin_file: Path) -> ModuleType:
+    spec = importlib_util.spec_from_file_location(module_name, plugin_file)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"failed to build module spec for {plugin_file}")
+
+    module = importlib_util.module_from_spec(spec)
+    sys.modules.pop(module_name, None)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        sys.modules.pop(module_name, None)
+        raise
+    return module
 
 
 def _iter_skill_roots(workspace_path: Path) -> list[tuple[Path, str]]:

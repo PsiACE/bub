@@ -4,21 +4,23 @@ from pathlib import Path
 
 import pytest
 import typer
+from typer.testing import CliRunner
 
+from bub.cli import app
 from bub.framework import BubFramework
 
 
 def _write_stateful_test_skill(workspace: Path) -> None:
     skill_dir = workspace / ".agent" / "skills" / "stateful-hooks"
-    skill_dir.mkdir(parents=True)
+    plugin_file = skill_dir / "agents" / "bub" / "plugin.py"
+    plugin_file.parent.mkdir(parents=True)
+    plugin_file.write_text("from fixtures_plugins.stateful_hooks import plugin\n", encoding="utf-8")
     (skill_dir / "SKILL.md").write_text(
         "\n".join(
             [
                 "---",
                 "name: stateful-hooks",
                 "description: test-only stateful hooks skill",
-                "kind: model",
-                "entrypoint: fixtures_plugins.stateful_hooks:plugin",
                 "---",
             ]
         ),
@@ -88,6 +90,23 @@ def test_framework_registers_cli_commands_from_skills(tmp_path: Path) -> None:
 
     command_names = {command.name for command in app.registered_commands}
     assert {"run", "skills", "hooks"}.issubset(command_names)
+
+
+def test_framework_reports_skill_statuses(tmp_path: Path) -> None:
+    framework = BubFramework(tmp_path)
+    framework.load_skills()
+
+    states = {item.skill.name: item.state for item in framework.skill_statuses}
+    assert states["cli"] == "hook_active"
+    assert states["runtime"] == "hook_active"
+
+
+def test_skills_command_shows_profile_column(tmp_path: Path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(app, ["skills", "--workspace", str(tmp_path)])
+
+    assert result.exit_code == 0
+    assert "profile=" in result.stdout
 
 
 @pytest.mark.asyncio

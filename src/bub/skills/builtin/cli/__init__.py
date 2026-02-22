@@ -1,1 +1,0 @@
-"""CLI core command skill."""

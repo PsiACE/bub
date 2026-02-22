@@ -13,7 +13,7 @@ from bub.bus import BusProtocol, MessageBus
 from bub.envelope import content_of, field_of, unpack_batch
 from bub.hook_runtime import HookRuntime
 from bub.hookspecs import BUB_HOOK_NAMESPACE, BubHookSpecs
-from bub.skills.loader import SkillMetadata, discover_hook_skills, load_skill_plugin
+from bub.skills.loader import SkillMetadata, discover_skills, has_bub_adapter, load_skill_plugin, skill_bub_plugin_path
 from bub.types import Envelope, TurnResult
 
 SOURCE_PRIORITY = {"builtin": 0, "global": 1, "project": 2}
@@ -27,6 +27,16 @@ class LoadedSkill:
     plugin_name: str
 
 
+@dataclass(frozen=True)
+class SkillStatus:
+    """Observed runtime state for one discovered skill."""
+
+    skill: SkillMetadata
+    state: str
+    plugin_path: Path | None
+    detail: str | None = None
+
+
 class BubFramework:
     """Minimal framework core. Everything grows from hook skills."""
 
@@ -37,6 +47,7 @@ class BubFramework:
         self._hook_runtime = HookRuntime(self._plugin_manager)
         self._loaded_skills: list[LoadedSkill] = []
         self._failed_skills: dict[str, str] = {}
+        self._skill_statuses: dict[str, SkillStatus] = {}
 
     @property
     def loaded_skills(self) -> list[LoadedSkill]:
@@ -46,21 +57,43 @@ class BubFramework:
     def failed_skills(self) -> dict[str, str]:
         return dict(self._failed_skills)
 
+    @property
+    def skill_statuses(self) -> list[SkillStatus]:
+        return sorted(self._skill_statuses.values(), key=lambda item: item.skill.name.casefold())
+
     def load_skills(self) -> None:
         """Discover and register all hook skills."""
 
         self._loaded_skills = []
         self._failed_skills = {}
+        self._skill_statuses = {}
 
-        skills = sorted(discover_hook_skills(self.workspace), key=self._registration_order_key)
+        discovered = discover_skills(self.workspace)
+        for skill in discovered:
+            if has_bub_adapter(skill):
+                continue
+            self._skill_statuses[skill.name.casefold()] = SkillStatus(skill=skill, state="adapter_absent", plugin_path=None)
+
+        skills = sorted((skill for skill in discovered if has_bub_adapter(skill)), key=self._registration_order_key)
         for skill in skills:
             plugin_name = f"{skill.source}:{skill.name}"
             try:
                 plugin = load_skill_plugin(skill)
                 self._plugin_manager.register(plugin, name=plugin_name)
                 self._loaded_skills.append(LoadedSkill(skill=skill, plugin_name=plugin_name))
+                self._skill_statuses[skill.name.casefold()] = SkillStatus(
+                    skill=skill,
+                    state="hook_active",
+                    plugin_path=skill_bub_plugin_path(skill),
+                )
             except Exception as exc:  # pragma: no cover - exercised via behavior tests
                 self._failed_skills[skill.name] = str(exc)
+                self._skill_statuses[skill.name.casefold()] = SkillStatus(
+                    skill=skill,
+                    state="degraded",
+                    plugin_path=skill_bub_plugin_path(skill),
+                    detail=str(exc),
+                )
                 logger.opt(exception=True).warning("skill.load_failed skill={} source={}", skill.name, skill.source)
 
     def create_bus(self) -> BusProtocol:
