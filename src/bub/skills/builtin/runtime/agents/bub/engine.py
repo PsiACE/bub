@@ -17,7 +17,7 @@ from typing import Any
 from republic import LLM, TapeEntry, Tool, ToolAutoResult
 from republic.tape import InMemoryTapeStore, Tape
 
-from bub.skills.loader import discover_skills, load_skill_body
+from bub.skills.loader import discover_skills, load_bub_agent_profile_file, load_skill_body
 
 DEFAULT_MODEL = "openrouter:qwen/qwen3-coder-next"
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 30
@@ -26,6 +26,12 @@ DEFAULT_MAX_STEPS = 8
 DEFAULT_MAX_TOKENS = 1024
 CONTINUE_PROMPT = "Continue the task."
 AGENTS_FILE_NAME = "AGENTS.md"
+AGENT_PROFILE_FILE_NAME = "agent.yaml"
+RUNTIME_ENABLED_ENV = "BUB_RUNTIME_ENABLED"
+PRIMARY_API_KEY_ENV = "BUB_API_KEY"
+RUNTIME_ENABLED_ON_VALUE = "1"
+RUNTIME_ENABLED_OFF_VALUE = "0"
+RUNTIME_ENABLED_AUTO_VALUE = "auto"
 
 
 @dataclass(frozen=True)
@@ -45,6 +51,12 @@ class RuntimeSettings:
     enabled: bool
 
 
+@dataclass(frozen=True)
+class RuntimeAgentProfile:
+    system_prompt: str | None = None
+    continue_prompt: str = CONTINUE_PROMPT
+
+
 class RuntimeEngine:
     """Runtime engine with command compatibility and Republic model driving."""
 
@@ -55,6 +67,7 @@ class RuntimeEngine:
         self._settings = _load_runtime_settings()
         self._llm = _build_llm(self._settings)
         self._workspace_prompt = _read_workspace_agents_prompt(self.workspace)
+        self._agent_profile = _load_agent_profile(Path(__file__).with_name(AGENT_PROFILE_FILE_NAME))
 
     async def run(self, *, session_id: str, prompt: str) -> str | None:
         stripped = prompt.strip()
@@ -117,7 +130,7 @@ class RuntimeEngine:
                         "ts": datetime.now(UTC).isoformat(),
                     },
                 )
-                next_prompt = CONTINUE_PROMPT
+                next_prompt = self._agent_profile.continue_prompt
                 continue
             self._append_event(
                 session_id,
@@ -409,11 +422,12 @@ class RuntimeEngine:
         return [Tool.from_callable(func, name=name, description=description) for name, description, func in tools]
 
     def _system_prompt(self) -> str:
+        default_prompt = (
+            "You are Bub runtime skill. Use tools for operations such as shell, file edits, "
+            "skills lookup, and tape operations. Return concise natural language when done."
+        )
         blocks = [
-            (
-                "You are Bub runtime skill. Use tools for operations such as shell, file edits, "
-                "skills lookup, and tape operations. Return concise natural language when done."
-            ),
+            self._agent_profile.system_prompt or default_prompt,
         ]
         if self._workspace_prompt:
             blocks.append(self._workspace_prompt)
@@ -532,28 +546,13 @@ def _build_llm(settings: RuntimeSettings) -> LLM | None:
 
 def _load_runtime_settings() -> RuntimeSettings:
     model = _first_non_empty([os.getenv("BUB_MODEL"), DEFAULT_MODEL]) or DEFAULT_MODEL
-    api_key = _first_non_empty(
-        [
-            os.getenv("BUB_API_KEY"),
-            os.getenv("BUB_LLM_API_KEY"),
-            os.getenv("BUB_OPENROUTER_API_KEY"),
-            os.getenv("LLM_API_KEY"),
-            os.getenv("OPENROUTER_API_KEY"),
-        ]
-    )
+    api_key = _resolve_runtime_api_key()
     api_base = _first_non_empty([os.getenv("BUB_API_BASE")])
     max_steps = _int_env("BUB_RUNTIME_MAX_STEPS", default=DEFAULT_MAX_STEPS)
     max_tokens = _int_env("BUB_RUNTIME_MAX_TOKENS", default=DEFAULT_MAX_TOKENS)
     timeout_seconds = _int_env("BUB_RUNTIME_MODEL_TIMEOUT_SECONDS", default=DEFAULT_MODEL_TIMEOUT_SECONDS)
-    mode = (_first_non_empty([os.getenv("BUB_RUNTIME_ENABLED"), "auto"]) or "auto").casefold()
-
-    requires_key = _model_requires_api_key(model)
-    if mode in {"1", "true", "yes", "on"}:
-        enabled = True
-    elif mode in {"0", "false", "no", "off"}:
-        enabled = False
-    else:
-        enabled = bool(api_key) or not requires_key
+    mode = _resolve_runtime_enabled_mode()
+    enabled = _resolve_runtime_enabled(mode=mode, model=model, api_key=api_key)
 
     return RuntimeSettings(
         model=model,
@@ -570,6 +569,27 @@ def _model_requires_api_key(model: str) -> bool:
     prefixes = ("openrouter:", "openai:", "anthropic:", "gemini:", "xai:", "groq:", "mistral:", "deepseek:")
     lowered = model.casefold()
     return lowered.startswith(prefixes)
+
+
+def _resolve_runtime_api_key() -> str | None:
+    return _first_non_empty([os.getenv(PRIMARY_API_KEY_ENV)])
+
+
+def _resolve_runtime_enabled(*, mode: str, model: str, api_key: str | None) -> bool:
+    if mode == RUNTIME_ENABLED_ON_VALUE:
+        return True
+    if mode == RUNTIME_ENABLED_OFF_VALUE:
+        return False
+    requires_key = _model_requires_api_key(model)
+    return bool(api_key) or not requires_key
+
+
+def _resolve_runtime_enabled_mode() -> str:
+    mode = (_first_non_empty([os.getenv(RUNTIME_ENABLED_ENV), RUNTIME_ENABLED_AUTO_VALUE]) or RUNTIME_ENABLED_AUTO_VALUE)
+    lowered = mode.casefold()
+    if lowered in {RUNTIME_ENABLED_ON_VALUE, RUNTIME_ENABLED_OFF_VALUE, RUNTIME_ENABLED_AUTO_VALUE}:
+        return lowered
+    return RUNTIME_ENABLED_AUTO_VALUE
 
 
 def _first_non_empty(values: list[str | None]) -> str | None:
@@ -594,9 +614,6 @@ def _int_env(name: str, *, default: int) -> int:
         return default
     return parsed
 
-
-
-
 def _read_workspace_agents_prompt(workspace: Path) -> str:
     prompt_path = workspace / AGENTS_FILE_NAME
     if not prompt_path.is_file():
@@ -605,6 +622,21 @@ def _read_workspace_agents_prompt(workspace: Path) -> str:
         return prompt_path.read_text(encoding="utf-8").strip()
     except OSError:
         return ""
+
+
+def _load_agent_profile(path: Path) -> RuntimeAgentProfile:
+    raw = load_bub_agent_profile_file(path)
+    if not raw:
+        return RuntimeAgentProfile()
+
+    system_prompt = raw.get("system_prompt")
+    continue_prompt = raw.get("continue_prompt")
+
+    resolved_system_prompt = system_prompt.strip() if isinstance(system_prompt, str) and system_prompt.strip() else None
+    resolved_continue_prompt = (
+        continue_prompt.strip() if isinstance(continue_prompt, str) and continue_prompt.strip() else CONTINUE_PROMPT
+    )
+    return RuntimeAgentProfile(system_prompt=resolved_system_prompt, continue_prompt=resolved_continue_prompt)
 
 
 def _session_tape_name(session_id: str) -> str:

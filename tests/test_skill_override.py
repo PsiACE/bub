@@ -2,17 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 import typer
 
 from bub.framework import BubFramework
 
 
 def _write_project_override_skill(workspace: Path) -> None:
-    package = workspace / "project_plugins"
-    package.mkdir(parents=True)
-    (package / "__init__.py").write_text("", encoding="utf-8")
-    (package / "override.py").write_text(
+    skill_dir = workspace / ".agent" / "skills" / "project-override"
+    plugin_file = skill_dir / "agents" / "bub" / "plugin.py"
+    plugin_file.parent.mkdir(parents=True)
+    plugin_file.write_text(
         "\n".join(
             [
                 "import typer",
@@ -40,16 +39,12 @@ def _write_project_override_skill(workspace: Path) -> None:
         encoding="utf-8",
     )
 
-    skill_dir = workspace / ".agent" / "skills" / "project-override"
-    skill_dir.mkdir(parents=True)
     (skill_dir / "SKILL.md").write_text(
         "\n".join(
             [
                 "---",
                 "name: project-override",
                 "description: project overrides bus and cli hooks",
-                "kind: hook",
-                "entrypoint: project_plugins.override:plugin",
                 "---",
             ]
         ),
@@ -57,9 +52,8 @@ def _write_project_override_skill(workspace: Path) -> None:
     )
 
 
-def test_project_skill_can_override_builtin_bus(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_project_skill_can_override_builtin_bus(tmp_path: Path) -> None:
     _write_project_override_skill(tmp_path)
-    monkeypatch.syspath_prepend(str(tmp_path))
 
     framework = BubFramework(tmp_path)
     framework.load_skills()
@@ -68,9 +62,8 @@ def test_project_skill_can_override_builtin_bus(monkeypatch: pytest.MonkeyPatch,
     assert bus.__class__.__name__ == "ProjectBus"
 
 
-def test_project_skill_can_extend_cli_commands(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_project_skill_can_extend_cli_commands(tmp_path: Path) -> None:
     _write_project_override_skill(tmp_path)
-    monkeypatch.syspath_prepend(str(tmp_path))
 
     framework = BubFramework(tmp_path)
     framework.load_skills()
