@@ -5,7 +5,7 @@
 [![Commit activity](https://img.shields.io/github/commit-activity/m/bubbuild/bub)](https://github.com/bubbuild/bub/graphs/commit-activity)
 [![License](https://img.shields.io/github/license/bubbuild/bub)](LICENSE)
 
-Bub is a batteries-included, hook-first AI framework with a minimal core and skill-owned behavior.
+Bub is a batteries-included, skill-first AI framework with a minimal core and skill-owned behavior.
 
 ## Why Bub
 
@@ -16,6 +16,7 @@ This makes behavior easy to evolve without forking the core.
 
 - Minimal kernel for orchestration and safety boundaries
 - Skill-first extension model for runtime behavior
+- Standard Agent Skills contract first, Bub runtime adapter second
 - Standards-based skill metadata (`SKILL.md`)
 - Predictable override order across project, user, and builtin scopes
 

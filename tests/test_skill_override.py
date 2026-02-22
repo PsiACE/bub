@@ -9,9 +9,9 @@ from bub.framework import BubFramework
 
 def _write_project_override_skill(workspace: Path) -> None:
     skill_dir = workspace / ".agent" / "skills" / "project-override"
-    plugin_file = skill_dir / "agents" / "bub" / "plugin.py"
-    plugin_file.parent.mkdir(parents=True)
-    plugin_file.write_text(
+    adapter_file = skill_dir / "agents" / "bub" / "adapter.py"
+    adapter_file.parent.mkdir(parents=True)
+    adapter_file.write_text(
         "\n".join(
             [
                 "import typer",
@@ -33,7 +33,7 @@ def _write_project_override_skill(workspace: Path) -> None:
                 "        def project_ping():",
                 "            typer.echo('pong')",
                 "",
-                "plugin = ProjectOverrideSkill()",
+                "adapter = ProjectOverrideSkill()",
             ]
         ),
         encoding="utf-8",

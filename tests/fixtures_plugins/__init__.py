@@ -1,2 +1,1 @@
-"""Test-only skill plugins."""
-
+"""Test-only skill adapters."""
