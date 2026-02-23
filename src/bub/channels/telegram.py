@@ -173,7 +173,6 @@ class TelegramChannel(BaseChannel[Message]):
 
         # Pass comma commands directly to the input handler
         if content.strip().startswith(","):
-            logger.info("telegram.inbound.command chat_id={} content={}", chat_id, content)
             return session_id, content
 
         metadata: dict[str, Any] = {
@@ -185,13 +184,6 @@ class TelegramChannel(BaseChannel[Message]):
             "sender_is_bot": message.from_user.is_bot if message.from_user else None,
             "date": message.date.timestamp() if message.date else None,
         }
-        logger.info(
-            "telegram.inbound.message chat_id={} user_id={} username={} content={}",
-            chat_id,
-            metadata["sender_id"],
-            metadata["username"],
-            content,
-        )
 
         if media:
             metadata["media"] = media
