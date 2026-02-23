@@ -208,7 +208,7 @@ class TelegramChannel(BaseChannel[Message]):
         if reply_meta:
             metadata["reply_to_message"] = reply_meta
 
-        metadata_json = json.dumps({"channel": self.name, "chat_id": chat_id, **metadata}, ensure_ascii=False)
+        metadata_json = json.dumps({"channel": f"${self.name}", "chat_id": chat_id, **metadata}, ensure_ascii=False)
         prompt = f"{content}\n———————\n{metadata_json}"
         return session_id, prompt
 
