@@ -90,7 +90,7 @@ def main():
         sys.exit(1)
 
     try:
-        result = edit_message(bot_token, args.chat_id, args.message_id, args.text)
+        edit_message(bot_token, args.chat_id, args.message_id, args.text)
         print(f"✅ Message {args.message_id} edited successfully")
     except requests.HTTPError as e:
         print(f"❌ HTTP Error: {e}")

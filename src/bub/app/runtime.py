@@ -23,7 +23,7 @@ from bub.app.jobstore import JSONJobStore
 from bub.config.settings import Settings
 from bub.core import AgentLoop, InputRouter, LoopResult, ModelRunner
 from bub.integrations.republic_client import build_llm, build_tape_store, read_workspace_agents_prompt
-from bub.skills import SkillMetadata, discover_skills, load_skill_body
+from bub.skills.loader import SkillMetadata, discover_skills
 from bub.tape import TapeService
 from bub.tools import ProgressiveToolView, ToolRegistry
 from bub.tools.builtin import register_builtin_tools
@@ -98,11 +98,6 @@ class AppRuntime:
             return discovered
         return [skill for skill in discovered if skill.name.casefold() in self._allowed_skills]
 
-    def load_skill_body(self, skill_name: str) -> str | None:
-        if self._allowed_skills is not None and skill_name.casefold() not in self._allowed_skills:
-            return None
-        return load_skill_body(skill_name, self.workspace)
-
     def get_session(self, session_id: str) -> SessionRuntime:
         existing = self._sessions.get(session_id)
         if existing is not None:
@@ -128,7 +123,6 @@ class AppRuntime:
             tool_view=tool_view,
             tools=registry.model_tools(),
             list_skills=self.discover_skills,
-            load_skill_body=self.load_skill_body,
             model=self.settings.model,
             max_steps=self.settings.max_steps,
             max_tokens=self.settings.max_tokens,

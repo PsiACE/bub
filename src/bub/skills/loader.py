@@ -19,6 +19,7 @@ class SkillMetadata:
     name: str
     description: str
     location: Path
+    body: str
     metadata: dict[str, Any] | None = None
     source: str = "unknown"
 
@@ -49,19 +50,6 @@ def discover_skills(workspace_path: Path) -> list[SkillMetadata]:
     return sorted(by_name.values(), key=lambda item: item.name.casefold())
 
 
-def load_skill_body(name: str, workspace_path: Path) -> str | None:
-    """Load full SKILL.md body for one skill name."""
-
-    lowered = name.casefold()
-    for skill in discover_skills(workspace_path):
-        if skill.name.casefold() == lowered:
-            try:
-                return skill.location.read_text(encoding="utf-8")
-            except OSError:
-                return None
-    return None
-
-
 def _read_skill(skill_dir: Path, *, source: str) -> SkillMetadata | None:
     skill_file = skill_dir / SKILL_FILE_NAME
     if not skill_file.is_file():
@@ -72,7 +60,7 @@ def _read_skill(skill_dir: Path, *, source: str) -> SkillMetadata | None:
     except OSError:
         return None
 
-    metadata = _parse_frontmatter(content)
+    metadata, body = _parse_frontmatter(content)
     name = str(metadata.get("name") or skill_dir.name).strip()
     description = str(metadata.get("description") or "No description provided.").strip()
     meta = cast(dict[str, Any], metadata.get("metadata"))
@@ -80,13 +68,15 @@ def _read_skill(skill_dir: Path, *, source: str) -> SkillMetadata | None:
     if not name:
         return None
 
-    return SkillMetadata(name=name, description=description, location=skill_file.resolve(), source=source, metadata=meta)
+    return SkillMetadata(
+        name=name, description=description, location=skill_file.resolve(), source=source, metadata=meta, body=body
+    )
 
 
-def _parse_frontmatter(content: str) -> dict[str, object]:
+def _parse_frontmatter(content: str) -> tuple[dict[str, object], str]:
     lines = content.splitlines()
     if not lines or lines[0].strip() != "---":
-        return {}
+        return {}, content
 
     for idx, line in enumerate(lines[1:], start=1):
         if line.strip() == "---":
@@ -94,11 +84,12 @@ def _parse_frontmatter(content: str) -> dict[str, object]:
             try:
                 parsed = yaml.safe_load(payload)
             except yaml.YAMLError:
-                return {}
+                parsed = {}
+            body = "\n".join(lines[idx + 1 :])
             if isinstance(parsed, dict):
-                return {str(key).lower(): value for key, value in parsed.items()}
-            return {}
-    return {}
+                return {str(key).lower(): value for key, value in parsed.items()}, body
+            return {}, body
+    return {}, content
 
 
 def _builtin_skills_root() -> Path:

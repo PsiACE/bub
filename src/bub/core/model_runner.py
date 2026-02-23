@@ -13,7 +13,7 @@ from republic import Tool, ToolAutoResult
 
 from bub.core.router import AssistantRouteResult, InputRouter
 from bub.skills.loader import SkillMetadata
-from bub.skills.view import render_skill_prompt
+from bub.skills.view import render_compact_skills
 from bub.tape.service import TapeService
 from bub.tools.progressive import ProgressiveToolView
 from bub.tools.view import render_tool_prompt_block
@@ -56,7 +56,6 @@ class ModelRunner:
         tool_view: ProgressiveToolView,
         tools: list[Tool],
         list_skills: Callable[[], list[SkillMetadata]],
-        load_skill_body: Callable[[str], str | None],
         model: str,
         max_steps: int,
         max_tokens: int,
@@ -69,14 +68,13 @@ class ModelRunner:
         self._tool_view = tool_view
         self._tools = tools
         self._list_skills = list_skills
-        self._load_skill_body = load_skill_body
         self._model = model
         self._max_steps = max_steps
         self._max_tokens = max_tokens
         self._model_timeout_seconds = model_timeout_seconds
         self._base_system_prompt = base_system_prompt.strip()
         self._get_workspace_system_prompt = get_workspace_system_prompt
-        self._expanded_skills: dict[str, str] = {}
+        self._expanded_skills: set[str] = set()
 
     def reset_context(self) -> None:
         """Clear volatile model-side context caches within one session."""
@@ -192,7 +190,7 @@ class ModelRunner:
         blocks.append(_runtime_contract())
         blocks.append(render_tool_prompt_block(self._tool_view))
 
-        compact_skills = render_skill_prompt(self._list_skills())
+        compact_skills = render_compact_skills(self._list_skills(), self._expanded_skills)
         if compact_skills:
             blocks.append(compact_skills)
         return "\n\n".join(block for block in blocks if block.strip())
@@ -206,11 +204,7 @@ class ModelRunner:
             skill = skill_index.get(hint.casefold())
             if skill is None:
                 continue
-            if skill.name in self._expanded_skills:
-                continue
-            body = self._load_skill_body(skill.name)
-            if body:
-                self._expanded_skills[skill.name] = body
+            self._expanded_skills.add(skill.name)
 
     def _build_skill_index(self) -> dict[str, SkillMetadata]:
         return {skill.name.casefold(): skill for skill in self._list_skills()}

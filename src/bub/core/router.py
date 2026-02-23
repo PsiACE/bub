@@ -316,7 +316,6 @@ class InputRouter:
         aliases = {
             "tool": "tool.describe",
             "tape": "tape.info",
-            "skill": "skills.describe",
         }
         return aliases.get(name, name)
 

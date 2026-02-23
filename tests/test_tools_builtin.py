@@ -55,10 +55,6 @@ class _DummyRuntime:
     def discover_skills(self) -> list[object]:
         return list(self._discovered_skills)
 
-    @staticmethod
-    def load_skill_body(_name: str) -> str | None:
-        return None
-
     def reset_session_context(self, session_id: str) -> None:
         self.reset_calls.append(session_id)
 
@@ -351,10 +347,6 @@ def test_skills_list_uses_latest_runtime_skills(tmp_path: Path, scheduler: Backg
 
         def discover_skills(self) -> list[_Skill]:
             return list(self._discovered_skills)
-
-        @staticmethod
-        def load_skill_body(_name: str) -> str | None:
-            return None
 
     settings = Settings(_env_file=None, model="openrouter:test")
     runtime = _Runtime(settings, scheduler)

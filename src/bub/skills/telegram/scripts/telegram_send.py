@@ -13,6 +13,7 @@ Telegram Bot Message Sender
 A simple script to send messages via Telegram Bot API.
 Uses telegramify_markdown to convert markdown to Telegram MarkdownV2 format.
 """
+
 import argparse
 import os
 import sys
@@ -120,9 +121,7 @@ def send_message(
 
 def main():
     parser = argparse.ArgumentParser(description="Send messages via Telegram Bot API (auto-converts to MarkdownV2)")
-    parser.add_argument(
-        "--chat-id", "-c", required=True, help="Target chat ID"
-    )
+    parser.add_argument("--chat-id", "-c", required=True, help="Target chat ID")
     parser.add_argument(
         "--message",
         "-m",

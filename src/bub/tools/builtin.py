@@ -88,10 +88,6 @@ class TapeResetInput(BaseModel):
     archive: bool = Field(default=False)
 
 
-class SkillNameInput(BaseModel):
-    name: str = Field(..., description="Skill name")
-
-
 class EmptyInput(BaseModel):
     pass
 
@@ -418,7 +414,6 @@ def register_builtin_tools(
             "  ,schedule.list\n"
             "  ,schedule.remove job_id=my-job\n"
             "  ,skills.list\n"
-            "  ,skills.describe name=friendly-python\n"
             "  ,quit\n"
         )
 
@@ -496,14 +491,6 @@ def register_builtin_tools(
         if not skills:
             return "(no skills)"
         return "\n".join(f"{skill.name}: {skill.description}" for skill in skills)
-
-    @register(name="skills.describe", short_description="Load skill body", model=SkillNameInput)
-    def describe_skill(params: SkillNameInput) -> str:
-        """Load full SKILL.md body for one skill name."""
-        body = runtime.load_skill_body(params.name)
-        if not body:
-            raise RuntimeError(f"skill not found: {params.name}")
-        return body
 
     @register(name="quit", short_description="Exit program", model=EmptyInput)
     def quit_command(_params: EmptyInput) -> str:

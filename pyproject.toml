@@ -92,10 +92,7 @@ testpaths = ["tests"]
 target-version = "py312"
 line-length = 120
 fix = true
-extend-exclude = [
-    "src/bub/skills",
-    "backup",
-]
+extend-exclude = ["src/bub/skills/**/scripts/*.py"]
 
 [tool.ruff.lint]
 select = [
