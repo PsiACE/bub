@@ -28,7 +28,7 @@ class SessionRunner:
         self._running_task = None
         if (
             self._last_received_at is not None
-            and self._loop.time() - self._last_received_at > self.message_delay_seconds
+            and self._loop.time() - self._last_received_at > self.message_delay_seconds * 6
         ):
             self._last_received_at = None
         try:
