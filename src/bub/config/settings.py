@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     max_steps: int = Field(default=20, ge=1)
 
     proactive_response: bool = False
+    message_delay_seconds: int = 10
+    message_debounce_seconds: int = 1
 
     telegram_enabled: bool = False
     telegram_token: str | None = None

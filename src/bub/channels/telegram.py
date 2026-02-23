@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
@@ -124,8 +124,10 @@ class TelegramChannel(BaseChannel[Message]):
             proxy=settings.telegram_proxy,
         )
         self._app: Application | None = None
-        self._typing_tasks: dict[str, asyncio.Task[None]] = {}
         self._on_receive: Callable[[Message], Awaitable[None]] | None = None
+
+    def is_mentioned(self, message: Message) -> bool:
+        return bool(MESSAGE_FILTER.filter(message))
 
     async def start(self, on_receive: Callable[[Message], Awaitable[None]]) -> None:
         self._on_receive = on_receive
@@ -153,11 +155,6 @@ class TelegramChannel(BaseChannel[Message]):
         try:
             await asyncio.Event().wait()  # Keep running until stopped
         finally:
-            for task in self._typing_tasks.values():
-                task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await asyncio.gather(*self._typing_tasks.values())
-            self._typing_tasks.clear()
             updater = self._app.updater
             with contextlib.suppress(Exception):
                 if updater is not None and updater.running:
@@ -167,9 +164,7 @@ class TelegramChannel(BaseChannel[Message]):
             self._app = None
             logger.info("telegram.stopped")
 
-    async def get_session_prompt(self, message: Message) -> tuple[str, str] | None:
-        if MESSAGE_FILTER.filter(message) is False:
-            return None
+    async def get_session_prompt(self, message: Message) -> tuple[str, str]:
         chat_id = str(message.chat_id)
         session_id = f"{self.name}:{chat_id}"
         content, media = self._parse_message(message)
@@ -208,9 +203,8 @@ class TelegramChannel(BaseChannel[Message]):
         if reply_meta:
             metadata["reply_to_message"] = reply_meta
 
-        metadata_json = json.dumps({"channel": f"${self.name}", "chat_id": chat_id, **metadata}, ensure_ascii=False)
-        prompt = f"{content}\n———————\n{metadata_json}"
-        return session_id, prompt
+        metadata_json = json.dumps({"message": content, "chat_id": chat_id, **metadata}, ensure_ascii=False)
+        return session_id, metadata_json
 
     async def process_output(self, session_id: str, output: LoopResult) -> None:
         parts = [part for part in (output.immediate_output, output.assistant_output) if part]
@@ -259,30 +253,24 @@ class TelegramChannel(BaseChannel[Message]):
         if self._on_receive is None:
             logger.warning("telegram.inbound no handler for received messages")
             return
-        await self._start_typing(chat_id)
-        try:
+        async with self._start_typing(chat_id):
             await self._on_receive(update.message)
+
+    @contextlib.asynccontextmanager
+    async def _start_typing(self, chat_id: str) -> AsyncGenerator[None, None]:
+        typing_task = asyncio.create_task(self._typing_loop(chat_id))
+        try:
+            yield
         finally:
-            await self._stop_typing(chat_id)
-
-    async def _start_typing(self, chat_id: str) -> None:
-        await self._stop_typing(chat_id)
-        self._typing_tasks[chat_id] = asyncio.create_task(self._typing_loop(chat_id))
-
-    async def _stop_typing(self, chat_id: str) -> None:
-        task = self._typing_tasks.pop(chat_id, None)
-        if task is not None:
-            task.cancel()
+            typing_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
-                await task
+                await typing_task
 
     async def _typing_loop(self, chat_id: str) -> None:
         try:
             while self._app is not None:
                 await self._app.bot.send_chat_action(chat_id=int(chat_id), action="typing")
                 await asyncio.sleep(4)
-        except asyncio.CancelledError:
-            return
         except Exception:
             logger.exception("telegram.typing_loop.error chat_id={}", chat_id)
             return
