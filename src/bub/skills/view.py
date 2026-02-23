@@ -17,14 +17,14 @@ def render_compact_skills(skills: list[SkillMetadata], expanded_skills: set[str]
     for skill in skills:
         if skill.metadata and skill.metadata.get("channel"):
             continue
-        lines.append(f"### [{skill.name}]({skill.location})\n{skill.description} ###")
+        lines.append(f"=== [{skill.name}]({skill.location}): {skill.description} ===")
         if skill.name in expanded_skills:
             lines.append(f"{skill.body.rstrip()}\n")
     lines.append("</basic_skills>")
     if channel_skills:
         lines.append("<channel_skills>")
         for skill in channel_skills:
-            lines.append(f"### [{skill.name}]({skill.location})\n{skill.description} ###")
+            lines.append(f"=== [{skill.name}]({skill.location}): {skill.description} ===")
             if skill.name in expanded_skills:
                 lines.append(f"{skill.body.rstrip()}\n")
         lines.append("</channel_skills>")
