@@ -48,6 +48,7 @@ class SessionRunner:
         _, prompt = await self.channel.get_session_prompt(message)
         now = self._loop.time()
         if not is_mentioned and self._last_received_at is None:
+            logger.info("session.receive ignored session_id={} message={}", self.session_id, prompt)
             return
         self._prompts.append(prompt)
         if prompt.startswith(","):
@@ -71,5 +72,3 @@ class SessionRunner:
             self.reset_timer(self.message_delay_seconds)
             self._running_task = asyncio.create_task(self._run())
             return await self._running_task
-        else:
-            logger.info("session.receive ignored session_id={} message={}", self.session_id, prompt)
