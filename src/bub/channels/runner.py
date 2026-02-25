@@ -14,7 +14,7 @@ class SessionRunner:
         self._prompts: list[str] = []
         self._event = asyncio.Event()
         self._timer: asyncio.TimerHandle | None = None
-        self._last_received_at: float | None = None
+        self._last_mentioned_at: float | None = None
         self._running_task: asyncio.Task[None] | None = None
         self._loop = asyncio.get_running_loop()
 
@@ -23,11 +23,6 @@ class SessionRunner:
         prompt = f"channel: ${channel.output_channel}\n" + "\n".join(self._prompts)
         self._prompts.clear()
         self._running_task = None
-        if (
-            self._last_received_at is not None
-            and self._loop.time() - self._last_received_at > self.message_delay_seconds * 6
-        ):
-            self._last_received_at = None
         try:
             result = await channel.run_prompt(self.session_id, prompt)
             await channel.process_output(self.session_id, result)
@@ -44,7 +39,10 @@ class SessionRunner:
         is_mentioned = channel.is_mentioned(message)
         _, prompt = await channel.get_session_prompt(message)
         now = self._loop.time()
-        if not is_mentioned and self._last_received_at is None:
+        if not is_mentioned and (
+            self._last_mentioned_at is None or now - self._last_mentioned_at > self.message_delay_seconds * 6
+        ):
+            self._last_mentioned_at = None
             logger.info("session.receive ignored session_id={} message={}", self.session_id, prompt)
             return
         self._prompts.append(prompt)
@@ -57,13 +55,13 @@ class SessionRunner:
                 logger.exception("session.run.error session_id={}", self.session_id)
         elif is_mentioned:
             # wait at most 1 second to reply to mentioned messages.
-            self._last_received_at = now
+            self._last_mentioned_at = now
             logger.info("session.receive.mentioned session_id={} message={}", self.session_id, prompt)
             self.reset_timer(self.debounce_seconds)
             if self._running_task is None:
                 self._running_task = asyncio.create_task(self._run(channel))
             return await self._running_task
-        elif self._last_received_at is not None and self._running_task is None:
+        elif self._last_mentioned_at is not None and self._running_task is None:
             # Otherwise if bot is mentioned before, we will keep reading messages for at most 30 seconds.
             logger.info("session.receive followup session_id={} message={}", self.session_id, prompt)
             self.reset_timer(self.message_delay_seconds)
