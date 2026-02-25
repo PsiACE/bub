@@ -1,17 +1,23 @@
 # Bub
 
-Bub is a skill-first framework that keeps kernel responsibilities minimal and pushes behavior into skills.
+Bub currently implements a minimal hook-first framework:
 
-## Builtin Baseline
+- The core orchestrates one message turn end-to-end
+- Builtin hooks provide default CLI and runtime behavior
+- External plugins join the same lifecycle via entry points (`group="bub"`)
 
-- `cli`
-- `runtime`
+## Where To Look
 
-Both can be replaced or extended by your own skills.
+- CLI bootstrap: `src/bub/__main__.py`
+- Core runtime orchestration: `src/bub/framework.py`
+- Hook specifications: `src/bub/hookspecs.py`
+- Hook execution isolation: `src/bub/hook_runtime.py`
+- Builtin implementations: `src/bub/builtin/*`
+- Skill discovery/validation: `src/bub/skills.py`
 
 ## Read Next
 
-- `architecture.md`: principles and architectural guarantees
-- `skills.md`: skill authoring and extension model
-- `cli.md`: command usage
-- `features.md`: capability summary
+- `architecture.md`: lifecycle, hook precedence, and fault isolation
+- `cli.md`: `bub run`, `bub hooks`, `bub install`, and comma commands
+- `skills.md`: `SKILL.md` frontmatter rules and override behavior
+- `features.md`: current capabilities and known boundaries
