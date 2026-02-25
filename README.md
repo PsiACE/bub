@@ -31,6 +31,8 @@ Minimal `.env`:
 ```bash
 BUB_MODEL=openrouter:qwen/qwen3-coder-next
 OPENROUTER_API_KEY=your_key_here
+# Optional: use OpenAI Responses API instead of Chat Completions
+# BUB_USE_RESPONSES=true
 ```
 
 Start interactive CLI:
