@@ -69,9 +69,8 @@ class ChannelManager:
         session_id, _ = await channel.get_session_prompt(message)
         if session_id not in self._session_runners:
             self._session_runners[session_id] = SessionRunner(
-                channel,
                 session_id,
                 self.runtime.settings.message_debounce_seconds,
                 self.runtime.settings.message_delay_seconds,
             )
-        await self._session_runners[session_id].process_message(message)
+        await self._session_runners[session_id].process_message(channel, message)
