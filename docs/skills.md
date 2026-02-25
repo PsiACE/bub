@@ -1,51 +1,33 @@
 # Skills
 
-Bub follows the Agent Skills specification and adds one optional Bub runtime adapter layer.
+Bub currently treats skills as discoverable `SKILL.md` documents with validated frontmatter.
 
-## Core Contract
+## Minimal Contract
 
-Every skill must remain valid as a standard Agent Skill:
-
-```text
-my-skill/
-└── SKILL.md
-```
-
-`SKILL.md` must contain valid YAML frontmatter and body instructions.
-The skill directory name must match frontmatter `name`.
-
-## Bub Runtime Extension
-
-If a skill needs Bub runtime hooks, add:
+Each skill directory must contain a `SKILL.md` file:
 
 ```text
 my-skill/
-├── SKILL.md
-└── agents/
-    └── bub/
-        ├── adapter.py
-        └── agent.yaml
+`-- SKILL.md
 ```
 
-- `agents/bub/adapter.py`: optional Bub hook adapter module, exporting `adapter`
-- `agents/bub/agent.yaml`: optional prompt/profile data consumed by Bub runtime
+Rules enforced by `src/bub/skills.py`:
 
-This extension is Bub-specific. It does not change standard Agent Skills compatibility.
+- `SKILL.md` must start with YAML frontmatter (`--- ... ---`)
+- Frontmatter must include non-empty `name` and `description`
+- Directory name must exactly match frontmatter `name`
+- `name` must match regex: `^[a-z0-9]+(?:-[a-z0-9]+)*$`
 
-## Recommended Layout
+## Supported Frontmatter Fields
 
-```text
-my-skill/
-├── SKILL.md
-├── agents/
-│   └── bub/
-│       ├── adapter.py
-│       └── agent.yaml
-├── scripts/
-│   └── *.py
-└── references/
-    └── *.md
-```
+- Required:
+  - `name` (string)
+  - `description` (string)
+- Optional:
+  - `license` (string)
+  - `compatibility` (string)
+  - `metadata` (map of `string -> string`)
+  - `allowed-tools` (string)
 
 ## Discovery And Override
 
@@ -53,27 +35,30 @@ Bub discovers skills from three scopes in priority order:
 
 1. project: `.agent/skills`
 2. user: `~/.agent/skills`
-3. builtin: `src/bub/skills/builtin`
+3. builtin: `src/bub_skills`
 
 If names collide, higher-priority scope overrides lower-priority scope.
 
-## Frontmatter Fields
+## Runtime Access To Skills
 
-Supported `SKILL.md` frontmatter fields:
+Builtin runtime command mode can inspect discovered skills:
 
-- required: `name`, `description`
-- optional: `license`, `compatibility`, `metadata`, `allowed-tools`
+```bash
+BUB_RUNTIME_ENABLED=0 uv run bub run ",skills.list"
+BUB_RUNTIME_ENABLED=0 uv run bub run ",skills.describe name=my-skill"
+```
+
+If no valid skills are discovered, `,skills.list` returns `(no skills)`.
 
 ## Authoring Guidance
 
-- Keep `SKILL.md` concise and activation-oriented
-- Move detailed reference material into `references/`
-- Put deterministic executable logic into `scripts/`
-- Keep Bub-only runtime details inside `agents/bub/`, not in the generic skill contract
+- Keep `SKILL.md` concise and action-oriented
+- Keep metadata strict and minimal to avoid discovery failures
+- Use lowercase kebab-case names to satisfy validation
 
-## Script Convention
+## Optional Script Convention
 
-For `scripts/*.py`, prefer standalone `uv` scripts with PEP 723 metadata:
+For `scripts/*.py`, a practical standalone convention is PEP 723 with `uv`:
 
 ```python
 #!/usr/bin/env -S uv run --script
@@ -83,4 +68,4 @@ For `scripts/*.py`, prefer standalone `uv` scripts with PEP 723 metadata:
 # ///
 ```
 
-This keeps execution deterministic and avoids hidden environment assumptions.
+This keeps execution deterministic and reduces hidden environment assumptions.

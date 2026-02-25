@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-Envelope = Any
-State = dict[str, Any]
+type Envelope = Any
+type State = dict[str, Any]
 
 
 @dataclass(frozen=True)

@@ -1,40 +1,67 @@
 # CLI
 
-## Run one message
+`bub` currently exposes three commands: `run`, `hooks`, and `install`.
+
+## `bub run`
+
+Run one inbound message through the full framework lifecycle.
 
 ```bash
 uv run bub run "hello" --channel stdout --chat-id local
 ```
 
-## Run with runtime enabled (optional)
+When runtime is disabled or unavailable, output safely falls back to the input prompt text:
 
 ```bash
-BUB_RUNTIME_ENABLED=1 uv run bub run "summarize current repo status"
+BUB_RUNTIME_ENABLED=0 uv run bub run "hello"
 ```
 
-## Command-style runtime input
+Run with runtime enabled:
 
 ```bash
-BUB_RUNTIME_ENABLED=1 uv run bub run ",help"
+BUB_RUNTIME_ENABLED=1 BUB_API_KEY=your_key uv run bub run "summarize current repo status"
 ```
 
-## List skills
+Comma-prefixed inputs invoke internal command mode:
 
 ```bash
-uv run bub skills
+BUB_RUNTIME_ENABLED=0 uv run bub run ",help"
+BUB_RUNTIME_ENABLED=0 uv run bub run ",tools"
+BUB_RUNTIME_ENABLED=0 uv run bub run ",fs.read path=README.md"
 ```
 
-This command shows discovered skills and their current runtime health.
+Unknown comma commands are executed as shell commands:
 
-## List hook bindings
+```bash
+BUB_RUNTIME_ENABLED=0 uv run bub run ",echo hello-from-shell"
+```
+
+## `bub hooks`
+
+Print hook-to-plugin bindings discovered at startup.
 
 ```bash
 uv run bub hooks
 ```
 
+## `bub install`
+
+Install plugins from PyPI requirement spec or GitHub shorthand.
+
+```bash
+uv run bub install my-plugin-package
+uv run bub install owner/repo
+```
+
+`owner/repo` is converted to:
+
+```text
+git+https://github.com/owner/repo.git
+```
+
 ## Notes
 
-- `--workspace` is supported on `run`, `skills`, and `hooks`
+- `--workspace` is supported by `run` and `hooks`
 - `BUB_RUNTIME_ENABLED` supports `0`, `1`, and `auto` (default)
-- If runtime model is unavailable, `bub run` still returns a safe textual result
-- Session identity falls back to `channel:chat_id` when not provided explicitly
+- Session id defaults to `channel:chat_id` when `--session-id` is not provided
+- `run` prints each outbound as `[channel:chat_id] content`

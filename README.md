@@ -1,49 +1,95 @@
 # Bub
 
-Bub it. Build it.
+Bub is a hook-first AI framework built on `pluggy`: the core stays small and orchestrates turns, while builtins and plugins provide behavior.
 
-Bub is a batteries-included, skill-first AI framework with a minimal core and skill-owned behavior.
+## Current Implementation
 
-## Why Bub
-
-Bub keeps the framework kernel small and stable, and moves runtime capabilities into skills.
-This makes behavior easy to evolve without forking the core.
-
-## Design Principles
-
-- Minimal kernel for orchestration and safety boundaries
-- Skill-first extension model for runtime behavior
-- Standard Agent Skills contract first, Bub runtime adapter second
-- Standards-based skill metadata (`SKILL.md`)
-- Predictable override order across project, user, and builtin scopes
-
-## Builtin Batteries
-
-- `cli`: command entrypoints and diagnostics
-- `runtime`: message handling, model/tool execution, and outbound rendering
+- CLI bootstrap: `src/bub/__main__.py` (Typer app)
+- Turn orchestrator: `src/bub/framework.py`
+- Hook contract: `src/bub/hookspecs.py`
+- Builtin hooks/runtime: `src/bub/builtin/hook_impl.py` + `src/bub/builtin/engine.py`
+- Skill discovery and validation: `src/bub/skills.py`
 
 ## Quick Start
 
 ```bash
 uv sync
-uv run bub run "hello"
-uv run bub hooks
-uv run bub skills
-BUB_RUNTIME_ENABLED=1 uv run bub run ",help"
+uv run bub --help
 ```
+
+```bash
+# Runtime off: falls back to model_output=prompt
+BUB_RUNTIME_ENABLED=0 uv run bub run "hello"
+```
+
+```bash
+# Internal command mode (line starts with ',')
+BUB_RUNTIME_ENABLED=0 uv run bub run ",help"
+```
+
+```bash
+# Model runtime (hosted providers usually require a key)
+BUB_API_KEY=your_key uv run bub run "Summarize this repository"
+```
+
+## CLI Commands
+
+- `bub run MESSAGE`: execute one inbound turn and print outbound messages
+- `bub hooks`: print hook-to-plugin bindings
+- `bub install PLUGIN_SPEC`: install plugin from PyPI or `owner/repo` (GitHub shorthand)
+
+## Runtime Behavior
+
+- Regular text input: uses `run_model`; if runtime is unavailable, output falls back to the prompt text
+- Comma commands: `,help`, `,tools`, `,fs.read ...`, etc.
+- Unknown comma commands: executed as `bash -lc` in workspace
+- Session event log: `.bub/runtime/<session-hash>.jsonl`
+- `AGENTS.md`: if present in workspace, appended to runtime system prompt
+
+## Skills
+
+- Discovery roots with deterministic override:
+  1. `<workspace>/.agent/skills`
+  2. `~/.agent/skills`
+  3. `src/bub_skills`
+- Each skill directory must include `SKILL.md`
+- Supported frontmatter fields:
+  - required: `name`, `description`
+  - optional: `license`, `compatibility`, `metadata`, `allowed-tools`
+
+## Plugin Development
+
+Plugins are loaded from Python entry points in `group="bub"`:
+
+```toml
+[project.entry-points."bub"]
+my_plugin = "my_package.my_plugin"
+```
+
+Implement hooks with `@hookimpl` following `BubHookSpecs`.
+
+## Runtime Environment Variables
+
+- `BUB_RUNTIME_ENABLED`: `auto` (default), `1`, `0`
+- `BUB_MODEL`: default `openrouter:qwen/qwen3-coder-next`
+- `BUB_API_KEY`: runtime provider key
+- `BUB_API_BASE`: optional provider base URL
+- `BUB_RUNTIME_MAX_STEPS`: default `8`
+- `BUB_RUNTIME_MAX_TOKENS`: default `1024`
+- `BUB_RUNTIME_MODEL_TIMEOUT_SECONDS`: default `90`
 
 ## Documentation
 
 - `docs/index.md`: overview
-- `docs/features.md`: capability summary
-- `docs/architecture.md`: architecture principles and guarantees
-- `docs/skills.md`: skill authoring and extension model
-- `docs/cli.md`: command usage
+- `docs/architecture.md`: lifecycle, precedence, and failure isolation
+- `docs/skills.md`: skill discovery and frontmatter constraints
+- `docs/cli.md`: CLI usage and comma command mode
+- `docs/features.md`: implemented capabilities and limits
 
 ## Development Checks
 
 ```bash
 uv run ruff check .
-uv run mypy
+uv run mypy src
 uv run pytest -q
 ```

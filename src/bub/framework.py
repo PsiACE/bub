@@ -7,39 +7,17 @@ from pathlib import Path
 from typing import Any, cast
 
 import pluggy
-from loguru import logger
 
 from bub.bus import BusProtocol, MessageBus
 from bub.envelope import content_of, field_of, unpack_batch
 from bub.hook_runtime import HookRuntime
 from bub.hookspecs import BUB_HOOK_NAMESPACE, BubHookSpecs
-from bub.skills.loader import (
-    SkillMetadata,
-    discover_skills,
-    has_bub_runtime_adapter,
-    load_skill_adapter,
-    skill_bub_adapter_path,
-)
 from bub.types import Envelope, TurnResult
 
-SOURCE_PRIORITY = {"builtin": 0, "global": 1, "project": 2}
-
 
 @dataclass(frozen=True)
-class LoadedSkill:
-    """Runtime adapter registration result for one skill."""
-
-    skill: SkillMetadata
-    adapter_name: str
-
-
-@dataclass(frozen=True)
-class SkillStatus:
-    """Observed runtime state for one discovered skill."""
-
-    skill: SkillMetadata
-    state: str
-    adapter_path: Path | None
+class PluginStatus:
+    is_success: bool
     detail: str | None = None
 
 
@@ -51,56 +29,30 @@ class BubFramework:
         self._plugin_manager = pluggy.PluginManager(BUB_HOOK_NAMESPACE)
         self._plugin_manager.add_hookspecs(BubHookSpecs)
         self._hook_runtime = HookRuntime(self._plugin_manager)
-        self._loaded_skills: list[LoadedSkill] = []
-        self._failed_skills: dict[str, str] = {}
-        self._skill_statuses: dict[str, SkillStatus] = {}
+        self._plugin_status: dict[str, PluginStatus] = {}
 
-    @property
-    def loaded_skills(self) -> list[LoadedSkill]:
-        return list(self._loaded_skills)
+    def _load_builtin_hooks(self) -> None:
+        from bub.builtin import hook_impl
 
-    @property
-    def failed_skills(self) -> dict[str, str]:
-        return dict(self._failed_skills)
+        try:
+            self._plugin_manager.register(hook_impl, name="builtin")
+        except Exception as exc:
+            self._plugin_status["builtin"] = PluginStatus(is_success=False, detail=str(exc))
+        else:
+            self._plugin_status["builtin"] = PluginStatus(is_success=True)
 
-    @property
-    def skill_statuses(self) -> list[SkillStatus]:
-        return sorted(self._skill_statuses.values(), key=lambda item: item.skill.name.casefold())
+    def load_hooks(self) -> None:
+        import importlib.metadata
 
-    def load_skills(self) -> None:
-        """Discover and register all hook skills."""
-
-        self._loaded_skills = []
-        self._failed_skills = {}
-        self._skill_statuses = {}
-
-        discovered = discover_skills(self.workspace)
-        for skill in discovered:
-            if has_bub_runtime_adapter(skill):
-                continue
-            self._skill_statuses[skill.name.casefold()] = SkillStatus(skill=skill, state="adapter_absent", adapter_path=None)
-
-        skills = sorted((skill for skill in discovered if has_bub_runtime_adapter(skill)), key=self._registration_order_key)
-        for skill in skills:
-            adapter_name = f"{skill.source}:{skill.name}"
+        self._load_builtin_hooks()
+        for entry_point in importlib.metadata.entry_points(group="bub"):
             try:
-                adapter = load_skill_adapter(skill)
-                self._plugin_manager.register(adapter, name=adapter_name)
-                self._loaded_skills.append(LoadedSkill(skill=skill, adapter_name=adapter_name))
-                self._skill_statuses[skill.name.casefold()] = SkillStatus(
-                    skill=skill,
-                    state="hook_active",
-                    adapter_path=skill_bub_adapter_path(skill),
-                )
-            except Exception as exc:  # pragma: no cover - exercised via behavior tests
-                self._failed_skills[skill.name] = str(exc)
-                self._skill_statuses[skill.name.casefold()] = SkillStatus(
-                    skill=skill,
-                    state="degraded",
-                    adapter_path=skill_bub_adapter_path(skill),
-                    detail=str(exc),
-                )
-                logger.opt(exception=True).warning("skill.load_failed skill={} source={}", skill.name, skill.source)
+                plugin = entry_point.load()
+                self._plugin_manager.register(plugin, name=entry_point.name)
+            except Exception as exc:
+                self._plugin_status[entry_point.name] = PluginStatus(is_success=False, detail=str(exc))
+            else:
+                self._plugin_status[entry_point.name] = PluginStatus(is_success=True)
 
     def create_bus(self) -> BusProtocol:
         """Create bus instance from hooks; fallback to default in-memory bus."""
@@ -123,16 +75,20 @@ class BubFramework:
             message = normalized if normalized is not None else inbound
             if isinstance(message, dict):
                 message.setdefault("workspace", str(self.workspace))
-            session_id = await self._hook_runtime.call_first("resolve_session", message=message) or self._default_session_id(
-                message
-            )
+            session_id = await self._hook_runtime.call_first(
+                "resolve_session", message=message
+            ) or self._default_session_id(message)
             state = await self._hook_runtime.call_first("load_state", session_id=session_id) or {}
             if not isinstance(state, dict):
                 state = {}
-            prompt = await self._hook_runtime.call_first("build_prompt", message=message, session_id=session_id, state=state)
+            prompt = await self._hook_runtime.call_first(
+                "build_prompt", message=message, session_id=session_id, state=state
+            )
             if not prompt:
                 prompt = content_of(message)
-            model_output = await self._hook_runtime.call_first("run_model", prompt=prompt, session_id=session_id, state=state)
+            model_output = await self._hook_runtime.call_first(
+                "run_model", prompt=prompt, session_id=session_id, state=state
+            )
             if model_output is None:
                 await self._hook_runtime.notify_error(
                     stage="run_model:fallback",
@@ -158,7 +114,9 @@ class BubFramework:
             await self._hook_runtime.notify_error(stage="turn", error=exc, message=inbound)
             raise
 
-    async def handle_bus_once(self, bus: BusProtocol | None = None, *, timeout_seconds: float | None = None) -> TurnResult | None:
+    async def handle_bus_once(
+        self, bus: BusProtocol | None = None, *, timeout_seconds: float | None = None
+    ) -> TurnResult | None:
         """Consume one inbound message from bus and publish generated outbounds."""
 
         active_bus = bus or self.create_bus()
@@ -215,10 +173,6 @@ class BubFramework:
         if chat_id is not None:
             fallback["chat_id"] = chat_id
         return [fallback]
-
-    @staticmethod
-    def _registration_order_key(skill: SkillMetadata) -> tuple[int, str]:
-        return (SOURCE_PRIORITY.get(skill.source, 3), skill.name.casefold())
 
     @staticmethod
     def _is_bus_like(candidate: Any) -> bool:

@@ -17,7 +17,7 @@ from typing import Any
 from republic import LLM, TapeEntry, Tool, ToolAutoResult
 from republic.tape import InMemoryTapeStore, Tape
 
-from bub.skills.loader import discover_skills, load_bub_agent_profile_file, load_skill_body
+from bub.skills import discover_skills, load_skill_body
 
 DEFAULT_MODEL = "openrouter:qwen/qwen3-coder-next"
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 30
@@ -32,6 +32,10 @@ PRIMARY_API_KEY_ENV = "BUB_API_KEY"
 RUNTIME_ENABLED_ON_VALUE = "1"
 RUNTIME_ENABLED_OFF_VALUE = "0"
 RUNTIME_ENABLED_AUTO_VALUE = "auto"
+DEFAULT_SYSTEM_PROMPT = (
+    "You are Bub runtime skill. Use tools for operations such as shell, file edits, "
+    "skills lookup, and tape operations. Return concise natural language when done."
+)
 
 
 @dataclass(frozen=True)
@@ -66,8 +70,6 @@ class RuntimeEngine:
         self._event_root.mkdir(parents=True, exist_ok=True)
         self._settings = _load_runtime_settings()
         self._llm = _build_llm(self._settings)
-        self._workspace_prompt = _read_workspace_agents_prompt(self.workspace)
-        self._agent_profile = _load_agent_profile(Path(__file__).with_name(AGENT_PROFILE_FILE_NAME))
 
     async def run(self, *, session_id: str, prompt: str) -> str | None:
         stripped = prompt.strip()
@@ -130,7 +132,7 @@ class RuntimeEngine:
                         "ts": datetime.now(UTC).isoformat(),
                     },
                 )
-                next_prompt = self._agent_profile.continue_prompt
+                next_prompt = CONTINUE_PROMPT
                 continue
             self._append_event(
                 session_id,
@@ -319,7 +321,9 @@ class RuntimeEngine:
 
     def _command_tape_anchors(self, *, args: ParsedArgs, session_id: str, tape: Tape | None) -> str:
         _ = args
-        anchors = [entry for entry in self._read_entries(session_id=session_id, tape=tape) if entry.get("kind") == "anchor"]
+        anchors = [
+            entry for entry in self._read_entries(session_id=session_id, tape=tape) if entry.get("kind") == "anchor"
+        ]
         if not anchors:
             return "(no anchors)"
         return "\n".join(str(entry.get("name") or "-") for entry in anchors)
@@ -355,7 +359,9 @@ class RuntimeEngine:
         _ = args, session_id, tape
         return "exit"
 
-    async def _run_shell(self, command: str, *, cwd: str | None = None, timeout_seconds: int = DEFAULT_COMMAND_TIMEOUT_SECONDS) -> str:
+    async def _run_shell(
+        self, command: str, *, cwd: str | None = None, timeout_seconds: int = DEFAULT_COMMAND_TIMEOUT_SECONDS
+    ) -> str:
         completed = await asyncio.create_subprocess_exec(
             "bash",
             "-lc",
@@ -387,7 +393,9 @@ class RuntimeEngine:
             return self._fs_edit(path, old, new, replace_all=replace_all)
 
         def skills_list() -> str:
-            return self._command_skills_list(args=ParsedArgs(kwargs={}, positional=[]), session_id=session_id, tape=tape)
+            return self._command_skills_list(
+                args=ParsedArgs(kwargs={}, positional=[]), session_id=session_id, tape=tape
+            )
 
         def skills_describe(name: str) -> str:
             args = ParsedArgs(kwargs={"name": name}, positional=[])
@@ -405,7 +413,9 @@ class RuntimeEngine:
             return self._command_tape_handoff(args=args, session_id=session_id, tape=tape)
 
         def tape_anchors() -> str:
-            return self._command_tape_anchors(args=ParsedArgs(kwargs={}, positional=[]), session_id=session_id, tape=tape)
+            return self._command_tape_anchors(
+                args=ParsedArgs(kwargs={}, positional=[]), session_id=session_id, tape=tape
+            )
 
         tools = [
             ("bash", "Run shell command in workspace with timeout.", bash),
@@ -422,30 +432,22 @@ class RuntimeEngine:
         return [Tool.from_callable(func, name=name, description=description) for name, description, func in tools]
 
     def _system_prompt(self) -> str:
-        default_prompt = (
-            "You are Bub runtime skill. Use tools for operations such as shell, file edits, "
-            "skills lookup, and tape operations. Return concise natural language when done."
-        )
-        blocks = [
-            self._agent_profile.system_prompt or default_prompt,
-        ]
-        if self._workspace_prompt:
-            blocks.append(self._workspace_prompt)
+        blocks = [DEFAULT_SYSTEM_PROMPT]
+        if workspace_prompt := _read_workspace_agents_prompt(self.workspace):
+            blocks.append(workspace_prompt)
         return "\n\n".join(blocks)
 
     def _read_entries(self, *, session_id: str, tape: Tape | None) -> list[dict[str, object]]:
         if tape is not None:
             entries: list[dict[str, object]] = []
             for entry in tape.read_entries():
-                entries.append(
-                    {
-                        "id": entry.id,
-                        "kind": entry.kind,
-                        "name": entry.payload.get("name") if isinstance(entry.payload, dict) else None,
-                        "payload": entry.payload,
-                        "meta": entry.meta,
-                    }
-                )
+                entries.append({
+                    "id": entry.id,
+                    "kind": entry.kind,
+                    "name": entry.payload.get("name") if isinstance(entry.payload, dict) else None,
+                    "payload": entry.payload,
+                    "meta": entry.meta,
+                })
             return entries
         return self._read_events_file(session_id)
 
@@ -585,7 +587,7 @@ def _resolve_runtime_enabled(*, mode: str, model: str, api_key: str | None) -> b
 
 
 def _resolve_runtime_enabled_mode() -> str:
-    mode = (_first_non_empty([os.getenv(RUNTIME_ENABLED_ENV), RUNTIME_ENABLED_AUTO_VALUE]) or RUNTIME_ENABLED_AUTO_VALUE)
+    mode = _first_non_empty([os.getenv(RUNTIME_ENABLED_ENV), RUNTIME_ENABLED_AUTO_VALUE]) or RUNTIME_ENABLED_AUTO_VALUE
     lowered = mode.casefold()
     if lowered in {RUNTIME_ENABLED_ON_VALUE, RUNTIME_ENABLED_OFF_VALUE, RUNTIME_ENABLED_AUTO_VALUE}:
         return lowered
@@ -614,6 +616,7 @@ def _int_env(name: str, *, default: int) -> int:
         return default
     return parsed
 
+
 def _read_workspace_agents_prompt(workspace: Path) -> str:
     prompt_path = workspace / AGENTS_FILE_NAME
     if not prompt_path.is_file():
@@ -622,21 +625,6 @@ def _read_workspace_agents_prompt(workspace: Path) -> str:
         return prompt_path.read_text(encoding="utf-8").strip()
     except OSError:
         return ""
-
-
-def _load_agent_profile(path: Path) -> RuntimeAgentProfile:
-    raw = load_bub_agent_profile_file(path)
-    if not raw:
-        return RuntimeAgentProfile()
-
-    system_prompt = raw.get("system_prompt")
-    continue_prompt = raw.get("continue_prompt")
-
-    resolved_system_prompt = system_prompt.strip() if isinstance(system_prompt, str) and system_prompt.strip() else None
-    resolved_continue_prompt = (
-        continue_prompt.strip() if isinstance(continue_prompt, str) and continue_prompt.strip() else CONTINUE_PROMPT
-    )
-    return RuntimeAgentProfile(system_prompt=resolved_system_prompt, continue_prompt=resolved_continue_prompt)
 
 
 def _session_tape_name(session_id: str) -> str:

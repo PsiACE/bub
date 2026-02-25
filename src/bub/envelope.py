@@ -37,6 +37,6 @@ def unpack_batch(batch: Any) -> list[Envelope]:
 
     if batch is None:
         return []
-    if isinstance(batch, (list, tuple)):
+    if isinstance(batch, list | tuple):
         return list(batch)
     return [batch]

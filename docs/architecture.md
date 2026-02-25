@@ -1,52 +1,63 @@
 # Architecture
 
-Bub uses a minimal-kernel architecture: the core orchestrates a turn, while skills provide behavior.
+## Core Components
 
-## Principles
+- `BubFramework`: creates the plugin manager, loads hooks, runs turns
+- `BubHookSpecs`: defines hook contracts (`firstresult` and broadcast hooks)
+- `HookRuntime`: executes hook implementations with per-impl fault isolation
+- `MessageBus`: default in-memory bus (replaceable via hook)
 
-- Keep core responsibilities small and stable
-- Put runtime behavior behind explicit extension points
-- Preserve predictable override semantics
-- Prefer graceful degradation over global failure
+## Turn Lifecycle
 
-## Guarantees
+`process_inbound()` executes hooks in this order:
 
-### Deterministic Turn Lifecycle
+1. `normalize_inbound(message)`
+2. `resolve_session(message)`
+3. `load_state(session_id)` (defaults to `{}`)
+4. `build_prompt(message, session_id, state)` (defaults to message `content`)
+5. `run_model(prompt, session_id, state)`
+6. `save_state(...)` (broadcast)
+7. `render_outbound(...)` (broadcast)
+8. `dispatch_outbound(message)` (broadcast per outbound)
 
-Each inbound message follows a stable lifecycle:
+If `render_outbound` yields nothing, the framework emits one fallback outbound:
 
-1. normalize input
-2. resolve session
-3. load context/state
-4. build model input
-5. run model/tools
-6. persist state
-7. render outbound messages
-8. dispatch output
+```text
+{
+  "content": model_output,
+  "session_id": session_id,
+  "channel": ...?,   # if exists in inbound
+  "chat_id": ...?    # if exists in inbound
+}
+```
 
-### Deterministic Skill Resolution
+## Precedence And Override Semantics
 
-Skills are resolved by scope priority:
+- Hook registration order:
+  1. Builtin plugin `bub.builtin.hook_impl`
+  2. External entry points (`group="bub"`)
+- Execution order: `HookRuntime` reverses pluggy impl order, so later-registered plugins run first
+- For `firstresult` hooks: first non-`None` value wins
+- For broadcast hooks (for example `save_state`): all implementations are attempted
 
-1. project scope
-2. user scope
-3. builtin scope
+## Fault Isolation And Fallbacks
 
-If names collide, higher-priority scope wins.
+- A failing hook implementation does not crash the whole turn; `on_error` is notified
+- If `run_model` returns no value, fallback is `model_output = prompt`
+- `create_bus()` falls back to `MessageBus` when no plugin provides a bus
+- `handle_bus_once()` consumes one inbound from bus and publishes produced outbounds
 
-### Failure Isolation
+## Builtin Runtime
 
-- Skill load failures are isolated
-- Adapter execution failures are isolated per extension
-- The framework keeps the turn loop operational with safe fallbacks
+Builtin `run_model` is implemented by `RuntimeEngine`:
 
-## Non-goals
+- Regular prompts run through Republic `run_tools_async`
+- Comma-prefixed input goes through internal command dispatch (`help/tools/fs.*/...`)
+- Unknown comma commands are executed as shell commands
+- Runtime events are persisted at `.bub/runtime/<session-hash>.jsonl`
 
-- Enforcing one global business schema for all messages
-- Hardcoding domain behavior into the kernel
-- Merging duplicate skill names across scopes
+## Boundaries
 
-## See Also
-
-- `skills.md` for skill contract and layout
-- `cli.md` for command behavior
+- `Envelope` is intentionally weakly typed (`Any`) and read via helper accessors
+- There is no global enforced business schema for messages or cross-plugin state
+- Skill discovery/validation is a separate subsystem (see `skills.md`)

@@ -1,6 +1,6 @@
 [project]
 name = "bub"
-version = "0.2.0"
+version = "0.3.0"
 description = "Bub it. Build it. Batteries-included, hook-first AI framework."
 authors = [{ name = "Chojan Shang", email = "psiace@apache.org" }]
 readme = "README.md"
@@ -38,7 +38,7 @@ Repository = "https://github.com/psiace/bub"
 Documentation = "https://bub.build"
 
 [project.scripts]
-bub = "bub.cli:app"
+bub = "bub.__main__:app"
 
 [dependency-groups]
 dev = [
@@ -56,11 +56,11 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/bub"]
+[tool.pdm.build]
+includes = ["src/bub", "src/bub_skills"]
 
 [tool.vulture]
 ignore_names = ["test_*", "Test*"]
