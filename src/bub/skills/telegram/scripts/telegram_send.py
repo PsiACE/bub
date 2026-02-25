@@ -114,6 +114,9 @@ def send_message(
         payload["reply_to_message_id"] = reply_to_message_id
 
     response = requests.post(url, json=payload, timeout=30)
+    if response.status_code == 400 and reply_to_message_id:
+        payload.pop("reply_to_message_id", None)
+        response = requests.post(url, json=payload, timeout=30)
     response.raise_for_status()
 
     return response.json()
