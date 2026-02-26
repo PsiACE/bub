@@ -150,14 +150,6 @@ class RuntimeEngine:
         return f"error: max_steps_reached={self._settings.max_steps}"
 
     async def _run_tools_once(self, *, tape: Tape, prompt: str, tools: list[Tool]) -> ToolAutoResult:
-        if self._settings.timeout_seconds is None:
-            return await tape.run_tools_async(
-                prompt=prompt,
-                system_prompt=self._system_prompt(),
-                max_tokens=self._settings.max_tokens,
-                tools=tools,
-                extra_headers={"HTTP-Referer": "https://bub.build/", "X-Title": "Bub"},
-            )
         async with asyncio.timeout(self._settings.timeout_seconds):
             return await tape.run_tools_async(
                 prompt=prompt,
