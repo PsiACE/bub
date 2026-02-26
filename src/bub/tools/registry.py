@@ -204,8 +204,8 @@ class ToolRegistry:
         if descriptor is None:
             raise KeyError(name)
 
-        if descriptor.tool.context:
-            kwargs["context"] = context
+        if "context" in kwargs:
+            raise ValueError("Do not pass 'context' in kwargs; use the 'context=' argument to ToolRegistry.execute().")
         result = descriptor.tool.run(context=context, **kwargs)
         if inspect.isawaitable(result):
             result = await result
