@@ -322,7 +322,7 @@ requires-dist = [
     { name = "python-telegram-bot", specifier = ">=21.0" },
     { name = "pyyaml", specifier = ">=6.0.0" },
     { name = "rapidfuzz", specifier = ">=3.14.1" },
-    { name = "republic", specifier = ">=0.3.0" },
+    { name = "republic", editable = "../republic" },
     { name = "requests", specifier = ">=2.32.5" },
     { name = "rich", specifier = ">=13.0.0" },
     { name = "telegramify-markdown", specifier = ">=0.5.4" },
@@ -1684,14 +1684,30 @@ wheels = [
 [[package]]
 name = "republic"
 version = "0.4.0"
-source = { registry = "https://pypi.org/simple" }
+source = { editable = "../republic" }
 dependencies = [
     { name = "any-llm-sdk" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0c/e9/884bf8fe6fb496489f0bd396c968e337d131cfc3d11ea9083b6f61df27e7/republic-0.4.0.tar.gz", hash = "sha256:d5d04063465916614c645f2bdbc8b0a166e82312293762238e493c733b046f18", size = 96613, upload-time = "2026-02-12T09:09:03.96Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/69/b1/e4b2151c359f70a72240df71125d12e5308f213105afcfa120480973b623/republic-0.4.0-py3-none-any.whl", hash = "sha256:ba0bc8adb31afa6690cc008444565de2aa5bd32427d8cffb28a271b66bd4c1c8", size = 37532, upload-time = "2026-02-12T09:09:05.124Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "any-llm-sdk", specifier = ">=1.7.0" },
+    { name = "pydantic", specifier = ">=2.7.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mkdocs", specifier = ">=1.6.1" },
+    { name = "mkdocs-terminal", specifier = ">=4.8.0" },
+    { name = "mkdocstrings", extras = ["python"], specifier = ">=1.0.0" },
+    { name = "prek", specifier = ">=0.3.2" },
+    { name = "pymdown-extensions", specifier = ">=10.12" },
+    { name = "pytest", specifier = ">=9.0.2" },
+    { name = "pytest-asyncio", specifier = ">=1.3.0" },
+    { name = "ruff", specifier = ">=0.14.10" },
+    { name = "tox-uv", specifier = ">=1.29.0" },
+    { name = "ty", specifier = ">=0.0.8" },
 ]
 
 [[package]]
