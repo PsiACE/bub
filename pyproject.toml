@@ -143,6 +143,3 @@ ignore = [
 
 [tool.ruff.format]
 preview = true
-
-[tool.uv.sources]
-republic = { path = "../republic", editable = true }
