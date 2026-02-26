@@ -72,5 +72,6 @@ class ChannelManager:
                 session_id,
                 self.runtime.settings.message_debounce_seconds,
                 self.runtime.settings.message_delay_seconds,
+                self.runtime.settings.active_time_window_seconds,
             )
         await self._session_runners[session_id].process_message(channel, message)

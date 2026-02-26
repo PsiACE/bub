@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     proactive_response: bool = False
     message_delay_seconds: int = 10
     message_debounce_seconds: int = 1
+    active_time_window_seconds: int = 60
 
     telegram_enabled: bool = False
     telegram_token: str | None = None
