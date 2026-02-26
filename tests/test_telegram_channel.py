@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from types import SimpleNamespace
 
 import pytest
@@ -66,14 +67,11 @@ async def test_on_text_invokes_receive_handler_for_allowed_message() -> None:
 
     channel._on_receive = _on_receive
 
-    async def _start_typing(_chat_id: str) -> None:
-        return None
-
-    async def _stop_typing(_chat_id: str) -> None:
-        return None
+    @contextlib.asynccontextmanager
+    async def _start_typing(_chat_id: str):
+        yield
 
     channel._start_typing = _start_typing  # type: ignore[method-assign]
-    channel._stop_typing = _stop_typing  # type: ignore[method-assign]
 
     await channel._on_text(update, None)  # type: ignore[arg-type]
 
@@ -95,18 +93,19 @@ async def test_on_text_always_stops_typing() -> None:
 
     calls = {"start": 0, "stop": 0}
 
-    async def _start_typing(_chat_id: str) -> None:
+    @contextlib.asynccontextmanager
+    async def _start_typing(_chat_id: str):
         calls["start"] += 1
-
-    async def _stop_typing(_chat_id: str) -> None:
-        calls["stop"] += 1
+        try:
+            yield
+        finally:
+            calls["stop"] += 1
 
     async def _on_receive(_msg: object) -> None:
         raise RuntimeError("receive failed")
 
     channel._on_receive = _on_receive
     channel._start_typing = _start_typing  # type: ignore[method-assign]
-    channel._stop_typing = _stop_typing  # type: ignore[method-assign]
 
     with pytest.raises(RuntimeError, match="receive failed"):
         await channel._on_text(update, None)  # type: ignore[arg-type]

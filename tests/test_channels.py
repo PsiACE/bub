@@ -40,6 +40,10 @@ class _FakeChannel(BaseChannel[object]):
         _ = message
         return "session", "prompt"
 
+    def is_mentioned(self, message: object) -> bool:
+        _ = message
+        return True
+
     async def process_output(self, session_id: str, output) -> None:
         _ = (session_id, output)
 

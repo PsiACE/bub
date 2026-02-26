@@ -77,8 +77,7 @@ def validate_skill(skill_path):
         if len(name) > MAX_SKILL_NAME_LENGTH:
             return (
                 False,
-                f"Name is too long ({len(name)} characters). "
-                f"Maximum is {MAX_SKILL_NAME_LENGTH} characters.",
+                f"Name is too long ({len(name)} characters). Maximum is {MAX_SKILL_NAME_LENGTH} characters.",
             )
 
     description = frontmatter.get("description", "")

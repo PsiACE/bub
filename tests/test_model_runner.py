@@ -209,7 +209,6 @@ async def test_model_runner_follows_command_context_until_stop() -> None:
         tool_view=FakeToolView(),  # type: ignore[arg-type]
         tools=[],
         list_skills=lambda: [],
-        load_skill_body=lambda name: None,
         model="openrouter:test",
         max_steps=5,
         max_tokens=512,
@@ -244,7 +243,6 @@ async def test_model_runner_continues_after_tool_execution() -> None:
         tool_view=FakeToolView(),  # type: ignore[arg-type]
         tools=[],
         list_skills=lambda: [],
-        load_skill_body=lambda name: None,
         model="openrouter:test",
         max_steps=3,
         max_tokens=512,
@@ -286,7 +284,6 @@ async def test_model_runner_tool_followup_does_not_inline_tool_payload() -> None
         tool_view=FakeToolView(),  # type: ignore[arg-type]
         tools=[],
         list_skills=lambda: [],
-        load_skill_body=lambda name: None,
         model="openrouter:test",
         max_steps=3,
         max_tokens=512,
@@ -307,6 +304,7 @@ async def test_model_runner_expands_skill_from_hint() -> None:
         name="friendly-python",
         description="style",
         location=__file__,  # type: ignore[arg-type]
+        body="content",
         source="project",
     )
     runner = ModelRunner(
@@ -315,7 +313,6 @@ async def test_model_runner_expands_skill_from_hint() -> None:
         tool_view=FakeToolView(),  # type: ignore[arg-type]
         tools=[],
         list_skills=lambda: [skill],
-        load_skill_body=lambda name: f"body for {name}",
         model="openrouter:test",
         max_steps=1,
         max_tokens=512,
@@ -326,7 +323,7 @@ async def test_model_runner_expands_skill_from_hint() -> None:
 
     await runner.run("please follow $friendly-python")
     _, system_prompt, _ = tape.tape.calls[0]
-    assert "<available_skills>" in system_prompt
+    assert "<basic_skills>" in system_prompt
     assert "friendly-python" in system_prompt
 
 
@@ -344,6 +341,7 @@ async def test_model_runner_expands_skill_from_assistant_hint() -> None:
         name="friendly-python",
         description="style",
         location=__file__,  # type: ignore[arg-type]
+        body="content",
         source="project",
     )
     runner = ModelRunner(
@@ -352,7 +350,6 @@ async def test_model_runner_expands_skill_from_assistant_hint() -> None:
         tool_view=FakeToolView(),  # type: ignore[arg-type]
         tools=[],
         list_skills=lambda: [skill],
-        load_skill_body=lambda name: f"body for {name}",
         model="openrouter:test",
         max_steps=2,
         max_tokens=512,
@@ -363,7 +360,7 @@ async def test_model_runner_expands_skill_from_assistant_hint() -> None:
 
     await runner.run("no skill hint here")
     _, second_system_prompt, _ = tape.tape.calls[1]
-    assert "<available_skills>" in second_system_prompt
+    assert "<basic_skills>" in second_system_prompt
     assert "friendly-python" in second_system_prompt
 
 
@@ -377,7 +374,6 @@ async def test_model_runner_expands_tool_from_user_hint() -> None:
         tool_view=tool_view,  # type: ignore[arg-type]
         tools=[],
         list_skills=lambda: [],
-        load_skill_body=lambda name: None,
         model="openrouter:test",
         max_steps=1,
         max_tokens=512,
@@ -409,7 +405,6 @@ async def test_model_runner_expands_tool_from_assistant_hint() -> None:
         tool_view=tool_view,  # type: ignore[arg-type]
         tools=[],
         list_skills=lambda: [],
-        load_skill_body=lambda name: None,
         model="openrouter:test",
         max_steps=2,
         max_tokens=512,
@@ -430,6 +425,7 @@ async def test_model_runner_refreshes_skills_from_provider_between_runs() -> Non
         name="friendly-python",
         description="style",
         location=__file__,  # type: ignore[arg-type]
+        body="content",
         source="project",
     )
     all_skills: list[SkillMetadata] = []
@@ -445,7 +441,6 @@ async def test_model_runner_refreshes_skills_from_provider_between_runs() -> Non
         tool_view=FakeToolView(),  # type: ignore[arg-type]
         tools=[],
         list_skills=lambda: list(all_skills),
-        load_skill_body=lambda name: f"body for {name}",
         model="openrouter:test",
         max_steps=1,
         max_tokens=512,
@@ -460,7 +455,7 @@ async def test_model_runner_refreshes_skills_from_provider_between_runs() -> Non
     all_skills.append(skill)
     await runner.run("second run")
     _, second_system_prompt, _ = tape.tape.calls[1]
-    assert "<available_skills>" in second_system_prompt
+    assert "<basic_skills>" in second_system_prompt
     assert "friendly-python" in second_system_prompt
 
 

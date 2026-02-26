@@ -15,27 +15,10 @@ def _build_runtime_stub(workspace: Path, *, allowed_skills: set[str] | None) -> 
 
 
 def test_discover_skills_filters_by_allowlist(monkeypatch, tmp_path: Path) -> None:
-    alpha = SkillMetadata(name="alpha", description="a", location=tmp_path / "alpha.md", source="project")
-    beta = SkillMetadata(name="beta", description="b", location=tmp_path / "beta.md", source="project")
+    alpha = SkillMetadata(name="alpha", description="a", location=tmp_path / "alpha.md", body="", source="project")
+    beta = SkillMetadata(name="beta", description="b", location=tmp_path / "beta.md", body="", source="project")
     monkeypatch.setattr(runtime_module, "discover_skills", lambda _workspace: [alpha, beta])
 
     runtime = _build_runtime_stub(tmp_path, allowed_skills={"alpha"})
     names = [skill.name for skill in runtime.discover_skills()]
     assert names == ["alpha"]
-
-
-def test_load_skill_body_respects_allowlist(monkeypatch, tmp_path: Path) -> None:
-    calls: list[str] = []
-
-    def _fake_load_skill_body(name: str, _workspace: Path) -> str:
-        calls.append(name)
-        return f"body:{name}"
-
-    monkeypatch.setattr(runtime_module, "load_skill_body", _fake_load_skill_body)
-    runtime = _build_runtime_stub(tmp_path, allowed_skills={"alpha"})
-
-    assert runtime.load_skill_body("beta") is None
-    assert calls == []
-
-    assert runtime.load_skill_body("Alpha") == "body:Alpha"
-    assert calls == ["Alpha"]

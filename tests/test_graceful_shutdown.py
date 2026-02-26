@@ -34,6 +34,10 @@ class _ChannelRaisesOnStop(BaseChannel[object]):
         _ = message
         return "s", "p"
 
+    def is_mentioned(self, message: object) -> bool:
+        _ = message
+        return True
+
     async def process_output(self, session_id: str, output):
         _ = (session_id, output)
 

@@ -50,10 +50,8 @@ async def test_get_session_prompt_wraps_text_with_notice_and_metadata() -> None:
     session_id, prompt = await channel.get_session_prompt(message)  # type: ignore[arg-type]
 
     assert session_id == "telegram:123"
-    assert prompt.startswith("hello world\n———————\n")
-
-    metadata_json = prompt.split("\n———————\n", 1)[1]
-    data = json.loads(metadata_json)
+    data = json.loads(prompt)
+    assert data["message"] == "hello world"
     assert data["chat_id"] == "123"
     assert data["message_id"] == 10
     assert data["type"] == "text"
@@ -83,8 +81,7 @@ async def test_get_session_prompt_includes_reply_metadata() -> None:
     )
 
     _session_id, prompt = await channel.get_session_prompt(message)  # type: ignore[arg-type]
-    metadata_json = prompt.split("\n———————\n", 1)[1]
-    data = json.loads(metadata_json)
+    data = json.loads(prompt)
     reply = data["reply_to_message"]
     assert reply["message_id"] == 99
     assert reply["from_user_id"] == 1000

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from bub.skills.loader import discover_skills, load_skill_body
+from bub.skills.loader import discover_skills
 
 
 def test_discover_and_load_project_skill(tmp_path: Path) -> None:
@@ -15,7 +15,3 @@ def test_discover_and_load_project_skill(tmp_path: Path) -> None:
     skills = discover_skills(tmp_path)
     names = [skill.name for skill in skills]
     assert "demo-skill" in names
-
-    body = load_skill_body("demo-skill", tmp_path)
-    assert body is not None
-    assert "# Demo" in body

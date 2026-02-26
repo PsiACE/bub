@@ -93,7 +93,7 @@ class DiscordChannel(BaseChannel[discord.Message]):
             self._bot = None
             logger.info("discord.stopped")
 
-    async def get_session_prompt(self, message: discord.Message) -> tuple[str, str] | None:
+    async def get_session_prompt(self, message: discord.Message) -> tuple[str, str]:
         channel_id = str(message.channel.id)
         session_id = f"{self.name}:{channel_id}"
         content, media = self._parse_message(message)
@@ -125,14 +125,10 @@ class DiscordChannel(BaseChannel[discord.Message]):
             metadata["reply_to_message"] = reply_meta
 
         metadata_json = json.dumps(
-            {"channel": "discord", "channel_id": channel_id, **exclude_none(metadata)}, ensure_ascii=False
-        )
-        prompt = (
-            "IMPORTANT: Please reply to this $discord message unless otherwise instructed.\n\n"
-            f"{content}\n———————\n{metadata_json}"
+            {"message": content, "channel_id": channel_id, **exclude_none(metadata)}, ensure_ascii=False
         )
         self._latest_message_by_session[session_id] = message
-        return session_id, prompt
+        return session_id, metadata_json
 
     async def process_output(self, session_id: str, output: LoopResult) -> None:
         parts = [part for part in (output.immediate_output, output.assistant_output) if part]
@@ -163,8 +159,6 @@ class DiscordChannel(BaseChannel[discord.Message]):
     async def _on_message(self, message: discord.Message) -> None:
         if message.author.bot:
             return
-        if not self._allow_message(message):
-            return
         if self._on_receive is None:
             logger.warning("discord.inbound no handler for received messages")
             return
@@ -194,7 +188,7 @@ class DiscordChannel(BaseChannel[discord.Message]):
                 return fetched
         return None
 
-    def _allow_message(self, message: discord.Message) -> bool:
+    def is_mentioned(self, message: discord.Message) -> bool:
         channel_id = str(message.channel.id)
         if self._config.allow_channels and channel_id not in self._config.allow_channels:
             return False

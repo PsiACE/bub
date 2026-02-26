@@ -6,8 +6,6 @@ from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
-from loguru import logger
-
 from bub.app.runtime import AppRuntime
 
 if TYPE_CHECKING:
@@ -30,26 +28,25 @@ class BaseChannel[T](ABC):
     async def start(self, on_receive: Callable[[T], Awaitable[None]]) -> None:
         """Start the channel and set up the receive callback."""
 
+    @property
+    def output_channel(self) -> str:
+        """The name of the channel to send outputs to. Defaults to the same channel."""
+        return self.name
+
     @abstractmethod
-    async def get_session_prompt(self, message: T) -> tuple[str, str] | None:
-        """Get the session id and prompt text for the given message.
-        If None is returned, the message will be ignored.
-        """
+    def is_mentioned(self, message: T) -> bool:
+        """Determine if the message is relevant to this channel."""
+
+    @abstractmethod
+    async def get_session_prompt(self, message: T) -> tuple[str, str]:
+        """Get the session id and prompt text for the given message."""
         pass
+
+    async def run_prompt(self, session_id: str, prompt: str) -> LoopResult:
+        """Run the given prompt through the runtime and return the result."""
+        return await self.runtime.handle_input(session_id, prompt)
 
     @abstractmethod
     async def process_output(self, session_id: str, output: LoopResult) -> None:
         """Process the output returned by the LLM."""
         pass
-
-    async def run_prompt(self, message: T) -> None:
-        """Run a prompt based on the received message."""
-        try:
-            result = await self.get_session_prompt(message)
-            if result is None:
-                return
-            session_id, prompt = result
-            output = await self.runtime.handle_input(session_id, prompt)
-            await self.process_output(session_id, output)
-        except Exception:
-            logger.exception("{}.agent.error", self.name)

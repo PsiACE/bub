@@ -82,15 +82,10 @@ class ToolNameInput(BaseModel):
 class TapeSearchInput(BaseModel):
     query: str = Field(..., description="Query")
     limit: int = Field(default=20, ge=1)
-    all_tapes: bool = Field(default=False, description="Search all tapes instead of current tape")
 
 
 class TapeResetInput(BaseModel):
     archive: bool = Field(default=False)
-
-
-class SkillNameInput(BaseModel):
-    name: str = Field(..., description="Skill name")
 
 
 class EmptyInput(BaseModel):
@@ -208,8 +203,8 @@ def register_builtin_tools(
         )
         async with asyncio.timeout(params.timeout_seconds):
             stdout_bytes, stderr_bytes = await completed.communicate()
-        stdout_text = (stdout_bytes or b"").decode("utf-8").strip()
-        stderr_text = (stderr_bytes or b"").decode("utf-8").strip()
+        stdout_text = (stdout_bytes or b"").decode("utf-8", errors="replace").strip()
+        stderr_text = (stderr_bytes or b"").decode("utf-8", errors="replace").strip()
         if completed.returncode != 0:
             message = stderr_text or stdout_text or f"exit={completed.returncode}"
             raise RuntimeError(f"exit={completed.returncode}: {message}")
@@ -419,7 +414,6 @@ def register_builtin_tools(
             "  ,schedule.list\n"
             "  ,schedule.remove job_id=my-job\n"
             "  ,skills.list\n"
-            "  ,skills.describe name=friendly-python\n"
             "  ,quit\n"
         )
 
@@ -478,7 +472,7 @@ def register_builtin_tools(
     @register(name="tape.search", short_description="Search tape entries", model=TapeSearchInput)
     def tape_search(params: TapeSearchInput) -> str:
         """Search entries in tape by query. In reverse order."""
-        entries = tape.search(params.query, limit=params.limit, all_tapes=params.all_tapes)
+        entries = tape.search(params.query, limit=params.limit)
         if not entries:
             return "(no matches)"
         return "\n".join(f"#{entry.id} {entry.kind} {entry.payload}" for entry in entries)
@@ -497,14 +491,6 @@ def register_builtin_tools(
         if not skills:
             return "(no skills)"
         return "\n".join(f"{skill.name}: {skill.description}" for skill in skills)
-
-    @register(name="skills.describe", short_description="Load skill body", model=SkillNameInput)
-    def describe_skill(params: SkillNameInput) -> str:
-        """Load full SKILL.md body for one skill name."""
-        body = runtime.load_skill_body(params.name)
-        if not body:
-            raise RuntimeError(f"skill not found: {params.name}")
-        return body
 
     @register(name="quit", short_description="Exit program", model=EmptyInput)
     def quit_command(_params: EmptyInput) -> str:

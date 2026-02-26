@@ -52,6 +52,19 @@ async def test_registry_logs_for_direct_tool_run_with_context(monkeypatch) -> No
 
 
 @pytest.mark.asyncio
+async def test_registry_execute_context_tool_should_work() -> None:
+    registry = ToolRegistry()
+
+    @registry.register(name="ctx.echo", short_description="echo", detail="echo", context=True)
+    def echo(*, context: ToolContext, value: str) -> str:
+        return f"{context.run_id}:{value}"
+
+    ctx = ToolContext(tape="t1", run_id="r1")
+    out = await registry.execute("ctx.echo", kwargs={"value": "hi"}, context=ctx)
+    assert out == "r1:hi"
+
+
+@pytest.mark.asyncio
 async def test_registry_model_tools_use_underscore_names_and_keep_handlers() -> None:
     registry = ToolRegistry()
 
