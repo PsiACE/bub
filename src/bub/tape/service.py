@@ -7,7 +7,7 @@ import json
 import re
 from collections.abc import Generator
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, cast
 
@@ -49,10 +49,11 @@ def current_tape() -> str:
 class TapeService:
     """Tape helper with app-specific operations."""
 
-    def __init__(self, llm: LLM, tape_name: str, *, store: FileTapeStore) -> None:
+    def __init__(self, llm: LLM, tape_name: str, *, store: FileTapeStore, state: dict[str, Any] | None = None) -> None:
         self._llm = llm
         self._store = store
-        self._tape = llm.tape(tape_name)
+        self._context = replace(llm.context, state=state or {})
+        self._tape = llm.tape(tape_name, context=self._context)
 
     @property
     def tape(self) -> Tape:
@@ -61,7 +62,7 @@ class TapeService:
     @contextlib.contextmanager
     def fork_tape(self) -> Generator[Tape, None, None]:
         fork_name = self._store.fork(self._tape.name)
-        reset_token = _tape_context.set(self._llm.tape(fork_name))
+        reset_token = _tape_context.set(self._llm.tape(fork_name, context=self._context))
         try:
             yield _tape_context.get()
         finally:
@@ -70,13 +71,10 @@ class TapeService:
             logger.info("Merged forked tape '{}' back into '{}'", fork_name, self._tape.name)
 
     def ensure_bootstrap_anchor(self) -> None:
-        anchors = [entry for entry in self.read_entries() if entry.kind == "anchor"]
+        anchors = list(self._tape.query.kinds("anchor").all())
         if anchors:
             return
         self.handoff("session/start", state={"owner": "human"})
-
-    def read_entries(self) -> list[TapeEntry]:
-        return cast(list[TapeEntry], self.tape.read_entries())
 
     def handoff(self, name: str, *, state: dict[str, Any] | None = None) -> list[TapeEntry]:
         return cast(list[TapeEntry], self.tape.handoff(name, state=state))
@@ -88,7 +86,7 @@ class TapeService:
         self.tape.append(TapeEntry.system(content))
 
     def info(self) -> TapeInfo:
-        entries = self._tape.read_entries()
+        entries = list(self._tape.query.all())
         anchors = [entry for entry in entries if entry.kind == "anchor"]
         last_anchor = anchors[-1].payload.get("name") if anchors else None
         if last_anchor is not None:
@@ -115,7 +113,7 @@ class TapeService:
         return f"Archived: {archive_path}" if archive_path else "ok"
 
     def anchors(self, *, limit: int = 20) -> list[AnchorSummary]:
-        entries = [entry for entry in self._tape.read_entries() if entry.kind == "anchor"]
+        entries = list(self._tape.query.kinds("anchor").all())
         results: list[AnchorSummary] = []
         for entry in entries[-limit:]:
             name = str(entry.payload.get("name", "-"))
@@ -125,22 +123,22 @@ class TapeService:
         return results
 
     def between_anchors(self, start: str, end: str, *, kinds: tuple[str, ...] = ()) -> list[TapeEntry]:
-        query = self.tape.query().between_anchors(start, end)
+        query = self.tape.query.between_anchors(start, end)
         if kinds:
             query = query.kinds(*kinds)
-        return cast(list[TapeEntry], query.all())
+        return list(query.all())
 
     def after_anchor(self, anchor: str, *, kinds: tuple[str, ...] = ()) -> list[TapeEntry]:
-        query = self.tape.query().after_anchor(anchor)
+        query = self.tape.query.after_anchor(anchor)
         if kinds:
             query = query.kinds(*kinds)
-        return cast(list[TapeEntry], query.all())
+        return list(query.all())
 
     def from_last_anchor(self, *, kinds: tuple[str, ...] = ()) -> list[TapeEntry]:
-        query = self.tape.query().last_anchor()
+        query = self.tape.query.last_anchor()
         if kinds:
             query = query.kinds(*kinds)
-        return cast(list[TapeEntry], query.all())
+        return list(query.all())
 
     def search(self, query: str, *, limit: int = 20, all_tapes: bool = False) -> list[TapeEntry]:
         normalized_query = query.strip().lower()
@@ -153,7 +151,7 @@ class TapeService:
 
         for tape in tapes:
             count = 0
-            for entry in reversed(tape.read_entries()):
+            for entry in reversed(list(tape.query.all())):
                 payload_text = json.dumps(entry.payload, ensure_ascii=False)
                 entry_meta = getattr(entry, "meta", {})
                 meta_text = json.dumps(entry_meta, ensure_ascii=False)

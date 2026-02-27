@@ -3,19 +3,19 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Iterable
 from typing import Any
 
 from republic import TapeContext, TapeEntry
 
 
-def default_tape_context() -> TapeContext:
+def default_tape_context(state: dict[str, Any] | None = None) -> TapeContext:
     """Return the default context selection for Bub."""
 
-    return TapeContext(select=_select_messages)
+    return TapeContext(select=_select_messages, state=state or {})
 
 
-def _select_messages(entries: Sequence[TapeEntry], _context: TapeContext) -> list[dict[str, Any]]:
+def _select_messages(entries: Iterable[TapeEntry], _context: TapeContext) -> list[dict[str, Any]]:
     messages: list[dict[str, Any]] = []
     pending_calls: list[dict[str, Any]] = []
 

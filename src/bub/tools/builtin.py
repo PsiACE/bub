@@ -171,15 +171,14 @@ def register_builtin_tools(
     workspace: Path,
     tape: TapeService,
     runtime: AppRuntime,
-    session_id: str,
 ) -> None:
     """Register built-in tools and internal commands."""
     from bub.tools.schedule import run_scheduled_reminder
 
     register = registry.register
 
-    @register(name="bash", short_description="Run shell command", model=BashInput)
-    async def run_bash(params: BashInput) -> str:
+    @register(name="bash", short_description="Run shell command", model=BashInput, context=True)
+    async def run_bash(params: BashInput, context: ToolContext) -> str:
         """Execute bash in workspace. Non-zero exit raises an error.
         IMPORTANT: please DO NOT use sleep to delay execution, use schedule.add tool instead.
         """
@@ -191,7 +190,7 @@ def register_builtin_tools(
         workspace_env = workspace / ".env"
         if workspace_env.is_file():
             env.update((k, v) for k, v in dotenv.dotenv_values(workspace_env).items() if v is not None)
-        env[SESSION_ID_ENV_VAR] = session_id
+        env[SESSION_ID_ENV_VAR] = context.state.get("session_id", "")
         completed = await asyncio.create_subprocess_exec(
             executable,
             "-lc",
@@ -299,7 +298,11 @@ def register_builtin_tools(
                 run_scheduled_reminder,
                 trigger=trigger,
                 id=job_id,
-                kwargs={"message": params.message, "session_id": session_id, "workspace": str(runtime.workspace)},
+                kwargs={
+                    "message": params.message,
+                    "session_id": context.state.get("session_id", ""),
+                    "workspace": str(runtime.workspace),
+                },
                 coalesce=True,
                 max_instances=1,
             )
@@ -320,8 +323,8 @@ def register_builtin_tools(
             raise RuntimeError(f"job not found: {params.job_id}") from exc
         return f"removed: {params.job_id}"
 
-    @register(name="schedule.list", short_description="List scheduled jobs", model=EmptyInput)
-    def schedule_list(_params: EmptyInput) -> str:
+    @register(name="schedule.list", short_description="List scheduled jobs", model=EmptyInput, context=True)
+    def schedule_list(_params: EmptyInput, context: ToolContext) -> str:
         """List scheduled jobs for current workspace."""
         jobs = runtime.scheduler.get_jobs()
         rows: list[str] = []
@@ -331,7 +334,7 @@ def register_builtin_tools(
                 next_run = job.next_run_time.isoformat()
             message = str(job.kwargs.get("message", ""))
             job_session = job.kwargs.get("session_id")
-            if job_session and job_session != session_id:
+            if job_session and job_session != context.state.get("session_id", ""):
                 continue
             rows.append(f"{job.id} next={next_run} msg={message}")
 
@@ -477,11 +480,11 @@ def register_builtin_tools(
             return "(no matches)"
         return "\n".join(f"#{entry.id} {entry.kind} {entry.payload}" for entry in entries)
 
-    @register(name="tape.reset", short_description="Reset tape", model=TapeResetInput)
-    def tape_reset(params: TapeResetInput) -> str:
+    @register(name="tape.reset", short_description="Reset tape", model=TapeResetInput, context=True)
+    def tape_reset(params: TapeResetInput, context: ToolContext) -> str:
         """Reset current tape; can archive before clearing."""
         result = tape.reset(archive=params.archive)
-        runtime.reset_session_context(session_id)
+        runtime.reset_session_context(context.state.get("session_id", ""))
         return result
 
     @register(name="skills.list", short_description="List skills", model=EmptyInput)

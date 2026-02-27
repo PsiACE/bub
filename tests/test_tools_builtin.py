@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 from apscheduler.schedulers.background import BackgroundScheduler
+from republic import ToolContext
 
 from bub.config.settings import Settings
 from bub.tools.builtin import register_builtin_tools
@@ -67,15 +68,21 @@ def _build_registry(workspace: Path, settings: Settings, scheduler: BackgroundSc
         workspace=workspace,
         tape=_DummyTape(),  # type: ignore[arg-type]
         runtime=runtime,  # type: ignore[arg-type]
-        session_id="cli:test",
     )
     return registry
 
 
-def _execute_tool(registry: ToolRegistry, name: str, *, kwargs: dict[str, Any]) -> Any:
+def _execute_tool(
+    registry: ToolRegistry,
+    name: str,
+    *,
+    kwargs: dict[str, Any],
+    session_id: str = "cli:test",
+) -> Any:
     descriptor = registry.get(name)
+    context = ToolContext(tape="test", run_id="test-run", state={"session_id": session_id})
     if descriptor is not None and descriptor.tool.context:
-        result = descriptor.tool.run(context=None, **kwargs)
+        result = descriptor.tool.run(context=context, **kwargs)
     else:
         result = registry.execute(name, kwargs=kwargs)
     if inspect.isawaitable(result):
@@ -356,7 +363,6 @@ def test_skills_list_uses_latest_runtime_skills(tmp_path: Path, scheduler: Backg
         workspace=tmp_path,
         tape=_DummyTape(),  # type: ignore[arg-type]
         runtime=runtime,  # type: ignore[arg-type]
-        session_id="cli:test",
     )
 
     assert _execute_tool(registry, "skills.list", kwargs={}) == "alpha: first"
@@ -428,9 +434,8 @@ def test_tape_reset_also_clears_session_runtime_context(tmp_path: Path, schedule
         workspace=tmp_path,
         tape=_DummyTape(),  # type: ignore[arg-type]
         runtime=runtime,  # type: ignore[arg-type]
-        session_id="telegram:123",
     )
 
-    result = _execute_tool(registry, "tape.reset", kwargs={"archive": True})
+    result = _execute_tool(registry, "tape.reset", kwargs={"archive": True}, session_id="telegram:123")
     assert result == "reset"
     assert runtime.reset_calls == ["telegram:123"]
