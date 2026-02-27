@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from republic import ToolContext
+
 from bub.core.commands import ParsedArgs, parse_command_words, parse_internal_command, parse_kv_arguments
 from bub.core.types import DetectedCommand
 from bub.tape.service import TapeService
@@ -235,6 +237,8 @@ class InputRouter:
 
     async def _execute_shell(self, command: DetectedCommand, *, origin: str, start: float) -> CommandExecutionResult:
         elapsed_ms: int
+        state = self._tape.tape.context.state
+        context = ToolContext(self._tape.tape.name, "execute_internal", state=state)
         try:
             output = await self._registry.execute(
                 "bash",
@@ -242,6 +246,7 @@ class InputRouter:
                     "cmd": command.raw,
                     "cwd": str(self._workspace),
                 },
+                context=context,
             )
             status = "ok"
             text = str(output)
@@ -281,8 +286,10 @@ class InputRouter:
                 elapsed_ms=elapsed_ms,
             )
 
+        state = self._tape.tape.context.state
+        context = ToolContext(self._tape.tape.name, "execute_internal", state=state)
         try:
-            output = await self._registry.execute(name, kwargs=dict(parsed_args.kwargs))
+            output = await self._registry.execute(name, kwargs=dict(parsed_args.kwargs), context=context)
             status = "ok"
             text = str(output)
             if name == "tool.describe":

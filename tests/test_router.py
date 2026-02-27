@@ -19,8 +19,20 @@ class EmptyInput(BaseModel):
 
 
 @dataclass
+class _FakeContext:
+    state: dict[str, object] = field(default_factory=lambda: {"session_id": "cli:test"})
+
+
+@dataclass
+class _FakeTapeHandle:
+    name: str = "test-tape"
+    context: _FakeContext = field(default_factory=_FakeContext)
+
+
+@dataclass
 class FakeTape:
     events: list[tuple[str, dict[str, object]]] = field(default_factory=list)
+    tape: _FakeTapeHandle = field(default_factory=_FakeTapeHandle)
 
     def append_event(self, name: str, data: dict[str, object]) -> None:
         self.events.append((name, data))
