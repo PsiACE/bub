@@ -7,7 +7,7 @@ import json
 import re
 from collections.abc import Generator
 from contextvars import ContextVar
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
@@ -49,11 +49,10 @@ def current_tape() -> str:
 class TapeService:
     """Tape helper with app-specific operations."""
 
-    def __init__(self, llm: LLM, tape_name: str, *, store: FileTapeStore, state: dict[str, Any] | None = None) -> None:
+    def __init__(self, llm: LLM, tape_name: str, *, store: FileTapeStore) -> None:
         self._llm = llm
         self._store = store
-        self._context = replace(llm.context, state=state or {})
-        self._tape = llm.tape(tape_name, context=self._context)
+        self._tape = llm.tape(tape_name)
 
     @property
     def tape(self) -> Tape:
@@ -62,7 +61,7 @@ class TapeService:
     @contextlib.contextmanager
     def fork_tape(self) -> Generator[Tape, None, None]:
         fork_name = self._store.fork(self._tape.name)
-        reset_token = _tape_context.set(self._llm.tape(fork_name, context=self._context))
+        reset_token = _tape_context.set(self._llm.tape(fork_name))
         try:
             yield _tape_context.get()
         finally:
