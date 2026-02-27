@@ -19,6 +19,9 @@ class FakeTape:
         def all(self) -> list[FakeEntry]:
             return list(self._tape.entries)
 
+        def kinds(self, *kinds: str) -> "FakeTape._Query":
+            return self
+
     def __init__(self) -> None:
         self.name = "fake"
         self.entries: list[FakeEntry] = [
