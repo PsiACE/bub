@@ -251,6 +251,7 @@ def _runtime_contract() -> str:
         "There is a skill named `{channel}` for each channel that you need to figure out how to send a response to that channel.\n"
         "**Response rules:**\n"
         "- Not every message requires a response; it is OK to finish without replying.\n"
-        "- If needed, you may respond more than once because the input may contain multiple intents.\n"
+        "- You SHOULD respond to the messages that directly mention or reply to you.\n"
+        "- You MAY respond more than once when the input contains multiple intents.\n"
         "</response_instruct>"
     )
