@@ -12,6 +12,13 @@ class FakeEntry:
 
 
 class FakeTape:
+    class _Query:
+        def __init__(self, tape: "FakeTape") -> None:
+            self._tape = tape
+
+        def all(self) -> list[FakeEntry]:
+            return list(self._tape.entries)
+
     def __init__(self) -> None:
         self.name = "fake"
         self.entries: list[FakeEntry] = [
@@ -23,9 +30,7 @@ class FakeTape:
             )
         ]
         self.reset_calls = 0
-
-    def read_entries(self) -> list[FakeEntry]:
-        return list(self.entries)
+        self.query = self._Query(self)
 
     def handoff(self, name: str, state: dict[str, object] | None = None) -> list[FakeEntry]:
         entry = FakeEntry(

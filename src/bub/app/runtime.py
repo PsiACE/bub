@@ -24,7 +24,7 @@ from bub.config.settings import Settings
 from bub.core import AgentLoop, InputRouter, LoopResult, ModelRunner
 from bub.integrations.republic_client import build_llm, build_tape_store, read_workspace_agents_prompt
 from bub.skills.loader import SkillMetadata, discover_skills
-from bub.tape import TapeService
+from bub.tape import TapeService, default_tape_context
 from bub.tools import ProgressiveToolView, ToolRegistry
 from bub.tools.builtin import register_builtin_tools
 
@@ -47,7 +47,9 @@ class SessionRuntime:
     tool_view: ProgressiveToolView
 
     async def handle_input(self, text: str) -> LoopResult:
-        return await self.loop.handle_input(text)
+        with self.tape.fork_tape() as tape:
+            tape.context = default_tape_context({"session_id": self.session_id})
+            return await self.loop.handle_input(text)
 
     def reset_context(self) -> None:
         """Clear volatile in-memory context while keeping the same session identity."""
@@ -108,13 +110,7 @@ class AppRuntime:
         tape.ensure_bootstrap_anchor()
 
         registry = ToolRegistry(self._allowed_tools)
-        register_builtin_tools(
-            registry,
-            workspace=self.workspace,
-            tape=tape,
-            runtime=self,
-            session_id=session_id,
-        )
+        register_builtin_tools(registry, workspace=self.workspace, tape=tape, runtime=self)
         tool_view = ProgressiveToolView(registry)
         router = InputRouter(registry, tool_view, tape, self.workspace)
         runner = ModelRunner(

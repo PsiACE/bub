@@ -29,35 +29,34 @@ class AgentLoop:
         self._tape = tape
 
     async def handle_input(self, raw: str) -> LoopResult:
-        with self._tape.fork_tape():
-            route = await self._router.route_user(raw)
-            if route.exit_requested:
-                return LoopResult(
-                    immediate_output=route.immediate_output,
-                    assistant_output="",
-                    exit_requested=True,
-                    steps=0,
-                    error=None,
-                )
-
-            if not route.enter_model:
-                return LoopResult(
-                    immediate_output=route.immediate_output,
-                    assistant_output="",
-                    exit_requested=False,
-                    steps=0,
-                    error=None,
-                )
-
-            model_result = await self._model_runner.run(route.model_prompt)
-            self._record_result(model_result)
+        route = await self._router.route_user(raw)
+        if route.exit_requested:
             return LoopResult(
                 immediate_output=route.immediate_output,
-                assistant_output=model_result.visible_text,
-                exit_requested=model_result.exit_requested,
-                steps=model_result.steps,
-                error=model_result.error,
+                assistant_output="",
+                exit_requested=True,
+                steps=0,
+                error=None,
             )
+
+        if not route.enter_model:
+            return LoopResult(
+                immediate_output=route.immediate_output,
+                assistant_output="",
+                exit_requested=False,
+                steps=0,
+                error=None,
+            )
+
+        model_result = await self._model_runner.run(route.model_prompt)
+        self._record_result(model_result)
+        return LoopResult(
+            immediate_output=route.immediate_output,
+            assistant_output=model_result.visible_text,
+            exit_requested=model_result.exit_requested,
+            steps=model_result.steps,
+            error=model_result.error,
+        )
 
     def _record_result(self, result: ModelTurnResult) -> None:
         self._tape.append_event(

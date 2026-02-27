@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import cast
 from urllib.parse import quote, unquote
 
-from republic.tape import TapeEntry
+from republic.tape import InMemoryQueryMixin, TapeEntry
 
 TAPE_FILE_SUFFIX = ".jsonl"
 
@@ -151,7 +151,7 @@ class TapeFile:
         return archive_file
 
 
-class FileTapeStore:
+class FileTapeStore(InMemoryQueryMixin):
     """Append-only JSONL tape store compatible with Republic TapeStore protocol."""
 
     def __init__(self, home: Path, workspace_path: Path) -> None:
