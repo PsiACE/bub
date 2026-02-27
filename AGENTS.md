@@ -17,7 +17,7 @@ Tests are in `tests/`. Documentation is in `docs/`. Legacy implementation is arc
 - `uv sync`: install/update dependencies
 - `just install`: setup env + hooks
 - `uv run bub chat`: run interactive CLI
-- `uv run bub telegram`: run Telegram adapter
+- `uv run bub message`: run message channels (Telegram/Discord)
 - `uv run pytest -q` or `just test`: run tests
 - `uv run ruff check .`: lint checks
 - `uv run mypy`: static typing checks
