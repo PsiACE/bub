@@ -150,7 +150,7 @@ class TapeService:
 
         for tape in tapes:
             count = 0
-            for entry in reversed(list(tape.query.all())):
+            for entry in reversed(list(tape.query.kinds("message").all())):
                 payload_text = json.dumps(entry.payload, ensure_ascii=False)
                 entry_meta = getattr(entry, "meta", {})
                 meta_text = json.dumps(entry_meta, ensure_ascii=False)
