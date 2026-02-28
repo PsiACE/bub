@@ -452,24 +452,14 @@ def register_builtin_tools(
 
     @register(name="tape.info", short_description="Show tape summary", model=EmptyInput)
     def tape_info(_params: EmptyInput) -> str:
-        """Show tape summary with entry and anchor counts. It includes the following fields:
-        - tape: tape name
-        - entries: total number of entries
-        - anchors: total number of anchors
-        - last_anchor: name of last anchor or '-'
-        - entries_since_last_anchor: number of entries since last anchor
-        - approximate_context_length: approximate total length of message contents
-        """
+        """Show tape summary with entry and anchor counts."""
         info = tape.info()
-        messages = tape.tape.read_messages()
-        approximate_context_length = sum(len(msg.get("content", "")) for msg in messages)
         return "\n".join((
             f"tape={info.name}",
             f"entries={info.entries}",
             f"anchors={info.anchors}",
             f"last_anchor={info.last_anchor or '-'}",
             f"entries_since_last_anchor={info.entries_since_last_anchor}",
-            f"approximate_context_length={approximate_context_length}",
         ))
 
     @register(name="tape.search", short_description="Search tape entries", model=TapeSearchInput)

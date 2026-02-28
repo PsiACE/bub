@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -193,7 +194,18 @@ class ModelRunner:
         compact_skills = render_compact_skills(self._list_skills(), self._expanded_skills)
         if compact_skills:
             blocks.append(compact_skills)
+        if token_usage := self._render_token_usage():
+            blocks.append(token_usage)
         return "\n\n".join(block for block in blocks if block.strip())
+
+    def _render_token_usage(self) -> str:
+        events = list(self._tape.tape.query.kinds("event").last_anchor().all())
+        for event in reversed(events):
+            if event.payload.get("name") == "run":
+                data = event.payload.get("data", {})
+                if "usage" in data:
+                    return f"<last_token_usage>{json.dumps(data['usage'])}</last_token_usage>"
+        return ""
 
     def _activate_hints(self, text: str) -> None:
         skill_index = self._build_skill_index()

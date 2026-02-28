@@ -82,8 +82,19 @@ class FakeToolView:
 
 @dataclass
 class FakeTapeImpl:
+    class _Query:
+        def kinds(self, *_kinds: str) -> "FakeTapeImpl._Query":
+            return self
+
+        def last_anchor(self) -> "FakeTapeImpl._Query":
+            return self
+
+        def all(self) -> list[object]:
+            return []
+
     outputs: list[ToolAutoResult]
     calls: list[tuple[str, str, int]] = field(default_factory=list)
+    query: _Query = field(default_factory=_Query)
 
     async def run_tools_async(
         self,
