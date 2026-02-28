@@ -94,6 +94,7 @@ class FakeTapeImpl:
 
     outputs: list[ToolAutoResult]
     calls: list[tuple[str, str, int]] = field(default_factory=list)
+    call_kwargs: list[dict[str, object]] = field(default_factory=list)
     query: _Query = field(default_factory=_Query)
 
     async def run_tools_async(
@@ -103,9 +104,10 @@ class FakeTapeImpl:
         system_prompt: str,
         max_tokens: int,
         tools: list[object],
-        extra_headers: dict[str, str] | None = None,
+        **kwargs: object,
     ) -> ToolAutoResult:
         self.calls.append((prompt, system_prompt, max_tokens))
+        self.call_kwargs.append(kwargs)
         return self.outputs.pop(0)
 
 
@@ -382,3 +384,71 @@ async def test_model_runner_refreshes_skills_from_provider_between_runs() -> Non
     _, second_system_prompt, _ = tape.tape.calls[1]
     assert "<basic_skills>" in second_system_prompt
     assert "friendly-python" in second_system_prompt
+
+
+@pytest.mark.asyncio
+async def test_model_runner_passes_extra_headers_for_openrouter() -> None:
+    tape = FakeTapeService(FakeTapeImpl(outputs=[ToolAutoResult.text_result("assistant-only")]))
+    runner = ModelRunner(
+        tape=tape,  # type: ignore[arg-type]
+        router=SingleStepRouter(),  # type: ignore[arg-type]
+        tool_view=FakeToolView(),  # type: ignore[arg-type]
+        tools=[],
+        list_skills=lambda: [],
+        model="openrouter:test",
+        max_steps=1,
+        max_tokens=512,
+        model_timeout_seconds=90,
+        base_system_prompt="base",
+        get_workspace_system_prompt=lambda: "",
+    )
+
+    await runner.run("hi")
+    kwargs = tape.tape.call_kwargs[0]
+    assert kwargs.get("extra_headers") == ModelRunner.DEFAULT_HEADERS
+
+
+@pytest.mark.asyncio
+async def test_model_runner_maps_headers_for_vertexai() -> None:
+    tape = FakeTapeService(FakeTapeImpl(outputs=[ToolAutoResult.text_result("assistant-only")]))
+    runner = ModelRunner(
+        tape=tape,  # type: ignore[arg-type]
+        router=SingleStepRouter(),  # type: ignore[arg-type]
+        tool_view=FakeToolView(),  # type: ignore[arg-type]
+        tools=[],
+        list_skills=lambda: [],
+        model="vertexai:test",
+        max_steps=1,
+        max_tokens=512,
+        model_timeout_seconds=90,
+        base_system_prompt="base",
+        get_workspace_system_prompt=lambda: "",
+    )
+
+    await runner.run("hi")
+    kwargs = tape.tape.call_kwargs[0]
+    assert "extra_headers" not in kwargs
+    assert kwargs["http_options"] == {"headers": ModelRunner.DEFAULT_HEADERS}
+
+
+@pytest.mark.asyncio
+async def test_model_runner_uses_extra_headers_for_unknown_provider() -> None:
+    tape = FakeTapeService(FakeTapeImpl(outputs=[ToolAutoResult.text_result("assistant-only")]))
+    runner = ModelRunner(
+        tape=tape,  # type: ignore[arg-type]
+        router=SingleStepRouter(),  # type: ignore[arg-type]
+        tool_view=FakeToolView(),  # type: ignore[arg-type]
+        tools=[],
+        list_skills=lambda: [],
+        model="custom:test",
+        max_steps=1,
+        max_tokens=512,
+        model_timeout_seconds=90,
+        base_system_prompt="base",
+        get_workspace_system_prompt=lambda: "",
+    )
+
+    await runner.run("hi")
+    kwargs = tape.tape.call_kwargs[0]
+    assert kwargs.get("extra_headers") == ModelRunner.DEFAULT_HEADERS
+    assert "http_options" not in kwargs
