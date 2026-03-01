@@ -1,44 +1,39 @@
 # Bub Docs
 
-Bub is built for day-to-day coding tasks: run commands, edit files, debug failures, and keep progress visible across long sessions.
+Bub is a collaborative agent for shared delivery workflows, evolving into a framework that helps other agents operate with the same collaboration model.
+If you only remember one thing from this page, remember this: Bub is built for shared delivery workflows where execution must be inspectable, handoff-friendly, and repeatable.
 
-## What You Can Expect
+Under the hood, Bub uses [Republic](https://github.com/bubbuild/republic) to assemble context from traceable history instead of inheriting opaque state.
+Its operating philosophy follows [Socialized Evaluation](https://psiace.me/posts/im-and-socialized-evaluation/): quality is judged by whether teams can inspect decisions and continue work safely.
 
-- Clear command behavior: only lines that start with `,` are commands.
-- One execution path: the same rules apply to both your input and assistant-generated commands.
-- Graceful recovery: failed commands are fed back to the model with structured context.
-- Trackable sessions: tape, anchors, and handoff help you resume work cleanly.
+## What Bub Is (and Is Not)
 
-## How Bub Behaves In Practice
+- Bub is a collaboration agent for human and agent operators.
+- Bub is not a personal-assistant-only chat shell.
+- Bub keeps command execution explicit, reviewable, and recoverable.
 
-1. Type normal text to ask the assistant.
-2. Start a line with `,` to run a command.
-3. Known names such as `,help` are internal commands.
-4. Other comma-prefixed lines are treated as shell commands.
-5. If a command fails, Bub keeps going and uses the error context in the next model step.
+## How Bub Works
 
-## Start Here
+1. Input boundary: only lines starting with `,` are treated as commands.
+2. Unified routing: the same routing rules apply to user input and assistant output.
+3. Structured fallback: failed commands are returned to the model with execution evidence.
+4. Persistent evidence: interaction history is append-only (`tape`) and can be searched.
+5. Explicit transitions: `anchor` and `handoff` represent phase changes and responsibility transfer.
 
-- [Key Features](features.md)
-- [Interactive CLI](cli.md)
-- [Deployment Guide](deployment.md)
-- [Architecture](architecture.md)
-- [Channels](channels.md)
+## Checklist
 
-## Common Commands
+1. Start with model + API key in `.env`.
+2. Run `uv run bub` and ask a normal question.
+3. Run `,help` and `,tools` to inspect available capabilities.
+4. Execute one shell command like `,git status`.
+5. Create one handoff: `,handoff name=phase-1 summary="..."`.
+6. Verify history using `,tape.info` or `,tape.search query=...`.
 
-```text
-,help
-,tools
-,tool.describe name=fs.read
-,tape.info
-,tape.search query=timeout
-,handoff name=phase-2 summary="router fixed" next_steps="run pytest"
-,anchors
-,tape.reset archive=true
-```
+## Where To Read Next
 
-## Configuration
-
-Start from `env.example` in the repository root.
-Use model + API key first, then add Telegram and advanced settings when needed.
+- [Key Features](features.md): capability-level overview.
+- [Interactive CLI](cli.md): interactive workflow and troubleshooting.
+- [Architecture](architecture.md): runtime boundaries and internals.
+- [Deployment Guide](deployment.md): local and Docker operations.
+- [Channels](channels.md): Telegram and Discord runtime model.
+- [Post: Socialized Evaluation and Agent Partnership](posts/2026-03-01-bub-socialized-evaluation-and-agent-partnership.md): project position and principles.

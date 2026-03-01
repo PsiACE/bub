@@ -8,9 +8,9 @@ Use channels when you want remote operation from mobile or shared team environme
 - [Telegram](telegram.md): direct messages and group chats.
 - [Discord](discord.md): servers, channels, and threads.
 
-## Runtime Entry
+## Run Entry
 
-Start channel runtime with:
+Start channel mode with:
 
 ```bash
 uv run bub message

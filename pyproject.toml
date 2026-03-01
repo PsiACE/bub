@@ -1,7 +1,7 @@
 [project]
 name = "bub"
 version = "0.2.3"
-description = "Bub it. Build it. Tape-first coding agent CLI."
+description = "Bub it. Build it. A collaborative agent for shared delivery workflows."
 authors = [
     { name = "Chojan Shang", email = "psiace@apache.org" },
     { name = "Frost Ming", email = "me@frostming.com" },
