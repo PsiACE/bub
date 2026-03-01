@@ -33,7 +33,7 @@ class FakeTape:
     def fork_tape(self) -> Generator["FakeTape", None, None]:
         yield self
 
-    def append_event(self, name: str, data: dict[str, object]) -> None:
+    async def append_event(self, name: str, data: dict[str, object]) -> None:
         self.events.append((name, data))
 
 

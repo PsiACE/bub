@@ -255,7 +255,7 @@ class InputRouter:
             text = f"{exc!s}"
 
         elapsed_ms = int((time.time() - start) * 1000)
-        self._record_command(command=command, status=status, output=text, elapsed_ms=elapsed_ms, origin=origin)
+        await self._record_command(command=command, status=status, output=text, elapsed_ms=elapsed_ms, origin=origin)
         return CommandExecutionResult(
             command=command.raw,
             name="bash",
@@ -277,7 +277,13 @@ class InputRouter:
         if self._registry.has(name) is False:
             elapsed_ms = int((time.time() - start) * 1000)
             text = f"unknown internal command: {command.name}"
-            self._record_command(command=command, status="error", output=text, elapsed_ms=elapsed_ms, origin=origin)
+            await self._record_command(
+                command=command,
+                status="error",
+                output=text,
+                elapsed_ms=elapsed_ms,
+                origin=origin,
+            )
             return CommandExecutionResult(
                 command=command.raw,
                 name=name,
@@ -303,7 +309,7 @@ class InputRouter:
             text = f"{exc!s}"
 
         elapsed_ms = int((time.time() - start) * 1000)
-        self._record_command(command=command, status=status, output=text, elapsed_ms=elapsed_ms, origin=origin)
+        await self._record_command(command=command, status=status, output=text, elapsed_ms=elapsed_ms, origin=origin)
         return CommandExecutionResult(
             command=command.raw,
             name=name,
@@ -329,7 +335,7 @@ class InputRouter:
         else:
             parsed_args.kwargs["name"] = "handoff"
 
-    def _record_command(
+    async def _record_command(
         self,
         *,
         command: DetectedCommand,
@@ -338,7 +344,7 @@ class InputRouter:
         elapsed_ms: int,
         origin: str,
     ) -> None:
-        self._tape.append_event(
+        await self._tape.append_event(
             "command",
             {
                 "origin": origin,

@@ -22,25 +22,26 @@ class _TapeInfo:
     entries: int = 0
     anchors: int = 0
     last_anchor: str | None = None
+    entries_since_last_anchor: int = 0
 
 
 class _DummyTape:
-    def handoff(self, _name: str, *, state: dict[str, object] | None = None) -> list[object]:
+    async def handoff(self, _name: str, *, state: dict[str, object] | None = None) -> list[object]:
         _ = state
         return []
 
-    def anchors(self, *, limit: int = 20) -> list[object]:
+    async def anchors(self, *, limit: int = 20) -> list[object]:
         _ = limit
         return []
 
-    def info(self) -> _TapeInfo:
+    async def info(self) -> _TapeInfo:
         return _TapeInfo()
 
-    def search(self, _query: str, *, limit: int = 20) -> list[object]:
+    async def search(self, _query: str, *, limit: int = 20) -> list[object]:
         _ = limit
         return []
 
-    def reset(self, *, archive: bool = False) -> str:
+    async def reset(self, *, archive: bool = False) -> str:
         _ = archive
         return "reset"
 

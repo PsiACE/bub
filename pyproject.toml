@@ -1,6 +1,6 @@
 [project]
 name = "bub"
-version = "0.2.2"
+version = "0.2.3"
 description = "Bub it. Build it. Tape-first coding agent CLI."
 authors = [{ name = "Chojan Shang", email = "psiace@apache.org" }]
 readme = "README.md"
@@ -21,7 +21,7 @@ dependencies = [
     "pydantic-settings>=2.0.0",
     "pyyaml>=6.0.0",
     "typer>=0.9.0",
-    "republic>=0.3.0",
+    "republic>=0.5.2",
     "rich>=13.0.0",
     "prompt-toolkit>=3.0.0",
     "python-telegram-bot>=21.0",

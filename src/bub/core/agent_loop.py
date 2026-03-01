@@ -49,7 +49,7 @@ class AgentLoop:
             )
 
         model_result = await self._model_runner.run(route.model_prompt)
-        self._record_result(model_result)
+        await self._record_result(model_result)
         return LoopResult(
             immediate_output=route.immediate_output,
             assistant_output=model_result.visible_text,
@@ -58,8 +58,8 @@ class AgentLoop:
             error=model_result.error,
         )
 
-    def _record_result(self, result: ModelTurnResult) -> None:
-        self._tape.append_event(
+    async def _record_result(self, result: ModelTurnResult) -> None:
+        await self._tape.append_event(
             "loop.result",
             {
                 "steps": result.steps,

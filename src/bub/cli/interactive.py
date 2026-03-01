@@ -27,6 +27,7 @@ class InteractiveCli:
         self._session = runtime.get_session(session_id)
         self._renderer = CliRenderer(get_console())
         self._mode = "agent"
+        self._last_tape_info: object | None = None
         self._prompt = self._build_prompt()
 
     async def run(self) -> None:
@@ -35,6 +36,8 @@ class InteractiveCli:
 
     async def _run(self) -> None:
         self._renderer.welcome(model=self._runtime.settings.model, workspace=str(self._runtime.workspace))
+        await self._refresh_tape_info()
+
         while True:
             try:
                 with patch_stdout(raw=True):
@@ -51,6 +54,7 @@ class InteractiveCli:
             request = self._normalize_input(raw)
             with self._renderer.console.status("[cyan]Processing...[/cyan]", spinner="dots"):
                 result = await self._runtime.handle_input(self._session_id, request)
+                await self._refresh_tape_info()
             if result.immediate_output:
                 self._renderer.command_output(result.immediate_output)
             if result.error:
@@ -60,6 +64,12 @@ class InteractiveCli:
             if result.exit_requested:
                 break
         self._renderer.info("Bye.")
+
+    async def _refresh_tape_info(self) -> None:
+        try:
+            self._last_tape_info = await self._session.tape.info()
+        except Exception:
+            self._last_tape_info = None
 
     def _build_prompt(self) -> PromptSession[str]:
         kb = KeyBindings()
@@ -92,12 +102,14 @@ class InteractiveCli:
         return FormattedText([("bold", f"{cwd} {symbol} ")])
 
     def _render_bottom_toolbar(self) -> FormattedText:
-        info = self._session.tape.info()
+        info = self._last_tape_info
         now = datetime.now().strftime("%H:%M")
         left = f"{now}  mode:{self._mode}"
         right = (
             f"model:{self._runtime.settings.model}  "
-            f"entries:{info.entries} anchors:{info.anchors} last:{info.last_anchor or '-'}"
+            f"entries:{getattr(info, 'entries', '-')} "
+            f"anchors:{getattr(info, 'anchors', '-')} "
+            f"last:{getattr(info, 'last_anchor', None) or '-'}"
         )
         return FormattedText([("", f"{left}  {right}")])
 

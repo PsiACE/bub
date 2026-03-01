@@ -103,6 +103,7 @@ class TapeFile:
             "kind": entry.kind,
             "payload": dict(entry.payload),
             "meta": dict(entry.meta),
+            "timestamp": entry.timestamp,
         }
 
     @staticmethod
@@ -121,7 +122,8 @@ class TapeFile:
             return None
         if not isinstance(meta, dict):
             meta = {}
-        return TapeEntry(entry_id, kind, dict(entry_payload), dict(meta))
+        timestamp = payload.get("timestamp", 0.0)
+        return TapeEntry(entry_id, kind, dict(entry_payload), dict(meta), timestamp)
 
     def append(self, entry: TapeEntry) -> None:
         return self._append_many([entry])

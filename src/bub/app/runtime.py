@@ -47,6 +47,7 @@ class SessionRuntime:
     tool_view: ProgressiveToolView
 
     async def handle_input(self, text: str) -> LoopResult:
+        await self.tape.ensure_bootstrap_anchor()
         with self.tape.fork_tape() as tape:
             tape.context = default_tape_context({"session_id": self.session_id})
             return await self.loop.handle_input(text)
@@ -107,7 +108,6 @@ class AppRuntime:
 
         tape_name = f"{self.settings.tape_name}:{_session_slug(session_id)}"
         tape = TapeService(self._llm, tape_name, store=self._store)
-        tape.ensure_bootstrap_anchor()
 
         registry = ToolRegistry(self._allowed_tools)
         register_builtin_tools(registry, workspace=self.workspace, tape=tape, runtime=self)

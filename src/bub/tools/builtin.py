@@ -431,7 +431,7 @@ def register_builtin_tools(
         return registry.detail(params.name)
 
     @register(name="tape.handoff", short_description="Create anchor handoff", model=HandoffInput)
-    def handoff(params: HandoffInput) -> str:
+    async def handoff(params: HandoffInput) -> str:
         """Create tape anchor with optional summary and next_steps state."""
         anchor_name = params.name or "handoff"
         state: dict[str, object] = {}
@@ -439,21 +439,21 @@ def register_builtin_tools(
             state["summary"] = params.summary
         if params.next_steps:
             state["next_steps"] = params.next_steps
-        tape.handoff(anchor_name, state=state or None)
+        await tape.handoff(anchor_name, state=state or None)
         return f"handoff created: {anchor_name}"
 
     @register(name="tape.anchors", short_description="List tape anchors", model=EmptyInput)
-    def anchors(_params: EmptyInput) -> str:
+    async def anchors(_params: EmptyInput) -> str:
         """List recent tape anchors."""
         rows = []
-        for anchor in tape.anchors(limit=50):
+        for anchor in await tape.anchors(limit=50):
             rows.append(f"{anchor.name} state={json.dumps(anchor.state, ensure_ascii=False)}")
         return "\n".join(rows) if rows else "(no anchors)"
 
     @register(name="tape.info", short_description="Show tape summary", model=EmptyInput)
-    def tape_info(_params: EmptyInput) -> str:
+    async def tape_info(_params: EmptyInput) -> str:
         """Show tape summary with entry and anchor counts."""
-        info = tape.info()
+        info = await tape.info()
         return "\n".join((
             f"tape={info.name}",
             f"entries={info.entries}",
@@ -463,17 +463,17 @@ def register_builtin_tools(
         ))
 
     @register(name="tape.search", short_description="Search tape entries", model=TapeSearchInput)
-    def tape_search(params: TapeSearchInput) -> str:
+    async def tape_search(params: TapeSearchInput) -> str:
         """Search entries in tape by query. In reverse order."""
-        entries = tape.search(params.query, limit=params.limit)
+        entries = await tape.search(params.query, limit=params.limit)
         if not entries:
             return "(no matches)"
         return "\n".join(f"#{entry.id} {entry.kind} {entry.payload}" for entry in entries)
 
     @register(name="tape.reset", short_description="Reset tape", model=TapeResetInput, context=True)
-    def tape_reset(params: TapeResetInput, context: ToolContext) -> str:
+    async def tape_reset(params: TapeResetInput, context: ToolContext) -> str:
         """Reset current tape; can archive before clearing."""
-        result = tape.reset(archive=params.archive)
+        result = await tape.reset(archive=params.archive)
         runtime.reset_session_context(context.state.get("session_id", ""))
         return result
 

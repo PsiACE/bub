@@ -53,6 +53,7 @@ class TapeService:
         self._llm = llm
         self._store = store
         self._tape = llm.tape(tape_name)
+        self._bootstrapped = False
 
     @property
     def tape(self) -> Tape:
@@ -69,23 +70,26 @@ class TapeService:
             _tape_context.reset(reset_token)
             logger.info("Merged forked tape '{}' back into '{}'", fork_name, self._tape.name)
 
-    def ensure_bootstrap_anchor(self) -> None:
-        anchors = list(self._tape.query.kinds("anchor").all())
+    async def ensure_bootstrap_anchor(self) -> None:
+        if self._bootstrapped:
+            return
+        self._bootstrapped = True
+        anchors = list(await self._tape.query_async.kinds("anchor").all())
         if anchors:
             return
-        self.handoff("session/start", state={"owner": "human"})
+        await self.handoff("session/start", state={"owner": "human"})
 
-    def handoff(self, name: str, *, state: dict[str, Any] | None = None) -> list[TapeEntry]:
-        return cast(list[TapeEntry], self.tape.handoff(name, state=state))
+    async def handoff(self, name: str, *, state: dict[str, Any] | None = None) -> list[TapeEntry]:
+        return cast(list[TapeEntry], await self.tape.handoff_async(name, state=state))
 
-    def append_event(self, name: str, data: dict[str, Any]) -> None:
-        self.tape.append(TapeEntry.event(name, data=data))
+    async def append_event(self, name: str, data: dict[str, Any]) -> None:
+        await self.tape.append_async(TapeEntry.event(name, data=data))
 
-    def append_system(self, content: str) -> None:
-        self.tape.append(TapeEntry.system(content))
+    async def append_system(self, content: str) -> None:
+        await self.tape.append_async(TapeEntry.system(content))
 
-    def info(self) -> TapeInfo:
-        entries = list(self._tape.query.all())
+    async def info(self) -> TapeInfo:
+        entries = list(await self._tape.query_async.all())
         anchors = [entry for entry in entries if entry.kind == "anchor"]
         last_anchor = anchors[-1].payload.get("name") if anchors else None
         if last_anchor is not None:
@@ -100,19 +104,19 @@ class TapeService:
             entries_since_last_anchor=entries_since_last_anchor,
         )
 
-    def reset(self, *, archive: bool = False) -> str:
+    async def reset(self, *, archive: bool = False) -> str:
         archive_path: Path | None = None
         if archive and self._store is not None:
             archive_path = self._store.archive(self._tape.name)
-        self._tape.reset()
+        await self._tape.reset_async()
         state = {"owner": "human"}
         if archive_path is not None:
             state["archived"] = str(archive_path)
-        self._tape.handoff("session/start", state=state)
+        await self._tape.handoff_async("session/start", state=state)
         return f"Archived: {archive_path}" if archive_path else "ok"
 
-    def anchors(self, *, limit: int = 20) -> list[AnchorSummary]:
-        entries = list(self._tape.query.kinds("anchor").all())
+    async def anchors(self, *, limit: int = 20) -> list[AnchorSummary]:
+        entries = list(await self._tape.query_async.kinds("anchor").all())
         results: list[AnchorSummary] = []
         for entry in entries[-limit:]:
             name = str(entry.payload.get("name", "-"))
@@ -121,25 +125,25 @@ class TapeService:
             results.append(AnchorSummary(name=name, state=state_dict))
         return results
 
-    def between_anchors(self, start: str, end: str, *, kinds: tuple[str, ...] = ()) -> list[TapeEntry]:
-        query = self.tape.query.between_anchors(start, end)
+    async def between_anchors(self, start: str, end: str, *, kinds: tuple[str, ...] = ()) -> list[TapeEntry]:
+        query = self.tape.query_async.between_anchors(start, end)
         if kinds:
             query = query.kinds(*kinds)
-        return list(query.all())
+        return list(await query.all())
 
-    def after_anchor(self, anchor: str, *, kinds: tuple[str, ...] = ()) -> list[TapeEntry]:
-        query = self.tape.query.after_anchor(anchor)
+    async def after_anchor(self, anchor: str, *, kinds: tuple[str, ...] = ()) -> list[TapeEntry]:
+        query = self.tape.query_async.after_anchor(anchor)
         if kinds:
             query = query.kinds(*kinds)
-        return list(query.all())
+        return list(await query.all())
 
-    def from_last_anchor(self, *, kinds: tuple[str, ...] = ()) -> list[TapeEntry]:
-        query = self.tape.query.last_anchor()
+    async def from_last_anchor(self, *, kinds: tuple[str, ...] = ()) -> list[TapeEntry]:
+        query = self.tape.query_async.last_anchor()
         if kinds:
             query = query.kinds(*kinds)
-        return list(query.all())
+        return list(await query.all())
 
-    def search(self, query: str, *, limit: int = 20, all_tapes: bool = False) -> list[TapeEntry]:
+    async def search(self, query: str, *, limit: int = 20, all_tapes: bool = False) -> list[TapeEntry]:
         normalized_query = query.strip().lower()
         if not normalized_query:
             return []
@@ -150,7 +154,7 @@ class TapeService:
 
         for tape in tapes:
             count = 0
-            for entry in reversed(list(tape.query.kinds("message").all())):
+            for entry in reversed(list(await tape.query_async.kinds("message").all())):
                 payload_text = json.dumps(entry.payload, ensure_ascii=False)
                 entry_meta = getattr(entry, "meta", {})
                 meta_text = json.dumps(entry_meta, ensure_ascii=False)

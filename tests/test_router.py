@@ -34,7 +34,7 @@ class FakeTape:
     events: list[tuple[str, dict[str, object]]] = field(default_factory=list)
     tape: _FakeTapeHandle = field(default_factory=_FakeTapeHandle)
 
-    def append_event(self, name: str, data: dict[str, object]) -> None:
+    async def append_event(self, name: str, data: dict[str, object]) -> None:
         self.events.append((name, data))
 
 

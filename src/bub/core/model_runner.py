@@ -88,7 +88,7 @@ class ModelRunner:
         while state.step < self._max_steps and not state.exit_requested:
             state.step += 1
             logger.info("model.runner.step step={} model={}", state.step, self._model)
-            self._tape.append_event(
+            await self._tape.append_event(
                 "loop.step.start",
                 {
                     "step": state.step,
@@ -98,7 +98,7 @@ class ModelRunner:
             response = await self._chat(state.prompt)
             if response.error is not None:
                 state.error = response.error
-                self._tape.append_event(
+                await self._tape.append_event(
                     "loop.step.error",
                     {
                         "step": state.step,
@@ -108,7 +108,7 @@ class ModelRunner:
                 break
 
             if response.followup_prompt:
-                self._tape.append_event(
+                await self._tape.append_event(
                     "loop.step.finish",
                     {
                         "step": state.step,
@@ -123,12 +123,12 @@ class ModelRunner:
 
             assistant_text = response.text
             if not assistant_text.strip():
-                self._tape.append_event("loop.step.empty", {"step": state.step})
+                await self._tape.append_event("loop.step.empty", {"step": state.step})
                 break
 
             self._activate_hints(assistant_text)
             route = await self._router.route_assistant(assistant_text)
-            self._consume_route(state, route)
+            await self._consume_route(state, route)
             if not route.next_prompt:
                 break
             state.prompt = route.next_prompt
@@ -136,7 +136,7 @@ class ModelRunner:
 
         if state.step >= self._max_steps and not state.error:
             state.error = f"max_steps_reached={self._max_steps}"
-            self._tape.append_event("loop.max_steps", {"max_steps": self._max_steps})
+            await self._tape.append_event("loop.max_steps", {"max_steps": self._max_steps})
 
         return ModelTurnResult(
             visible_text="\n\n".join(part for part in state.visible_parts if part).strip(),
@@ -146,12 +146,12 @@ class ModelRunner:
             command_followups=state.followups,
         )
 
-    def _consume_route(self, state: _PromptState, route: AssistantRouteResult) -> None:
+    async def _consume_route(self, state: _PromptState, route: AssistantRouteResult) -> None:
         if route.visible_text:
             state.visible_parts.append(route.visible_text)
         if route.exit_requested:
             state.exit_requested = True
-        self._tape.append_event(
+        await self._tape.append_event(
             "loop.step.finish",
             {
                 "step": state.step,
