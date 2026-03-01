@@ -48,7 +48,6 @@ class SessionRunner:
             self._last_mentioned_at = None
             logger.info("session.receive ignored session_id={} message={}", self.session_id, prompt)
             return
-        self._prompts.append(prompt)
         if prompt.startswith(","):
             logger.info("session.receive.command session_id={} message={}", self.session_id, prompt)
             try:
@@ -56,7 +55,9 @@ class SessionRunner:
                 await channel.process_output(self.session_id, result)
             except Exception:
                 logger.exception("session.run.error session_id={}", self.session_id)
-        elif is_mentioned:
+            return
+        self._prompts.append(prompt)
+        if is_mentioned:
             # wait at most 1 second to reply to mentioned messages.
             self._last_mentioned_at = now
             logger.info("session.receive.mentioned session_id={} message={}", self.session_id, prompt)
