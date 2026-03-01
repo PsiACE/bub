@@ -15,9 +15,9 @@ nav:
       - "2025-07-16 · Baby Bub Bootstrap Milestone": posts/2025-07-16-baby-bub-bootstrap-milestone.md
   - Deployment: deployment.md
   - Architecture: architecture.md
-  - Interactive CLI: cli.md
   - Channels:
       - Overview: channels.md
+      - CLI (Local): cli.md
       - Telegram: telegram.md
       - Discord: discord.md
 
