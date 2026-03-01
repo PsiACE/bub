@@ -1,5 +1,7 @@
 # Interactive CLI
 
+`uv run bub chat` runs the local `cli` channel adapter (same channel pipeline as other channels, but local-only).
+
 ## Run Commands
 
 ```bash

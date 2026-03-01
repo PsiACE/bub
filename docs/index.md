@@ -35,5 +35,5 @@ Its operating philosophy follows [Socialized Evaluation](https://psiace.me/posts
 - [Interactive CLI](cli.md): interactive workflow and troubleshooting.
 - [Architecture](architecture.md): runtime boundaries and internals.
 - [Deployment Guide](deployment.md): local and Docker operations.
-- [Channels](channels.md): Telegram and Discord runtime model.
+- [Channels](channels.md): CLI/Telegram/Discord runtime model.
 - [Post: Socialized Evaluation and Agent Partnership](posts/2026-03-01-bub-socialized-evaluation-and-agent-partnership.md): project position and principles.

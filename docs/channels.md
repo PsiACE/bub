@@ -1,10 +1,11 @@
 # Channels
 
-Bub supports running the same agent loop through message channels.
-Use channels when you want remote operation from mobile or shared team environments.
+Bub supports running the same agent loop through channel adapters.
+Use channels when you want either local interactive operation or remote operation from mobile/shared team environments.
 
 ## Supported Channels
 
+- `cli` (local): interactive terminal channel used by `uv run bub chat`.
 - [Telegram](telegram.md): direct messages and group chats.
 - [Discord](discord.md): servers, channels, and threads.
 
@@ -20,6 +21,7 @@ If the process exits immediately, check that at least one channel is enabled in 
 
 ## Session Isolation
 
+- CLI session key: `cli` or `cli:<name>` (from `--session-id`).
 - Telegram session key: `telegram:<chat_id>`
 - Discord session key: `discord:<channel_id>`
 
