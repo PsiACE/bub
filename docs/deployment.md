@@ -11,7 +11,7 @@ This page covers production-oriented setups for Bub, including local process man
 Quick bootstrap:
 
 ```bash
-git clone https://github.com/psiace/bub.git
+git clone https://github.com/bubbuild/bub.git
 cd bub
 uv sync
 cp env.example .env

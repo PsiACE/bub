@@ -1,9 +1,9 @@
 # Bub
 
-[![Release](https://img.shields.io/github/v/release/psiace/bub)](https://github.com/psiace/bub/releases)
-[![Build status](https://img.shields.io/github/actions/workflow/status/psiace/bub/main.yml?branch=main)](https://github.com/psiace/bub/actions/workflows/main.yml?query=branch%3Amain)
-[![Commit activity](https://img.shields.io/github/commit-activity/m/psiace/bub)](https://github.com/psiace/bub/graphs/commit-activity)
-[![License](https://img.shields.io/github/license/psiace/bub)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/bubbuild/bub)](https://github.com/bubbuild/bub/releases)
+[![Build status](https://img.shields.io/github/actions/workflow/status/bubbuild/bub/main.yml?branch=main)](https://github.com/bubbuild/bub/actions/workflows/main.yml?query=branch%3Amain)
+[![Commit activity](https://img.shields.io/github/commit-activity/m/bubbuild/bub)](https://github.com/bubbuild/bub/graphs/commit-activity)
+[![License](https://img.shields.io/github/license/bubbuild/bub)](LICENSE)
 
 > Bub it. Build it.
 
@@ -20,7 +20,7 @@ It is designed for real engineering workflows where execution must be predictabl
 ## Quick Start
 
 ```bash
-git clone https://github.com/psiace/bub.git
+git clone https://github.com/bubbuild/bub.git
 cd bub
 uv sync
 cp env.example .env
@@ -86,8 +86,10 @@ uv run bub message
 - `docs/index.md`: getting started and usage overview
 - `docs/deployment.md`: local + Docker deployment playbook
 - `docs/features.md`: key capabilities and why they matter
+- `docs/posts/*.md`: long-form project posts and milestones
 - `docs/cli.md`: interactive CLI workflow and troubleshooting
 - `docs/architecture.md`: agent loop, tape, anchor, and tool/skill design
+- `docs/channels.md`: channel runtime model and operations
 - `docs/telegram.md`: Telegram integration and operations
 - `docs/discord.md`: Discord integration and operations
 

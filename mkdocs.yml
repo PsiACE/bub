@@ -1,20 +1,24 @@
 site_name: bub
-repo_url: https://github.com/psiace/bub
+repo_url: https://github.com/bubbuild/bub
 site_url: https://bub.build
 site_description: Bub it. Build it.
-site_author: Chojan Shang
+site_author: Bub Build
 edit_uri: edit/main/docs/
-repo_name: psiace/bub
-copyright: Maintained by <a href="https://psiace.me">Chojan Shang</a>.
+repo_name: bubbuild/bub
+copyright: Copyright (c) 2026 Bub Build contributors.
 
 nav:
   - Home: index.md
   - Key Features: features.md
+  - Posts:
+      - "2025-07-16 · Baby Bub Bootstrap Milestone": posts/2025-07-16-baby-bub-bootstrap-milestone.md
   - Deployment: deployment.md
   - Architecture: architecture.md
   - Interactive CLI: cli.md
-  - Telegram: telegram.md
-  - Discord: discord.md
+  - Channels:
+      - Overview: channels.md
+      - Telegram: telegram.md
+      - Discord: discord.md
 
 plugins:
   - search
@@ -58,6 +62,6 @@ markdown_extensions:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/psiace/bub
+      link: https://github.com/bubbuild/bub
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/bub

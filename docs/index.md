@@ -23,8 +23,7 @@ Bub is built for day-to-day coding tasks: run commands, edit files, debug failur
 - [Interactive CLI](cli.md)
 - [Deployment Guide](deployment.md)
 - [Architecture](architecture.md)
-- [Telegram Integration](telegram.md)
-- [Discord Integration](discord.md)
+- [Channels](channels.md)
 
 ## Common Commands
 
