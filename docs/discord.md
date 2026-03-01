@@ -1,6 +1,6 @@
 # Discord Integration
 
-Discord allows Bub to run as a remote coding assistant for team channels, threads, and DMs.
+Discord allows Bub to run as a remote collaboration endpoint for team channels, threads, and DMs.
 
 ## Configure
 
@@ -30,9 +30,9 @@ Notes:
 uv run bub message
 ```
 
-## Runtime Behavior
+## Run Behavior
 
-- Uses `discord.py` bot runtime.
+- Uses `discord.py` bot service loop.
 - Each Discord channel maps to `discord:<channel_id>` session key.
 - Inbound text enters the same `AgentLoop` used by CLI.
 - Outbound immediate output is sent back in-channel (split into chunks when too long).
@@ -49,4 +49,4 @@ uv run bub message
 1. Keep bot token only in `.env` or a secret manager.
 2. Restrict `BUB_DISCORD_ALLOW_CHANNELS` and `BUB_DISCORD_ALLOW_FROM`.
 3. Confirm the bot has message-content intent enabled in Discord Developer Portal.
-4. If no response is observed, verify token, allowlists, intents, and runtime logs.
+4. If no response is observed, verify token, allowlists, intents, and service logs.

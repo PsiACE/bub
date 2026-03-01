@@ -1,6 +1,6 @@
 # Interactive CLI
 
-## Runtime Commands
+## Run Commands
 
 ```bash
 uv run bub chat
@@ -16,7 +16,7 @@ uv run bub chat \
   --session-id cli-main
 ```
 
-Other runtime modes:
+Other run modes:
 
 - `uv run bub run "summarize current repo status"`: one-shot message and exit.
 - `uv run bub message`: run enabled message channels (Telegram/Discord).
