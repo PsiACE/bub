@@ -34,7 +34,7 @@ dependencies = [
     "discord-py>=2.6.4",
     "requests>=2.32.5",
     "python-dotenv>=1.2.1",
-    "any-llm-sdk[anthropic]>=1.8.0",
+    "any-llm-sdk[anthropic,vertexai]>=1.8.0",
 ]
 
 [project.urls]
@@ -73,9 +73,7 @@ paths = ["src"]
 
 [tool.mypy]
 files = ["src"]
-exclude = [
-    '^src/bub/skills/.*$',
-]
+exclude = ['^src/bub/skills/.*$']
 disallow_untyped_defs = false
 disallow_any_unimported = false
 no_implicit_optional = true
@@ -115,7 +113,8 @@ select = [
     # mccabe
     "C90",
     # pycodestyle
-    "E", "W",
+    "E",
+    "W",
     # pyflakes
     "F",
     # pygrep-hooks
