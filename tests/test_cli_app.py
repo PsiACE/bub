@@ -18,9 +18,14 @@ class DummyRuntime:
         class _Settings:
             model = "openrouter:test"
             telegram_enabled = False
+            discord_enabled = False
             telegram_token = None
             telegram_allow_from = ()
             telegram_allow_chats = ()
+
+            @staticmethod
+            def resolve_home() -> Path:
+                return Path.cwd()
 
         self.settings = _Settings()
         self.registry = type("_Registry", (), {"descriptors": staticmethod(lambda: [])})()
@@ -48,8 +53,12 @@ class DummyRuntime:
 
         class _Session:
             tape = _Tape()
+            tool_view = type("_ToolView", (), {"all_tools": staticmethod(lambda: [])})()
 
         return _Session()
+
+    def install_hooks(self, _manager) -> None:
+        return None
 
     def handle_input(self, _session_id: str, _text: str):
         raise AssertionError
@@ -60,28 +69,29 @@ class DummyRuntime:
         yield stop_event
 
 
-def test_chat_command_invokes_interactive_runner(monkeypatch, tmp_path: Path) -> None:
-    called = {"run": False}
+def test_chat_command_registers_cli_channel(monkeypatch, tmp_path: Path) -> None:
+    called: dict[str, object] = {}
 
     def _fake_build_runtime(workspace: Path, *, model=None, max_tokens=None, enable_scheduler=True):
         assert workspace == tmp_path
         assert enable_scheduler is True
         return DummyRuntime(workspace)
 
-    class _FakeInteractive:
-        def __init__(self, _runtime, session_id: str = "cli"):
-            assert session_id == "cli"
-
-        async def run(self) -> None:
-            called["run"] = True
+    async def _fake_serve_channels(manager) -> None:
+        called["channels"] = manager.enabled_channels()
+        called["channel_type"] = type(manager.channels["cli"]).__name__
 
     monkeypatch.setattr(cli_app_module, "build_runtime", _fake_build_runtime)
-    monkeypatch.setattr(cli_app_module, "InteractiveCli", _FakeInteractive)
+    monkeypatch.setattr(cli_app_module, "_serve_channels", _fake_serve_channels)
 
     runner = CliRunner()
-    result = runner.invoke(cli_app_module.app, ["chat", "--workspace", str(tmp_path)])
+    result = runner.invoke(
+        cli_app_module.app,
+        ["chat", "--workspace", str(tmp_path), "--session-id", "cli:test"],
+    )
     assert result.exit_code == 0
-    assert called["run"] is True
+    assert called["channels"] == ["cli"]
+    assert called["channel_type"] == "CliChannel"
 
 
 def test_run_command_expands_home_in_workspace(monkeypatch, tmp_path: Path) -> None:

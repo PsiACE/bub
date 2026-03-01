@@ -16,17 +16,24 @@ from bub.channels.runner import SessionRunner
 class ChannelManager:
     """Coordinate inbound routing and outbound dispatch for channels."""
 
-    def __init__(self, runtime: AppRuntime) -> None:
+    def __init__(self, runtime: AppRuntime, *, include_defaults: bool = True) -> None:
         self.runtime = runtime
         self._channels: dict[str, BaseChannel] = {}
         self._channel_tasks: list[asyncio.Task[None]] = []
         self._session_runners: dict[str, SessionRunner] = {}
-        for channel_cls in self.default_channels():
-            self.register(channel_cls)
+        if include_defaults:
+            for channel_cls in self.default_channels():
+                self.register(channel_cls)
         runtime.install_hooks(self)
 
     def register[T: type[BaseChannel]](self, channel: T) -> T:
-        self._channels[channel.name] = channel(self.runtime)
+        self.register_instance(channel(self.runtime))
+        return channel
+
+    def register_instance[T: BaseChannel](self, channel: T) -> T:
+        if channel.name in self._channels:
+            raise ValueError(f"channel '{channel.name}' already registered")
+        self._channels[channel.name] = channel
         return channel
 
     @property

@@ -23,13 +23,15 @@ class SessionRunner:
 
     async def _run(self, channel: BaseChannel) -> None:
         await self._event.wait()
-        prompt = f"channel: ${channel.output_channel}\n" + "\n".join(self._prompts)
+        prompt = channel.format_prompt("\n".join(self._prompts))
         self._prompts.clear()
         self._running_task = None
         try:
             result = await channel.run_prompt(self.session_id, prompt)
             await channel.process_output(self.session_id, result)
         except Exception:
+            if not channel.debounce_enabled:
+                raise
             logger.exception("session.run.error session_id={}", self.session_id)
 
     def reset_timer(self, timeout: int) -> None:
@@ -48,16 +50,25 @@ class SessionRunner:
             self._last_mentioned_at = None
             logger.info("session.receive ignored session_id={} message={}", self.session_id, prompt)
             return
-        self._prompts.append(prompt)
         if prompt.startswith(","):
             logger.info("session.receive.command session_id={} message={}", self.session_id, prompt)
             try:
                 result = await channel.run_prompt(self.session_id, prompt)
                 await channel.process_output(self.session_id, result)
             except Exception:
+                if not channel.debounce_enabled:
+                    raise
                 logger.exception("session.run.error session_id={}", self.session_id)
-        elif is_mentioned:
-            # wait at most 1 second to reply to mentioned messages.
+            return
+        elif not channel.debounce_enabled:
+            logger.info("session.receive.immediate session_id={} message={}", self.session_id, prompt)
+            result = await channel.run_prompt(self.session_id, prompt)
+            await channel.process_output(self.session_id, result)
+            return
+
+        self._prompts.append(prompt)
+        if is_mentioned:
+            # Debounce mentioned messages before responding.
             self._last_mentioned_at = now
             logger.info("session.receive.mentioned session_id={} message={}", self.session_id, prompt)
             self.reset_timer(self.debounce_seconds)

@@ -48,6 +48,14 @@ class _FakeChannel(BaseChannel[object]):
         _ = (session_id, output)
 
 
+def test_channel_manager_rejects_duplicate_channel_name() -> None:
+    manager = ChannelManager(_Runtime())  # type: ignore[arg-type]
+    manager.register(_FakeChannel)
+
+    with pytest.raises(ValueError, match="already registered"):
+        manager.register(_FakeChannel)
+
+
 @pytest.mark.asyncio
 async def test_channel_manager_starts_and_stops_registered_channels() -> None:
     manager = ChannelManager(_Runtime())  # type: ignore[arg-type]

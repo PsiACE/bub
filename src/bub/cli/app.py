@@ -13,13 +13,10 @@ from loguru import logger
 
 from bub.app import build_runtime
 from bub.app.runtime import AppRuntime
-from bub.channels import ChannelManager
-from bub.cli.interactive import InteractiveCli
+from bub.channels import ChannelManager, CliChannel
 from bub.logging_utils import configure_logging
 
 app = typer.Typer(name="bub", help="Tape-first coding agent CLI", add_completion=False)
-TELEGRAM_DISABLED_ERROR = "telegram is disabled; set BUB_TELEGRAM_ENABLED=true"
-TELEGRAM_TOKEN_ERROR = "missing telegram token; set BUB_TELEGRAM_TOKEN"  # noqa: S105
 
 
 def _parse_subset(values: list[str] | None) -> set[str] | None:
@@ -62,8 +59,9 @@ def chat(
     with build_runtime(
         resolved_workspace, model=model, max_tokens=max_tokens, enable_scheduler=not disable_scheduler
     ) as runtime:
-        cli = InteractiveCli(runtime, session_id=session_id)
-        asyncio.run(cli.run())
+        manager = ChannelManager(runtime, include_defaults=False)
+        manager.register_instance(CliChannel(runtime, session_id=session_id))
+        asyncio.run(_serve_channels(manager))
 
 
 @app.command()
@@ -169,7 +167,7 @@ def message(
     configure_logging()
     resolved_workspace = (workspace.expanduser() if workspace else Path.cwd()).resolve()
     logger.info(
-        "telegram.start workspace={} model={} max_tokens={}, proactive_response={}",
+        "message.start workspace={} model={} max_tokens={}, proactive_response={}",
         str(resolved_workspace),
         model or "<default>",
         max_tokens if max_tokens is not None else "<default>",

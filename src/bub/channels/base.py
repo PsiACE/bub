@@ -33,6 +33,11 @@ class BaseChannel[T](ABC):
         """The name of the channel to send outputs to. Defaults to the same channel."""
         return self.name
 
+    @property
+    def debounce_enabled(self) -> bool:
+        """Whether inbound messages should be debounced before model execution."""
+        return True
+
     @abstractmethod
     def is_mentioned(self, message: T) -> bool:
         """Determine if the message is relevant to this channel."""
@@ -45,6 +50,10 @@ class BaseChannel[T](ABC):
     async def run_prompt(self, session_id: str, prompt: str) -> LoopResult:
         """Run the given prompt through the runtime and return the result."""
         return await self.runtime.handle_input(session_id, prompt)
+
+    def format_prompt(self, prompt: str) -> str:
+        """Format accumulated prompt text before sending it to the runtime."""
+        return f"channel: ${self.output_channel}\n{prompt}"
 
     @abstractmethod
     async def process_output(self, session_id: str, output: LoopResult) -> None:
