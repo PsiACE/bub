@@ -29,7 +29,6 @@ dependencies = [
     "rich>=13.0.0",
     "prompt-toolkit>=3.0.0",
     "python-telegram-bot>=21.0",
-    "html2markdown>=0.1.7",
     "loguru>=0.7.2",
     "telegramify-markdown>=0.5.4",
     "apscheduler>=3.11.2",
