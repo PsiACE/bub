@@ -11,7 +11,7 @@ This page covers production-oriented setups for Bub, including local process man
 Quick bootstrap:
 
 ```bash
-git clone https://github.com/psiace/bub.git
+git clone https://github.com/bubbuild/bub.git
 cd bub
 uv sync
 cp env.example .env
@@ -32,7 +32,7 @@ Choose one mode based on your operation target:
    `uv run bub chat`
 2. Channel service (Telegram/Discord):
    `uv run bub message`
-3. Scheduler-only autonomous runtime:
+3. Scheduler-only autonomous mode:
    `uv run bub idle`
 
 One-shot operation:
@@ -115,4 +115,4 @@ uv run mypy
 uv run pytest -q
 ```
 
-Then restart your runtime (`chat`, `message`, or container service).
+Then restart your service mode (`chat`, `message`, or container service).

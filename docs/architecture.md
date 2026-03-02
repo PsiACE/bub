@@ -8,6 +8,7 @@ This page is for developers and advanced users who need to understand why Bub be
 2. Same routing rules for user input and assistant output.
 3. Command execution and model reasoning are explicit layers.
 4. Phase transitions are represented by `anchor/handoff`, not hidden state jumps.
+5. Human and agent operators follow the same collaboration boundaries.
 
 ## Runtime Topology
 

@@ -1,6 +1,6 @@
 # Key Features
 
-This page summarizes the capabilities users rely on most when working with Bub.
+This page summarizes the capabilities operators rely on most when working with Bub.
 
 ## 1. Deterministic Command Routing
 
@@ -17,9 +17,9 @@ Why it matters: fewer accidental tool calls and more predictable behavior.
 
 Why it matters: the assistant can debug based on real command output instead of generic guesses.
 
-## 3. Tape-First Session Memory
+## 3. Verifiable Session History and Context Assembly
 
-- Bub writes session activity to append-only tape.
+- Bub records session activity as append-only, verifiable history.
 - `,anchors` and `,handoff` mark phase transitions.
 - `,tape.search` and `,tape.info` help inspect context quickly.
 
@@ -39,7 +39,7 @@ Why it matters: prompt stays focused while advanced capabilities remain availabl
 
 - Rich interactive shell with history and completions.
 - `Ctrl-X` toggles shell mode for faster command execution.
-- Same runtime behavior as channel integrations.
+- Same behavior model as channel integrations.
 
 Why it matters: local debugging and implementation loops are fast and consistent.
 

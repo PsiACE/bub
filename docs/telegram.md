@@ -1,6 +1,6 @@
 # Telegram Integration
 
-Telegram allows Bub to run as a remote coding assistant entry point for lightweight operations.
+Telegram allows Bub to run as a remote collaboration entry point for lightweight operations.
 
 ## Configure
 
@@ -24,7 +24,7 @@ Notes:
 uv run bub message
 ```
 
-## Runtime Behavior
+## Run Behavior
 
 - Uses long polling.
 - Each Telegram chat maps to `telegram:<chat_id>` session key.
@@ -38,5 +38,5 @@ uv run bub message
 1. Keep bot token only in `.env` or a secret manager.
 2. Use a dedicated bot account.
 3. Keep allowlist updated with valid user IDs/usernames.
-4. If no response is observed, check network, token, allowlists, then runtime/model logs.
+4. If no response is observed, check network, token, allowlists, then service/model logs.
 5. If `uv run bub message` exits quickly, verify at least one channel is enabled (`BUB_TELEGRAM_ENABLED=true`).

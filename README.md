@@ -1,26 +1,32 @@
 # Bub
 
-[![Release](https://img.shields.io/github/v/release/psiace/bub)](https://github.com/psiace/bub/releases)
-[![Build status](https://img.shields.io/github/actions/workflow/status/psiace/bub/main.yml?branch=main)](https://github.com/psiace/bub/actions/workflows/main.yml?query=branch%3Amain)
-[![Commit activity](https://img.shields.io/github/commit-activity/m/psiace/bub)](https://github.com/psiace/bub/graphs/commit-activity)
-[![License](https://img.shields.io/github/license/psiace/bub)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/bubbuild/bub)](https://github.com/bubbuild/bub/releases)
+[![Build status](https://img.shields.io/github/actions/workflow/status/bubbuild/bub/main.yml?branch=main)](https://github.com/bubbuild/bub/actions/workflows/main.yml?query=branch%3Amain)
+[![Commit activity](https://img.shields.io/github/commit-activity/m/bubbuild/bub)](https://github.com/bubbuild/bub/graphs/commit-activity)
+[![License](https://img.shields.io/github/license/bubbuild/bub)](LICENSE)
 
 > Bub it. Build it.
 
-Bub is a coding agent CLI built on `republic`.
-It is designed for real engineering workflows where execution must be predictable, inspectable, and recoverable.
+Bub is a collaborative agent for shared delivery workflows, evolving into a framework that helps other agents operate with the same collaboration model.
+It is not a personal-assistant shell: it is designed for shared environments where work must be inspectable, handoff-friendly, and operationally reliable.
 
-## Four Things To Know
+> Documentation: <https://bub.build>
 
-1. Command boundary is strict: only lines starting with `,` are treated as commands.
-2. The same routing model is applied to both user input and assistant output.
-3. Successful commands return directly; failed commands fall back to the model with structured context.
-4. Session context is append-only tape with explicit `anchor/handoff` transitions.
+Built on [Republic](https://github.com/bubbuild/republic), Bub treats context as explicit assembly from verifiable interaction history, rather than opaque inherited state.
+This aligns with [Socialized Evaluation](https://psiace.me/posts/im-and-socialized-evaluation/): systems are judged by how well teams can inspect, review, and continue work together.
+
+## What Bub Provides
+
+- Multi-operator collaboration in shared delivery environments.
+- Explicit command boundaries for predictable execution.
+- Verifiable history (`tape`, `anchor`, `handoff`) for audit and continuity.
+- Channel-neutral behavior across CLI and message channels.
+- Extensible tools and skills with a unified operator-facing workflow.
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/psiace/bub.git
+git clone https://github.com/bubbuild/bub.git
 cd bub
 uv sync
 cp env.example .env
@@ -39,7 +45,7 @@ Start interactive CLI:
 uv run bub
 ```
 
-## Interaction Rules
+## Interaction Model
 
 - `hello`: natural language routed to model.
 - `,help`: internal command.
@@ -62,7 +68,9 @@ Common commands:
 ,quit
 ```
 
-## Telegram (Optional)
+## Channel Runtime (Optional)
+
+Telegram:
 
 ```bash
 BUB_TELEGRAM_ENABLED=true
@@ -71,7 +79,7 @@ BUB_TELEGRAM_ALLOW_FROM='["123456789","your_username"]'
 uv run bub message
 ```
 
-## Discord (Optional)
+Discord:
 
 ```bash
 BUB_DISCORD_ENABLED=true
@@ -80,16 +88,6 @@ BUB_DISCORD_ALLOW_FROM='["123456789012345678","your_discord_name"]'
 BUB_DISCORD_ALLOW_CHANNELS='["123456789012345678"]'
 uv run bub message
 ```
-
-## Documentation
-
-- `docs/index.md`: getting started and usage overview
-- `docs/deployment.md`: local + Docker deployment playbook
-- `docs/features.md`: key capabilities and why they matter
-- `docs/cli.md`: interactive CLI workflow and troubleshooting
-- `docs/architecture.md`: agent loop, tape, anchor, and tool/skill design
-- `docs/telegram.md`: Telegram integration and operations
-- `docs/discord.md`: Discord integration and operations
 
 ## Development
 
