@@ -57,7 +57,7 @@ class EditInput(BaseModel):
     path: str = Field(..., description="File path")
     old: str = Field(..., description="Search text")
     new: str = Field(..., description="Replacement text")
-    replace_all: bool = Field(default=False, description="Replace all occurrences")
+    start_line: int = Field(default=0, ge=0, description="Start line number to search from")
 
 
 class FetchInput(BaseModel):
@@ -229,22 +229,19 @@ def register_builtin_tools(
 
     @register(name="fs.edit", short_description="Edit file content", model=EditInput)
     def fs_edit(params: EditInput) -> str:
-        """Replace one or all occurrences of old text in file."""
+        """Replace all occurrences of old text in file."""
         file_path = _resolve_path(workspace, params.path)
+        if not file_path.is_file():
+            raise RuntimeError(f"file not found: {file_path}")
         text = file_path.read_text(encoding="utf-8")
-        if params.replace_all:
-            count = text.count(params.old)
-            if count == 0:
-                raise RuntimeError("old text not found")
-            updated = text.replace(params.old, params.new)
-            file_path.write_text(updated, encoding="utf-8")
-            return f"updated: {file_path} occurrences={count}"
-
-        if params.old not in text:
-            raise RuntimeError("old text not found")
-        updated = text.replace(params.old, params.new, 1)
-        file_path.write_text(updated, encoding="utf-8")
-        return f"updated: {file_path} occurrences=1"
+        lines = text.splitlines()
+        start_line = min(params.start_line, len(lines))
+        prev, to_replace = "\n".join(lines[:start_line]), "\n".join(lines[start_line:])
+        if params.old not in to_replace:
+            raise RuntimeError(f"'{params.old}' not found in {file_path} from line {start_line}")
+        new_text = to_replace.replace(params.old, params.new)
+        file_path.write_text(f"{prev}\n{new_text}", encoding="utf-8")
+        return f"edited: {file_path}"
 
     async def _fetch_markdown_from_url(raw_url: str) -> str:
         import aiohttp
