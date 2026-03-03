@@ -73,8 +73,8 @@ def _log_tool_call(name: str, args: Any, kwargs: dict[str, Any]) -> None:
     for key, value in kwargs.items():
         rendered = _render_value(value)
         params.append(f"{key}={rendered}")
-    params_str = ", ".join(params)
-    logger.info("tool.call.start name={} {{ {} }}", name, params_str)
+    params_str = f" {{ {', '.join(params)} }}" if params else ""
+    logger.info("tool.call.start name={}{}", name, params_str)
 
 
 @overload
