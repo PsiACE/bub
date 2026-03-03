@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -13,7 +14,6 @@ PROJECT_SKILLS_DIR = ".agents/skills"
 SKILL_FILE_NAME = "SKILL.md"
 SKILL_SOURCES = ("project", "global", "builtin")
 SKILL_NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-ALLOWED_FRONTMATTER_FIELDS = frozenset({"name", "description", "license", "compatibility", "metadata", "allowed-tools"})
 
 
 @dataclass(frozen=True)
@@ -103,18 +103,10 @@ def _is_valid_frontmatter(*, skill_dir: Path, metadata: dict[str, object]) -> bo
     name = metadata.get("name")
     description = metadata.get("description")
     return (
-        _has_only_supported_fields(metadata)
-        and _is_valid_name(name=name, skill_dir=skill_dir)
+        _is_valid_name(name=name, skill_dir=skill_dir)
         and _is_valid_description(description)
-        and _is_valid_license(metadata.get("license"))
-        and _is_valid_compatibility(metadata.get("compatibility"))
         and _is_valid_metadata_field(metadata.get("metadata"))
-        and _is_valid_allowed_tools(metadata.get("allowed-tools"))
     )
-
-
-def _has_only_supported_fields(metadata: dict[str, object]) -> bool:
-    return all(key in ALLOWED_FRONTMATTER_FIELDS for key in metadata)
 
 
 def _is_valid_name(*, name: object, skill_dir: Path) -> bool:
@@ -135,33 +127,12 @@ def _is_valid_description(description: object) -> bool:
     return bool(normalized) and len(normalized) <= 1024
 
 
-def _is_valid_license(license_value: object) -> bool:
-    if license_value is None:
-        return True
-    return isinstance(license_value, str) and bool(license_value.strip())
-
-
-def _is_valid_compatibility(compatibility: object) -> bool:
-    if compatibility is None:
-        return True
-    if not isinstance(compatibility, str):
-        return False
-    normalized = compatibility.strip()
-    return bool(normalized) and len(normalized) <= 500
-
-
 def _is_valid_metadata_field(metadata_field: object) -> bool:
     if metadata_field is None:
         return True
     if not isinstance(metadata_field, dict):
         return False
     return all(isinstance(key, str) and isinstance(value, str) for key, value in metadata_field.items())
-
-
-def _is_valid_allowed_tools(allowed_tools: object) -> bool:
-    if allowed_tools is None:
-        return True
-    return isinstance(allowed_tools, str) and bool(allowed_tools.strip())
 
 
 def _builtin_skills_root() -> Path:
@@ -178,3 +149,18 @@ def _iter_skill_roots(workspace_path: Path) -> list[tuple[Path, str]]:
         elif source == "builtin":
             roots.append((_builtin_skills_root(), source))
     return roots
+
+
+def render_skills_prompt(skills: list[SkillMetadata], expanded_skills: Collection[str] = ()) -> str:
+    if not skills:
+        return ""
+    lines = ["<available_skills>"]
+    for skill in skills:
+        line = f"- [{skill.name}]({skill.location}): {skill.description}"
+        if skill.name in expanded_skills:
+            body = skill.body()
+            if body:
+                line += f"\n{body}"
+        lines.append(line)
+    lines.append("</available_skills>")
+    return "\n".join(lines)

@@ -5,8 +5,6 @@ from __future__ import annotations
 import asyncio
 import os
 import shutil
-import subprocess
-import sys
 import sysconfig
 from pathlib import Path
 from typing import Any
@@ -67,20 +65,6 @@ def list_hooks(
         return
     for hook_name, adapter_names in report.items():
         typer.echo(f"{hook_name}: {', '.join(adapter_names)}")
-
-
-def install_plugin(
-    plugin_spec: str = typer.Argument(..., help="Python requirement string or github owner/repo"),
-) -> None:
-    """Install a plugin from PyPI or GitHub repository."""
-    if "/" in plugin_spec and not plugin_spec.startswith("git+") and "github.com" not in plugin_spec:
-        plugin_spec = f"git+https://github.com/{plugin_spec}.git"
-    if uv_bin := _find_uv():
-        typer.echo(f"Installing plugin '{plugin_spec}' with uv...")
-        subprocess.run([uv_bin, "pip", "install", plugin_spec], check=True)  # noqa: S603
-        return
-    typer.echo(f"Installing plugin '{plugin_spec}' with pip...")
-    subprocess.run([sys.executable, "-m", "pip", "install", "-p", sys.executable, plugin_spec], check=True)  # noqa: S603
 
 
 def _find_uv() -> Path | None:

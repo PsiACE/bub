@@ -5,7 +5,9 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from republic import ToolContext, tool
+from republic import Tool, ToolContext
+
+from bub.tools import tool
 
 if TYPE_CHECKING:
     from bub.builtin.engine import RuntimeEngine
@@ -43,7 +45,7 @@ async def bash(
     return stdout_text or "(no output)"
 
 
-@tool(context=True)
+@tool(context=True, name="fs.read")
 def fs_read(path: str, offset: int = 0, limit: int | None = None, *, context: ToolContext) -> str:
     """Read a text file and return its content. Supports optional pagination with offset and limit."""
     resolved_path = _resolve_path(context, path)
@@ -54,7 +56,7 @@ def fs_read(path: str, offset: int = 0, limit: int | None = None, *, context: To
     return "\n".join(lines[start:end])
 
 
-@tool(context=True)
+@tool(context=True, name="fs.write")
 def fs_write(path: str, content: str, *, context: ToolContext) -> str:
     """Write content to a text file."""
     resolved_path = _resolve_path(context, path)
@@ -63,7 +65,7 @@ def fs_write(path: str, content: str, *, context: ToolContext) -> str:
     return f"wrote: {resolved_path}"
 
 
-@tool(context=True)
+@tool(context=True, name="fs.edit")
 def fs_edit(path: str, old: str, new: str, start: int = 0, *, context: ToolContext) -> str:
     """Edit a text file by replacing old text with new text. You can specify the line number to start searching for the old text."""
     resolved_path = _resolve_path(context, path)
@@ -77,15 +79,17 @@ def fs_edit(path: str, old: str, new: str, start: int = 0, *, context: ToolConte
     return f"edited: {resolved_path}"
 
 
-@tool(context=True)
+@tool(context=True, name="tape.info")
 async def tape_info(context: ToolContext) -> str:
+    """Get information about the current tape, such as number of entries and anchors."""
     runtime = _get_runtime(context)
     info = await runtime.tapes.info(context.tape or "")
     return f"name: {info.name}\nentries: {info.entries}\nanchors: {info.anchors}\nlast_anchor: {info.last_anchor}"
 
 
-@tool(context=True)
+@tool(context=True, name="tape.search")
 async def tape_search(query: str, limit: int = 20, *, context: ToolContext) -> str:
+    """Search for entries in the current tape that match the query. Returns a list of matching entries."""
     runtime = _get_runtime(context)
     entries = await runtime.tapes.search(context.tape or "", query=query, limit=limit)
     if not entries:
@@ -93,22 +97,25 @@ async def tape_search(query: str, limit: int = 20, *, context: ToolContext) -> s
     return "\n".join(f"- {json.dumps(entry.payload)}" for entry in entries)
 
 
-@tool(context=True)
+@tool(context=True, name="tape.reset")
 async def tape_reset(archive: bool = False, *, context: ToolContext) -> str:
+    """Reset the current tape, optionally archiving it."""
     runtime = _get_runtime(context)
     result = await runtime.tapes.reset(context.tape or "", archive=archive)
     return result
 
 
-@tool(context=True)
+@tool(context=True, name="tape.handoff")
 async def tape_handoff(name: str = "handoff", summary: str = "", *, context: ToolContext) -> str:
+    """Add a handoff anchor to the current tape."""
     runtime = _get_runtime(context)
     await runtime.tapes.handoff(context.tape or "", name=name, state={"summary": summary})
     return f"anchor added: {name}"
 
 
-@tool(context=True)
+@tool(context=True, name="tape.anchors")
 async def tape_anchors(*, context: ToolContext) -> str:
+    """List anchors in the current tape."""
     runtime = _get_runtime(context)
     anchors = await runtime.tapes.anchors(context.tape or "")
     if not anchors:
@@ -118,7 +125,7 @@ async def tape_anchors(*, context: ToolContext) -> str:
 
 @tool(name="help")
 def show_help() -> str:
-    """List available tools."""
+    """Show a help message."""
     return (
         "Commands use ',' at line start.\n"
         "Known internal commands:\n"
@@ -142,3 +149,18 @@ def _resolve_path(context: ToolContext, raw_path: str) -> Path:
     if workspace is None:
         raise ValueError(f"relative path '{raw_path}' is not allowed without a workspace")
     return (workspace / path).resolve()
+
+
+def get_builtin_tools() -> list[Tool]:
+    return [
+        show_help,
+        bash,
+        fs_read,
+        fs_write,
+        fs_edit,
+        tape_info,
+        tape_search,
+        tape_reset,
+        tape_handoff,
+        tape_anchors,
+    ]

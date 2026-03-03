@@ -83,13 +83,13 @@ class BubHookSpecs:
         """Observe framework errors from any stage."""
 
     @hookspec
-    def system_prompt(self, state: State) -> str:
+    def system_prompt(self, prompt: str, state: State) -> str:
         """Provide a system prompt to be prepended to all model prompts."""
         ...
 
     @hookspec
-    def provide_tools(self) -> dict[str, Tool]:
-        """Return a dict of tools to be registered in the framework's tool registry."""
+    def provide_tools(self) -> list[Tool]:
+        """Return a list of tools to be registered in the framework's tool registry."""
         ...
 
     @hookspec(firstresult=True)
