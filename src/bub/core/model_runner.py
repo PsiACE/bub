@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import re
+import textwrap
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import ClassVar
@@ -198,24 +198,12 @@ class ModelRunner:
             blocks.append(self._base_system_prompt)
         if workspace_system_prompt := self._get_workspace_system_prompt():
             blocks.append(workspace_system_prompt)
-        blocks.append(_runtime_contract())
         blocks.append(render_tool_prompt_block(self._tool_view))
-
         compact_skills = render_compact_skills(self._list_skills(), self._expanded_skills)
         if compact_skills:
             blocks.append(compact_skills)
-        if token_usage := self._render_token_usage():
-            blocks.append(token_usage)
+        blocks.append(_runtime_contract())
         return "\n\n".join(block for block in blocks if block.strip())
-
-    def _render_token_usage(self) -> str:
-        events = list(self._tape.tape.query.kinds("event").last_anchor().all())
-        for event in reversed(events):
-            if event.payload.get("name") == "run":
-                data = event.payload.get("data", {})
-                if "usage" in data:
-                    return f"<last_token_usage>{json.dumps(data['usage'])}</last_token_usage>"
-        return ""
 
     def _activate_hints(self, text: str) -> None:
         skill_index = self._build_skill_index()
@@ -254,26 +242,25 @@ class _ChatResult:
 
 
 def _runtime_contract() -> str:
-    return (
-        "<runtime_contract>\n"
-        "1) Use tool calls for all actions (file ops, shell, web, tape, skills).\n"
-        "2) Do not emit comma-prefixed commands in normal flow; use tool calls instead.\n"
-        "3) If a compatibility fallback is required, runtime can still parse comma commands.\n"
-        "4) Never emit '<command ...>' blocks yourself; those are runtime-generated.\n"
-        "5) When enough evidence is collected, return plain natural language answer.\n"
-        "6) Use '$name' hints to request detail expansion for tools/skills when needed.\n"
-        "</runtime_contract>"
-        "<context_contract>\n"
-        "Excessively long context may cause model call failures. In this case, you SHOULD first use "
-        "tape.handoff tool to shorten the length of the retrieved history. The current limit is 200k tokens."
-        "</context_contract>"
-        "<response_instruct>"
-        "You MUST send message to the corresponding channel before finish when you want to respond.\n"
-        "Route your response to the same channel the message came from (inferred from `channel` in the message metadata).\n"
-        "There is a skill named `{channel}` for each channel that you need to figure out how to send a response to that channel.\n"
-        "**Response rules:**\n"
-        "- Not every message requires a response; it is OK to finish without replying.\n"
-        "- You SHOULD respond to the messages that directly mention or reply to you.\n"
-        "- You MAY respond more than once when the input contains multiple intents.\n"
-        "</response_instruct>"
-    )
+    return textwrap.dedent("""\
+        <runtime_contract>
+        1. Use tool calls for all actions (file ops, shell, web, tape, skills).
+        2. Do not emit comma-prefixed commands in normal flow; use tool calls instead.
+        3. If a compatibility fallback is required, runtime can still parse comma commands.
+        4. Never emit '<command ...>' blocks yourself; those are runtime-generated.
+        5. When enough evidence is collected, return plain natural language answer.
+        6. Use '$name' hints to request detail expansion for tools/skills when needed.
+        </runtime_contract>
+        <context_contract>
+        Excessively long context may cause model call failures. In this case, you SHOULD first use tape.handoff tool to shorten the length of the retrieved history.
+        </context_contract>
+        <response_instruct>
+        You MUST send message to the corresponding channel before finish when you want to respond.
+        Route your response to the same channel the message came from.
+        There is a skill named `{channel}` for each channel that you need to figure out how to send a response to that channel.
+        ## Before finishing ANY response to a channel message:
+        1. Identify the source channel from the user message metadata
+        2. Prepare your response text
+        3. Call the corresponding channel skill to deliver the message
+        4. ONLY THEN end your turn
+        </response_instruct>""")

@@ -446,6 +446,7 @@ def register_builtin_tools(
             f"anchors={info.anchors}",
             f"last_anchor={info.last_anchor or '-'}",
             f"entries_since_last_anchor={info.entries_since_last_anchor}",
+            f"last_token_usage={info.last_token_usage or 'unknown'}",
         ))
 
     @register(name="tape.search", short_description="Search tape entries", model=TapeSearchInput)
