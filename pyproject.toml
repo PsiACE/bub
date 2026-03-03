@@ -38,6 +38,7 @@ dependencies = [
     "requests>=2.32.5",
     "python-dotenv>=1.2.1",
     "any-llm-sdk[anthropic,vertexai]>=1.8.0",
+    "httpx[socks]>=0.28.1",
 ]
 
 [project.urls]
