@@ -165,13 +165,23 @@ class ModelRunner:
         system_prompt = self._render_system_prompt()
         try:
             async with asyncio.timeout(self._model_timeout_seconds):
-                output = await self._tape.tape.run_tools_async(
-                    prompt=prompt,
-                    system_prompt=system_prompt,
-                    max_tokens=self._max_tokens,
-                    tools=self._tools,
-                    extra_headers=self.DEFAULT_HEADERS,
-                )
+                provider, _, _ = self._model.partition(":")
+                if provider.casefold() == "vertexai":
+                    output = await self._tape.tape.run_tools_async(
+                        prompt=prompt,
+                        system_prompt=system_prompt,
+                        max_tokens=self._max_tokens,
+                        tools=self._tools,
+                        http_options={"headers": self.DEFAULT_HEADERS},
+                    )
+                else:
+                    output = await self._tape.tape.run_tools_async(
+                        prompt=prompt,
+                        system_prompt=system_prompt,
+                        max_tokens=self._max_tokens,
+                        tools=self._tools,
+                        extra_headers=self.DEFAULT_HEADERS,
+                    )
                 return _ChatResult.from_tool_auto(output)
         except TimeoutError:
             return _ChatResult(
