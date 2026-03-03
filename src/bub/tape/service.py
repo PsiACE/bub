@@ -29,6 +29,7 @@ class TapeInfo:
     anchors: int
     last_anchor: str | None
     entries_since_last_anchor: int
+    last_token_usage: int | None
 
 
 _tape_context: ContextVar[Tape] = ContextVar("tape")
@@ -93,15 +94,25 @@ class TapeService:
         anchors = [entry for entry in entries if entry.kind == "anchor"]
         last_anchor = anchors[-1].payload.get("name") if anchors else None
         if last_anchor is not None:
-            entries_since_last_anchor = sum(1 for entry in entries if entry.id > anchors[-1].id)
+            entries_since_last_anchor = [entry for entry in entries if entry.id > anchors[-1].id]
         else:
-            entries_since_last_anchor = len(entries)
+            entries_since_last_anchor = entries
+        last_token_usage: int | None = None
+        for entry in reversed(entries):
+            if entry.kind == "event" and entry.payload.get("name") == "run":
+                with contextlib.suppress(AttributeError):
+                    token_usage = entry.payload.get("data", {}).get("usage", {}).get("total_tokens")
+                    if token_usage and isinstance(token_usage, int):
+                        last_token_usage = token_usage
+                        break
+
         return TapeInfo(
             name=self._tape.name,
             entries=len(entries),
             anchors=len(anchors),
             last_anchor=str(last_anchor) if last_anchor else None,
-            entries_since_last_anchor=entries_since_last_anchor,
+            entries_since_last_anchor=len(entries_since_last_anchor),
+            last_token_usage=last_token_usage,
         )
 
     async def reset(self, *, archive: bool = False) -> str:

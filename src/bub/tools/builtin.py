@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib import parse as urllib_parse
 
-import html2markdown
 from apscheduler.jobstores.base import ConflictingIdError, JobLookupError
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
@@ -57,7 +56,7 @@ class EditInput(BaseModel):
     path: str = Field(..., description="File path")
     old: str = Field(..., description="Search text")
     new: str = Field(..., description="Replacement text")
-    replace_all: bool = Field(default=False, description="Replace all occurrences")
+    start_line: int = Field(default=0, ge=0, description="Start line number to search from")
 
 
 class FetchInput(BaseModel):
@@ -143,12 +142,6 @@ def _normalize_api_base(raw_api_base: str) -> str | None:
     return None
 
 
-def _html_to_markdown(content: str) -> str:
-    rendered = html2markdown.convert(content)
-    lines = [line.rstrip() for line in rendered.splitlines()]
-    return "\n".join(line for line in lines if line.strip())
-
-
 def _format_search_results(results: list[object]) -> str:
     lines: list[str] = []
     for idx, item in enumerate(results, start=1):
@@ -229,51 +222,44 @@ def register_builtin_tools(
 
     @register(name="fs.edit", short_description="Edit file content", model=EditInput)
     def fs_edit(params: EditInput) -> str:
-        """Replace one or all occurrences of old text in file."""
+        """Replace all occurrences of old text in file."""
         file_path = _resolve_path(workspace, params.path)
+        if not file_path.is_file():
+            raise RuntimeError(f"file not found: {file_path}")
         text = file_path.read_text(encoding="utf-8")
-        if params.replace_all:
-            count = text.count(params.old)
-            if count == 0:
-                raise RuntimeError("old text not found")
-            updated = text.replace(params.old, params.new)
-            file_path.write_text(updated, encoding="utf-8")
-            return f"updated: {file_path} occurrences={count}"
+        lines = text.splitlines()
+        start_line = min(params.start_line, len(lines))
+        prev, to_replace = "\n".join(lines[:start_line]), "\n".join(lines[start_line:])
+        if params.old not in to_replace:
+            raise RuntimeError(f"'{params.old}' not found in {file_path} from line {start_line}")
+        new_text = to_replace.replace(params.old, params.new)
+        file_path.write_text(f"{prev}\n{new_text}", encoding="utf-8")
+        return f"edited: {file_path}"
 
-        if params.old not in text:
-            raise RuntimeError("old text not found")
-        updated = text.replace(params.old, params.new, 1)
-        file_path.write_text(updated, encoding="utf-8")
-        return f"updated: {file_path} occurrences=1"
-
-    async def _fetch_markdown_from_url(raw_url: str) -> str:
+    @register(name="web.fetch", short_description="Fetch URL as markdown", model=FetchInput)
+    async def web_fetch_default(params: FetchInput) -> str:
+        """Fetch URL and convert HTML to markdown-like text."""
         import aiohttp
 
-        url = _normalize_url(raw_url)
+        url = _normalize_url(params.url)
         if not url:
             return "error: invalid url"
 
         try:
             async with (
                 aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=WEB_REQUEST_TIMEOUT_SECONDS)) as session,
-                session.get(url, headers={"User-Agent": WEB_USER_AGENT}) as response,
+                session.get(url, headers={"User-Agent": WEB_USER_AGENT, "Accept": "text/markdown"}) as response,
             ):
                 content_bytes = await response.content.read(MAX_FETCH_BYTES + 1)
                 truncated = len(content_bytes) > MAX_FETCH_BYTES
                 content = content_bytes[:MAX_FETCH_BYTES].decode("utf-8", errors="replace")
         except aiohttp.ClientError as exc:
             return f"HTTP error: {exc!s}"
-        rendered = _html_to_markdown(content).strip()
-        if not rendered:
+        if not content:
             return "error: empty response body"
         if truncated:
-            return f"{rendered}\n\n[truncated: response exceeded byte limit]"
-        return rendered
-
-    @register(name="web.fetch", short_description="Fetch URL as markdown", model=FetchInput)
-    async def web_fetch_default(params: FetchInput) -> str:
-        """Fetch URL and convert HTML to markdown-like text."""
-        return await _fetch_markdown_from_url(params.url)
+            return f"{content}\n\n[truncated: response exceeded byte limit]"
+        return content
 
     @register(name="schedule.add", short_description="Add a cron schedule", model=ScheduleAddInput, context=True)
     def schedule_add(params: ScheduleAddInput, context: ToolContext) -> str:
@@ -460,6 +446,7 @@ def register_builtin_tools(
             f"anchors={info.anchors}",
             f"last_anchor={info.last_anchor or '-'}",
             f"entries_since_last_anchor={info.entries_since_last_anchor}",
+            f"last_token_usage={info.last_token_usage or 'unknown'}",
         ))
 
     @register(name="tape.search", short_description="Search tape entries", model=TapeSearchInput)

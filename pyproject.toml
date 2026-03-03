@@ -29,7 +29,6 @@ dependencies = [
     "rich>=13.0.0",
     "prompt-toolkit>=3.0.0",
     "python-telegram-bot>=21.0",
-    "html2markdown>=0.1.7",
     "loguru>=0.7.2",
     "telegramify-markdown>=0.5.4",
     "apscheduler>=3.11.2",
@@ -38,7 +37,8 @@ dependencies = [
     "discord-py>=2.6.4",
     "requests>=2.32.5",
     "python-dotenv>=1.2.1",
-    "any-llm-sdk[anthropic]>=1.8.0",
+    "any-llm-sdk[anthropic,vertexai]>=1.8.0",
+    "httpx[socks]>=0.28.1",
 ]
 
 [project.urls]
@@ -77,9 +77,7 @@ paths = ["src"]
 
 [tool.mypy]
 files = ["src"]
-exclude = [
-    '^src/bub/skills/.*$',
-]
+exclude = ['^src/bub/skills/.*$']
 disallow_untyped_defs = false
 disallow_any_unimported = false
 no_implicit_optional = true
@@ -119,7 +117,8 @@ select = [
     # mccabe
     "C90",
     # pycodestyle
-    "E", "W",
+    "E",
+    "W",
     # pyflakes
     "F",
     # pygrep-hooks

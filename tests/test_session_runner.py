@@ -107,6 +107,23 @@ async def test_session_runner_runs_non_debounced_channel_immediately() -> None:
 
 
 @pytest.mark.asyncio
+async def test_command_prompt_is_not_buffered() -> None:
+    runner = SessionRunner(
+        session_id="telegram:1",
+        debounce_seconds=1,
+        message_delay_seconds=1,
+        active_time_window_seconds=60,
+    )
+    channel = _DebouncedChannel()
+
+    await runner.process_message(channel, ",help")
+
+    assert channel.run_prompts == [",help"]
+    assert runner._prompts == []
+    assert runner._running_task is None
+
+
+@pytest.mark.asyncio
 async def test_session_runner_does_not_leak_command_into_batched_prompt() -> None:
     runner = SessionRunner(
         session_id="telegram:1",
