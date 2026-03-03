@@ -1,9 +1,10 @@
+import contextlib
 import hashlib
 import re
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pydantic import json
 from pydantic.dataclasses import dataclass
@@ -25,6 +26,7 @@ class TapeInfo:
     anchors: int
     last_anchor: str | None
     entries_since_last_anchor: int
+    last_token_usage: int | None
 
 
 @dataclass(frozen=True)
@@ -46,15 +48,24 @@ class TapeService:
         anchors = [entry for entry in entries if entry.kind == "anchor"]
         last_anchor = anchors[-1].payload.get("name") if anchors else None
         if last_anchor is not None:
-            entries_since_last_anchor = sum(1 for entry in entries if entry.id > anchors[-1].id)
+            entries_since_last_anchor = [entry for entry in entries if entry.id > anchors[-1].id]
         else:
-            entries_since_last_anchor = len(entries)
+            entries_since_last_anchor = entries
+        last_token_usage: int | None = None
+        for entry in reversed(entries_since_last_anchor):
+            if entry.kind == "event" and entry.payload.get("name") == "run":
+                with contextlib.suppress(AttributeError):
+                    token_usage = entry.payload.get("data", {}).get("usage", {}).get("total_tokens")
+                    if token_usage and isinstance(token_usage, int):
+                        last_token_usage = token_usage
+                        break
         return TapeInfo(
             name=tape.name,
             entries=len(entries),
             anchors=len(anchors),
             last_anchor=str(last_anchor) if last_anchor else None,
-            entries_since_last_anchor=entries_since_last_anchor,
+            entries_since_last_anchor=len(entries_since_last_anchor),
+            last_token_usage=last_token_usage,
         )
 
     async def ensure_bootstrap_anchor(self, tape_name: str) -> None:
@@ -98,7 +109,8 @@ class TapeService:
 
     async def handoff(self, tape_name: str, *, name: str, state: dict[str, Any] | None = None) -> list[TapeEntry]:
         tape = self._llm.tape(tape_name)
-        return await tape.handoff_async(name, state=state)
+        entries = await tape.handoff_async(name, state=state)
+        return cast(list[TapeEntry], entries)
 
     async def search(self, tape_name: str, query: str, *, limit: int = 20) -> list[TapeEntry]:
         normalized_query = query.strip().lower()
@@ -161,7 +173,7 @@ class TapeService:
 
     async def append_event(self, tape_name: str, name: str, payload: dict[str, Any], **meta: Any) -> None:
         tape = self._llm.tape(tape_name)
-        return await tape.append_async(TapeEntry.event(name=name, payload=payload, **meta))
+        await tape.append_async(TapeEntry.event(name=name, payload=payload, **meta))
 
     def session_tape(self, session_id: str) -> Tape:
         tape_name = hashlib.md5(session_id.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]

@@ -31,22 +31,22 @@ class BubHookSpecs:
     @hookspec(firstresult=True)
     def resolve_session(self, message: Envelope) -> str:
         """Resolve session id for one inbound message."""
-        ...
+        raise NotImplementedError
 
     @hookspec(firstresult=True)
     def load_state(self, session_id: str) -> State:
         """Load state snapshot for one session."""
-        ...
+        raise NotImplementedError
 
     @hookspec(firstresult=True)
     def build_prompt(self, message: Envelope, session_id: str, state: State) -> str:
         """Build model prompt for this turn."""
-        ...
+        raise NotImplementedError
 
     @hookspec(firstresult=True)
     def run_model(self, prompt: str, session_id: str, state: State) -> str:
         """Run model for one turn and return plain text output."""
-        ...
+        raise NotImplementedError
 
     @hookspec
     def save_state(
@@ -67,12 +67,12 @@ class BubHookSpecs:
         model_output: str,
     ) -> list[Envelope]:
         """Render outbound messages from model output."""
-        ...
+        raise NotImplementedError
 
     @hookspec
     def dispatch_outbound(self, message: Envelope) -> bool:
         """Dispatch one outbound message to external channel(s)."""
-        ...
+        raise NotImplementedError
 
     @hookspec
     def register_cli_commands(self, app: Any) -> None:
@@ -85,12 +85,12 @@ class BubHookSpecs:
     @hookspec
     def system_prompt(self, prompt: str, state: State) -> str:
         """Provide a system prompt to be prepended to all model prompts."""
-        ...
+        raise NotImplementedError
 
     @hookspec
     def provide_tools(self) -> list[Tool]:
         """Return a list of tools to be registered in the framework's tool registry."""
-        ...
+        raise NotImplementedError
 
     @hookspec(firstresult=True)
     def provide_tape_store(self) -> TapeStore | AsyncTapeStore:

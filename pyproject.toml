@@ -2,9 +2,11 @@
 name = "bub"
 version = "0.3.0"
 description = "Bub it. Build it. Batteries-included, hook-first AI framework."
-authors = [{ name = "Chojan Shang", email = "psiace@apache.org" }]
+authors = [
+    { name = "Chojan Shang", email = "psiace@apache.org" },
+    { name = "Frost Ming", email = "me@frostming.com" },
+]
 readme = "README.md"
-keywords = ['python']
 requires-python = ">=3.12,<4.0"
 classifiers = [
     "Intended Audience :: Developers",
@@ -68,7 +70,6 @@ paths = ["src"]
 
 [tool.mypy]
 files = ["src"]
-exclude = ['^src/bub/skills/.*$']
 disallow_untyped_defs = false
 disallow_any_unimported = false
 no_implicit_optional = true
@@ -85,7 +86,6 @@ testpaths = ["tests"]
 target-version = "py312"
 line-length = 120
 fix = true
-extend-exclude = ["src/bub/skills/**/scripts/*.py"]
 
 [tool.ruff.lint]
 select = [
@@ -133,7 +133,6 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101"]
-"src/bub/tools/builtin.py" = ["C901"]
 
 [tool.ruff.format]
 preview = true

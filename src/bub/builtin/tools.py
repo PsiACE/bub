@@ -84,7 +84,14 @@ async def tape_info(context: ToolContext) -> str:
     """Get information about the current tape, such as number of entries and anchors."""
     runtime = _get_runtime(context)
     info = await runtime.tapes.info(context.tape or "")
-    return f"name: {info.name}\nentries: {info.entries}\nanchors: {info.anchors}\nlast_anchor: {info.last_anchor}"
+    return (
+        f"name: {info.name}\n"
+        f"entries: {info.entries}\n"
+        f"anchors: {info.anchors}\n"
+        f"last_anchor: {info.last_anchor}\n"
+        f"entries_since_last_anchor: {info.entries_since_last_anchor}\n"
+        f"last_token_usage: {info.last_token_usage}"
+    )
 
 
 @tool(context=True, name="tape.search")
@@ -148,7 +155,10 @@ def _resolve_path(context: ToolContext, raw_path: str) -> Path:
         return path
     if workspace is None:
         raise ValueError(f"relative path '{raw_path}' is not allowed without a workspace")
-    return (workspace / path).resolve()
+    if not isinstance(workspace, str | Path):
+        raise TypeError("runtime workspace must be a filesystem path")
+    workspace_path = Path(workspace)
+    return (workspace_path / path).resolve()
 
 
 def get_builtin_tools() -> list[Tool]:

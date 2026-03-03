@@ -87,19 +87,20 @@ class RuntimeEngine:
             status = "error"
             output = f"{exc!s}"
         elapsed_ms = int((time.monotonic() - start) * 1000)
+        output_text = output if isinstance(output, str) else str(output)
 
         event_payload = {
             "raw": line,
             "name": name,
             "status": status,
             "elapsed_ms": elapsed_ms,
-            "output": output,
+            "output": output_text,
             "date": datetime.now(UTC).isoformat(),
         }
         await self.tapes.append_event(tape.name, "command", event_payload)
         if status == "error":
-            return f"error: {output}"
-        return output
+            return f"error: {output_text}"
+        return output_text
 
     async def _run_model(self, *, tape: Tape, prompt: str) -> str:
         next_prompt = prompt
@@ -139,7 +140,10 @@ class RuntimeEngine:
                 )
                 return outcome.text
             if outcome.kind == "continue":
-                next_prompt = CONTINUE_PROMPT
+                if "context" in tape.context.state:
+                    next_prompt = f"{CONTINUE_PROMPT} [context: {tape.context.state['context']}]"
+                else:
+                    next_prompt = CONTINUE_PROMPT
                 await self.tapes.append_event(
                     tape.name,
                     "loop.step",
