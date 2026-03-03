@@ -26,3 +26,9 @@ If the process exits immediately, check that at least one channel is enabled in 
 - Discord session key: `discord:<channel_id>`
 
 This keeps message history isolated per conversation endpoint.
+
+## Runtime Semantics
+
+- `uv run bub chat` runs `CliChannel` via `ChannelManager`, sharing the same channel pipeline as Telegram/Discord.
+- CLI sets `debounce_enabled = False`, so each input is processed immediately.
+- Message channels keep debounce enabled to batch short bursts before model execution.

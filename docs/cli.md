@@ -33,6 +33,11 @@ Other run modes:
 
 This rule is shared by both user input and assistant output.
 
+## Runtime Behavior
+
+- `cli` channel disables debounce, so each input is executed immediately.
+- Command inputs (`,...`) are executed directly and are not buffered into later batched prompts.
+
 ## Shell Mode
 
 Press `Ctrl-X` to toggle between `agent` and `shell` mode.
