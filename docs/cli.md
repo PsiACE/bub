@@ -1,5 +1,7 @@
 # Interactive CLI
 
+`uv run bub chat` runs the local `cli` channel adapter (same channel pipeline as other channels, but local-only).
+
 ## Run Commands
 
 ```bash
@@ -30,6 +32,11 @@ Other run modes:
 - Non-comma input is always treated as natural language.
 
 This rule is shared by both user input and assistant output.
+
+## Runtime Behavior
+
+- `cli` channel disables debounce, so each input is executed immediately.
+- Command inputs (`,...`) are executed directly and are not buffered into later batched prompts.
 
 ## Shell Mode
 
