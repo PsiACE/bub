@@ -26,7 +26,7 @@ Its operating philosophy follows [Socialized Evaluation](https://psiace.me/posts
 2. Run `uv run bub` and ask a normal question.
 3. Run `,help` and `,tools` to inspect available capabilities.
 4. Execute one shell command like `,git status`.
-5. Create one handoff: `,handoff name=phase-1 summary="..."`.
+5. Create one handoff: `,tape.handoff name=phase-1 summary="..."`.
 6. Verify history using `,tape.info` or `,tape.search query=...`.
 
 ## Where To Read Next
