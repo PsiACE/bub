@@ -17,6 +17,7 @@ from pluggy import PluginManager
 from republic import LLM, AsyncTapeStore, Tool, ToolAutoResult, ToolContext
 from republic.tape import InMemoryTapeStore, Tape, TapeStore
 
+from bub.builtin.context import default_tape_context
 from bub.builtin.settings import RuntimeSettings
 from bub.builtin.tape import TapeService
 from bub.skills import discover_skills, render_skills_prompt
@@ -218,6 +219,7 @@ def _build_llm(settings: RuntimeSettings, tape_store: TapeStore | AsyncTapeStore
         api_key=settings.api_key,
         api_base=settings.api_base,
         tape_store=tape_store,
+        context=default_tape_context(),
     )
 
 
