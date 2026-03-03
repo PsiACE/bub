@@ -20,7 +20,7 @@ Why it matters: the assistant can debug based on real command output instead of 
 ## 3. Verifiable Session History and Context Assembly
 
 - Bub records session activity as append-only, verifiable history.
-- `,anchors` and `,handoff` mark phase transitions.
+- `,tape.anchors` and `,tape.handoff` mark phase transitions.
 - `,tape.search` and `,tape.info` help inspect context quickly.
 
 Why it matters: long tasks stay traceable and easier to resume.

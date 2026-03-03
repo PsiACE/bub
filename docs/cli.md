@@ -53,19 +53,19 @@ Use shell mode when you want to run multiple shell commands quickly.
 2. Read files: `,fs.read path=README.md`
 3. Edit files: `,fs.edit path=foo.py old=... new=...`
 4. Validate: `uv run pytest -q`
-5. Mark phase transition: `,handoff name=phase-x summary="tests pass"`
+5. Mark phase transition: `,tape.handoff name=phase-x summary="tests pass"`
 
 ## Session Context Commands
 
 ```text
 ,tape.info
 ,tape.search query=error
-,anchors
+,tape.anchors
 ,tape.reset archive=true
 ```
 
 - `,tape.reset archive=true` archives then clears current tape.
-- `,anchors` shows phase boundaries.
+- `,tape.anchors` shows phase boundaries.
 
 ## One-Shot Examples
 
