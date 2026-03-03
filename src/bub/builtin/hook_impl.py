@@ -2,8 +2,9 @@ from pathlib import Path
 
 import typer
 from pluggy import PluginManager
+from republic import Tool
 
-from bub.builtin.engine import RuntimeEngine
+from bub.builtin.engine import RuntimeEngine, workspace_from_state
 from bub.envelope import content_of, field_of, normalize_envelope
 from bub.hookspecs import hookimpl
 from bub.types import Envelope, State
@@ -62,12 +63,11 @@ class BuiltinImpl:
 
         app.command("run")(cli.run)
         app.command("hooks")(cli.list_hooks)
-        app.command("install")(cli.install_plugin)
 
     @hookimpl
-    def system_prompt(self, state: State) -> str:
+    def system_prompt(self, prompt: str, state: State) -> str:
         # Read the content of AGENTS.md under workspace
-        prompt_path = _workspace_from_state(state) / AGENTS_FILE_NAME
+        prompt_path = workspace_from_state(state) / AGENTS_FILE_NAME
         if not prompt_path.is_file():
             return ""
         try:
@@ -75,9 +75,8 @@ class BuiltinImpl:
         except OSError:
             return ""
 
+    @hookimpl
+    def provide_tools(self) -> list[Tool]:
+        from bub.builtin.tools import get_builtin_tools
 
-def _workspace_from_state(state: State) -> Path:
-    raw = state.get("_runtime_workspace")
-    if isinstance(raw, str) and raw.strip():
-        return Path(raw).expanduser().resolve()
-    return Path.cwd().resolve()
+        return get_builtin_tools()

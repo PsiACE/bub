@@ -1,15 +1,17 @@
-"""Republic-driven runtime battery used by runtime skill."""
+"""Republic-driven runtime engine to process prompts."""
 
 from __future__ import annotations
 
 import asyncio
 import inspect
+import re
 import shlex
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import cached_property
 from pathlib import Path
+from typing import Any
 
 from pluggy import PluginManager
 from republic import LLM, AsyncTapeStore, Tool, ToolAutoResult, ToolContext
@@ -17,10 +19,13 @@ from republic.tape import InMemoryTapeStore, Tape, TapeStore
 
 from bub.builtin.settings import RuntimeSettings
 from bub.builtin.tape import TapeService
+from bub.skills import discover_skills, render_skills_prompt
+from bub.tools import model_tools, render_tools_prompt
 from bub.types import State
 
 CONTINUE_PROMPT = "Continue the task."
 DEFAULT_BUB_HEADERS = {"HTTP-Referer": "https://bub.build/", "X-Title": "Bub"}
+HINT_RE = re.compile(r"\$([A-Za-z0-9_.-]+)")
 
 
 class RuntimeEngine:
@@ -33,21 +38,18 @@ class RuntimeEngine:
             tape_store = InMemoryTapeStore()
         self._llm = _build_llm(self.settings, tape_store)
         self._pm = plugins_manager
-        self._tools: list[Tool] | None = None
         self.tapes = TapeService(self._llm, Path.home() / ".bub" / "tapes")
-
-    def _load_tools(self) -> list[Tool]:
-        tools: dict[str, Tool] = {}
-        for provided in reversed(self._pm.hook.provide_tools()):
-            if isinstance(provided, dict):
-                tools.update(provided)
-        return list(tools.values())
 
     @cached_property
     def tools(self) -> list[Tool]:
-        if self._tools is None:
-            self._tools = self._load_tools()
-        return self._tools
+        tools: dict[str, Tool] = {}
+        for provided in reversed(self._pm.hook.provide_tools()):
+            tools.update((tool.name, tool) for tool in provided)
+        return list(tools.values())
+
+    @cached_property
+    def model_tools(self) -> list[Tool]:
+        return model_tools(self.tools)
 
     async def run(self, *, session_id: str, prompt: str, state: State) -> str:
         stripped = prompt.strip()
@@ -61,8 +63,8 @@ class RuntimeEngine:
         return await self._run_model(tape=tape, prompt=stripped)
 
     async def _run_command(self, tape: Tape, *, line: str) -> str:
-        raw_body = line[1:].strip()
-        if not raw_body:
+        line = line[1:].strip()
+        if not line:
             return "error: empty command"
 
         name, arg_tokens = _parse_internal_command(line)
@@ -74,7 +76,9 @@ class RuntimeEngine:
                 output = await tools["bash"].run(context=context, cmd=line)
             else:
                 args = _parse_args(arg_tokens)
-                output = tools[name].run(*args.positional, context=context, **args.kwargs)
+                if tools[name].context:
+                    args.kwargs["context"] = context
+                output = tools[name].run(*args.positional, **args.kwargs)
                 if inspect.isawaitable(output):
                     output = await output
             status = "ok"
@@ -161,20 +165,32 @@ class RuntimeEngine:
 
         return f"error: max_steps_reached={self.settings.max_steps}"
 
+    def _load_skills_prompt(self, prompt: str, workspace: Path) -> str:
+        skill_index = {skill.name: skill for skill in discover_skills(workspace)}
+        expanded_skills = set(HINT_RE.findall(prompt)) & set(skill_index.keys())
+        return render_skills_prompt(list(skill_index.values()), expanded_skills=expanded_skills)
+
     async def _run_tools_once(self, *, tape: Tape, prompt: str) -> ToolAutoResult:
-        async with asyncio.timeout(self.settings.timeout_seconds):
+        async with asyncio.timeout(self.settings.model_timeout_seconds):
             return await tape.run_tools_async(
                 prompt=prompt,
-                system_prompt=self._system_prompt(state=tape.context.state),
+                system_prompt=self._system_prompt(prompt, state=tape.context.state),
                 max_tokens=self.settings.max_tokens,
-                tools=self.tools,
+                tools=self.model_tools,
                 extra_headers=DEFAULT_BUB_HEADERS,
             )
 
-    def _system_prompt(self, state: State) -> str:
-        blocks = []
-        for prompt in reversed(self._pm.hook.system_prompt(state=state)):
-            blocks.append(prompt)
+    def _system_prompt(self, prompt: str, state: State) -> str:
+        blocks: list[str] = []
+        for result in reversed(self._pm.hook.system_prompt(prompt=prompt, state=state)):
+            if result:
+                blocks.append(result)
+        tools_prompt = render_tools_prompt(self.tools)
+        if tools_prompt:
+            blocks.append(tools_prompt)
+        workspace = workspace_from_state(state)
+        if skills_prompt := self._load_skills_prompt(prompt, workspace):
+            blocks.append(skills_prompt)
         return "\n\n".join(blocks)
 
 
@@ -212,7 +228,7 @@ def _load_runtime_settings() -> RuntimeSettings:
 @dataclass(frozen=True)
 class Args:
     positional: list[str]
-    kwargs: dict[str, str]
+    kwargs: dict[str, Any]
 
 
 def _parse_internal_command(line: str) -> tuple[str, list[str]]:
@@ -237,3 +253,10 @@ def _parse_args(args_tokens: list[str]) -> Args:
         else:
             positional.append(token)
     return Args(positional=positional, kwargs=kwargs)
+
+
+def workspace_from_state(state: State) -> Path:
+    raw = state.get("_runtime_workspace")
+    if isinstance(raw, str) and raw.strip():
+        return Path(raw).expanduser().resolve()
+    return Path.cwd().resolve()
