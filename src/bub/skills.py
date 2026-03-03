@@ -9,7 +9,7 @@ from typing import Any
 
 import yaml
 
-PROJECT_SKILLS_DIR = ".agent/skills"
+PROJECT_SKILLS_DIR = ".agents/skills"
 SKILL_FILE_NAME = "SKILL.md"
 SKILL_SOURCES = ("project", "global", "builtin")
 SKILL_NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -25,6 +25,14 @@ class SkillMetadata:
     location: Path
     source: str
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    def body(self) -> str:
+        front_matter_pattern = re.compile(r"^---\s*\n.*?\n---\s*\n", re.DOTALL)
+        try:
+            content = self.location.read_text(encoding="utf-8")
+        except OSError:
+            return ""
+        return front_matter_pattern.sub("", content, count=1).strip()
 
 
 def discover_skills(workspace_path: Path) -> list[SkillMetadata]:
@@ -45,20 +53,6 @@ def discover_skills(workspace_path: Path) -> list[SkillMetadata]:
                 skills_by_name[key] = metadata
 
     return sorted(skills_by_name.values(), key=lambda item: item.name.casefold())
-
-
-def load_skill_body(name: str, workspace_path: Path) -> str | None:
-    """Load full SKILL.md content by skill name."""
-
-    lowered = name.casefold()
-    for skill in discover_skills(workspace_path):
-        if skill.name.casefold() != lowered:
-            continue
-        try:
-            return skill.location.read_text(encoding="utf-8")
-        except OSError:
-            return None
-    return None
 
 
 def _read_skill(skill_dir: Path, *, source: str) -> SkillMetadata | None:

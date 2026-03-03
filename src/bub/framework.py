@@ -32,10 +32,12 @@ class BubFramework:
         self._plugin_status: dict[str, PluginStatus] = {}
 
     def _load_builtin_hooks(self) -> None:
-        from bub.builtin import hook_impl
+        from bub.builtin.hook_impl import BuiltinImpl
+
+        impl = BuiltinImpl(self._plugin_manager)
 
         try:
-            self._plugin_manager.register(hook_impl, name="builtin")
+            self._plugin_manager.register(impl, name="builtin")
         except Exception as exc:
             self._plugin_status["builtin"] = PluginStatus(is_success=False, detail=str(exc))
         else:
@@ -78,9 +80,10 @@ class BubFramework:
             session_id = await self._hook_runtime.call_first(
                 "resolve_session", message=message
             ) or self._default_session_id(message)
-            state = await self._hook_runtime.call_first("load_state", session_id=session_id) or {}
-            if not isinstance(state, dict):
-                state = {}
+            state = {}
+            for hook_state in reversed(self._hook_runtime.call_many_sync("load_state", session_id=session_id)):
+                if isinstance(hook_state, dict):
+                    state.update(hook_state)
             prompt = await self._hook_runtime.call_first(
                 "build_prompt", message=message, session_id=session_id, state=state
             )
