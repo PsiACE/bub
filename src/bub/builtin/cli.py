@@ -50,7 +50,7 @@ def run(
         rendered = str(field_of(outbound, "content", ""))
         target_channel = str(field_of(outbound, "channel", "stdout"))
         target_chat = str(field_of(outbound, "chat_id", "local"))
-        typer.echo(f"[{target_channel}:{target_chat}] {rendered}")
+        typer.echo(f"[{target_channel}:{target_chat}]\n{rendered}")
 
 
 def list_hooks(
