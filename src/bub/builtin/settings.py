@@ -1,0 +1,15 @@
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DEFAULT_MODEL = "openrouter:qwen/qwen3-coder-next"
+DEFAULT_MAX_TOKENS = 1024
+
+
+class RuntimeSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="BUB_", env_parse_none_str="null", extra="ignore")
+
+    model: str = DEFAULT_MODEL
+    api_key: str | None = None
+    api_base: str | None = None
+    max_steps: int = 50
+    max_tokens: int = DEFAULT_MAX_TOKENS
+    timeout_seconds: int | None = None
