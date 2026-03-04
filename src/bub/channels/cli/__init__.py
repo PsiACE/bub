@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+from collections.abc import AsyncGenerator
 from datetime import datetime
 from hashlib import md5
 from pathlib import Path
@@ -94,11 +95,13 @@ class CliChannel(Channel):
 
             request = self._normalize_input(raw)
 
-            async def on_request_complete(_) -> None:
-                await self._refresh_tape_info()
-                request_completed.set()
-
-            message = ChannelMessage(content=request, **self._message_template, on_finish=on_request_complete)
+            message = ChannelMessage(
+                session_id=self._message_template["session_id"],
+                channel=self._message_template["channel"],
+                chat_id=self._message_template["chat_id"],
+                content=request,
+                lifespan=self.message_lifespan(request_completed),
+            )
             with self._renderer.console.status("[cyan]Processing...[/cyan]", spinner="dots"):
                 await self._on_receive(message)
                 await request_completed.wait()
@@ -106,6 +109,14 @@ class CliChannel(Channel):
 
         self._renderer.info("Bye.")
         self._stop_event.set()
+
+    @contextlib.asynccontextmanager
+    async def message_lifespan(self, request_completed: asyncio.Event) -> AsyncGenerator[None, None]:
+        try:
+            yield
+        finally:
+            await self._refresh_tape_info()
+            request_completed.set()
 
     def _normalize_input(self, raw: str) -> str:
         if self._mode != "shell":

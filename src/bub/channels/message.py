@@ -1,7 +1,7 @@
+import contextlib
 import json
-from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Literal, Self
+from typing import Any, Literal
 
 type MessageKind = Literal["error", "normal", "command"]
 
@@ -17,8 +17,7 @@ class ChannelMessage:
     is_active: bool = False
     kind: MessageKind = "normal"
     context: dict[str, Any] = field(default_factory=dict)
-    on_start: Callable[[Self], Any] | None = None
-    on_finish: Callable[[Self], Any] | None = None
+    lifespan: contextlib.AbstractAsyncContextManager | None = None
     output_channel: str = ""
 
     def __post_init__(self) -> None:

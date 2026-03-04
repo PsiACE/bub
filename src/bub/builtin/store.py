@@ -23,14 +23,14 @@ class ForkTapeStore:
         if is_async_tape_store(parent):
             self._parent = parent
         else:
-            self._parent = AsyncTapeStoreAdapter(parent)  # type: ignore[arg-type]
+            self._parent = AsyncTapeStoreAdapter(parent)
 
     @property
     def _current(self) -> TapeStore:
         return current_store.get(_emtpy_store)
 
     async def list_tapes(self) -> list[str]:
-        return await self._parent.list_tapes()
+        return cast(list[str], await self._parent.list_tapes())
 
     async def reset(self, tape: str) -> None:
         self._current.reset(tape)
