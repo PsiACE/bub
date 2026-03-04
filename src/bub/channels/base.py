@@ -1,0 +1,28 @@
+from abc import ABC, abstractmethod
+from typing import ClassVar
+
+from bub.channels.message import ChannelMessage
+
+
+class Channel(ABC):
+    """Base class for all channels"""
+
+    name: ClassVar[str] = "base"
+
+    @abstractmethod
+    async def start(self) -> None:
+        """Start listening for events and dispatching to handlers."""
+
+    @abstractmethod
+    async def stop(self) -> None:
+        """Stop the channel and clean up resources."""
+
+    @property
+    def needs_debounce(self) -> bool:
+        """Whether this channel needs debounce to prevent overload. Default to False."""
+        return False
+
+    async def send(self, message: ChannelMessage) -> None:
+        """Send a message to the channel. Optional to implement."""
+        # Do nothing by default
+        return

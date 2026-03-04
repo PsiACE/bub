@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 type Envelope = Any
 type State = dict[str, Any]
+type MessageHandler = Callable[[Envelope], Coroutine[Any, Any, None]]
+type OutboundDispatcher = Callable[[Envelope], Coroutine[Any, Any, bool]]
+
+
+class OutboundChannelRouter(Protocol):
+    async def dispatch(self, message: Envelope) -> bool: ...
 
 
 @dataclass(frozen=True)

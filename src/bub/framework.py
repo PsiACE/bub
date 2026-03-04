@@ -4,15 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import pluggy
 
-from bub.bus import BusProtocol, MessageBus
 from bub.envelope import content_of, field_of, unpack_batch
 from bub.hook_runtime import HookRuntime
 from bub.hookspecs import BUB_HOOK_NAMESPACE, BubHookSpecs
-from bub.types import Envelope, TurnResult
+from bub.types import Envelope, OutboundChannelRouter, TurnResult
 
 
 @dataclass(frozen=True)
@@ -30,11 +29,12 @@ class BubFramework:
         self._plugin_manager.add_hookspecs(BubHookSpecs)
         self._hook_runtime = HookRuntime(self._plugin_manager)
         self._plugin_status: dict[str, PluginStatus] = {}
+        self._outbound_router: OutboundChannelRouter | None = None
 
     def _load_builtin_hooks(self) -> None:
         from bub.builtin.hook_impl import BuiltinImpl
 
-        impl = BuiltinImpl(self._plugin_manager)
+        impl = BuiltinImpl(self._hook_runtime, outbound_dispatcher=self.dispatch_via_router)
 
         try:
             self._plugin_manager.register(impl, name="builtin")
@@ -56,14 +56,6 @@ class BubFramework:
             else:
                 self._plugin_status[entry_point.name] = PluginStatus(is_success=True)
 
-    def create_bus(self) -> BusProtocol:
-        """Create bus instance from hooks; fallback to default in-memory bus."""
-
-        provided = self._hook_runtime.call_first_sync("provide_bus")
-        if self._is_bus_like(provided):
-            return cast(BusProtocol, provided)
-        return MessageBus()
-
     def register_cli_commands(self, app: Any) -> None:
         """Ask skills to register CLI commands."""
 
@@ -73,15 +65,18 @@ class BubFramework:
         """Run one inbound message through hooks and return turn result."""
 
         try:
-            normalized = await self._hook_runtime.call_first("normalize_inbound", message=inbound)
-            message = normalized if normalized is not None else inbound
+            message = inbound
             if isinstance(message, dict):
                 message.setdefault("workspace", str(self.workspace))
             session_id = await self._hook_runtime.call_first(
                 "resolve_session", message=message
             ) or self._default_session_id(message)
+            if isinstance(message, dict):
+                message.setdefault("session_id", session_id)
             state = {}
-            for hook_state in reversed(self._hook_runtime.call_many_sync("load_state", session_id=session_id)):
+            for hook_state in reversed(
+                await self._hook_runtime.call_many("load_state", message=message, session_id=session_id)
+            ):
                 if isinstance(hook_state, dict):
                     state.update(hook_state)
             prompt = await self._hook_runtime.call_first(
@@ -117,24 +112,18 @@ class BubFramework:
             await self._hook_runtime.notify_error(stage="turn", error=exc, message=inbound)
             raise
 
-    async def handle_bus_once(
-        self, bus: BusProtocol | None = None, *, timeout_seconds: float | None = None
-    ) -> TurnResult | None:
-        """Consume one inbound message from bus and publish generated outbounds."""
-
-        active_bus = bus or self.create_bus()
-        inbound = await active_bus.next_inbound(timeout_seconds=timeout_seconds)
-        if inbound is None:
-            return None
-        result = await self.process_inbound(inbound)
-        for outbound in result.outbounds:
-            await active_bus.publish_outbound(outbound)
-        return result
-
     def hook_report(self) -> dict[str, list[str]]:
         """Return hook implementation summary for diagnostics."""
 
         return self._hook_runtime.hook_report()
+
+    def bind_outbound_router(self, router: OutboundChannelRouter | None) -> None:
+        self._outbound_router = router
+
+    async def dispatch_via_router(self, message: Envelope) -> bool:
+        if self._outbound_router is None:
+            return False
+        return await self._outbound_router.dispatch(message)
 
     @staticmethod
     def _default_session_id(message: Envelope) -> str:
@@ -176,10 +165,3 @@ class BubFramework:
         if chat_id is not None:
             fallback["chat_id"] = chat_id
         return [fallback]
-
-    @staticmethod
-    def _is_bus_like(candidate: Any) -> bool:
-        if candidate is None:
-            return False
-        required = ("publish_inbound", "publish_outbound", "next_inbound", "next_outbound")
-        return all(callable(getattr(candidate, name, None)) for name in required)
