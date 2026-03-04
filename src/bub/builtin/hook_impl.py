@@ -6,7 +6,7 @@ from loguru import logger
 from republic import Tool
 from republic.tape import TapeStore
 
-from bub.builtin.engine import RuntimeEngine, workspace_from_state
+from bub.builtin.engine import RuntimeEngine
 from bub.channels.base import Channel
 from bub.channels.message import ChannelMessage
 from bub.envelope import content_of, field_of
@@ -15,6 +15,21 @@ from bub.hookspecs import hookimpl
 from bub.types import Envelope, MessageHandler, OutboundDispatcher, State
 
 AGENTS_FILE_NAME = "AGENTS.md"
+DEFAULT_SYSTEM_PROMPT = """\
+<context_contract>
+Excessively long context may cause model call failures. In this case, you MAY use tape.info to the token usage and you SHOULD use tape.handoff tool to shorten the length of the retrieved history.
+</context_contract>
+<response_instruct>
+You MUST send message to the corresponding channel before finish when you want to respond.
+Route your response to the same channel the message came from.
+There is a skill named `{channel}` for each channel that you need to figure out how to send a response to that channel.
+## Before finishing ANY response to a channel message:
+1. Identify the source channel from the user message metadata
+2. Prepare your response text
+3. Call the corresponding channel skill to deliver the message
+4. ONLY THEN end your turn
+</response_instruct>
+"""
 
 
 class BuiltinImpl:
@@ -88,16 +103,20 @@ class BuiltinImpl:
         app.command("message")(cli.message)
         app.command("chat")(cli.chat)
 
-    @hookimpl
-    def system_prompt(self, prompt: str, state: State) -> str:
-        # Read the content of AGENTS.md under workspace
-        prompt_path = workspace_from_state(state) / AGENTS_FILE_NAME
+    def _read_agents_file(self, state: State) -> str:
+        workspace = state.get("_runtime_workspace", str(Path.cwd()))
+        prompt_path = Path(workspace) / AGENTS_FILE_NAME
         if not prompt_path.is_file():
             return ""
         try:
             return prompt_path.read_text(encoding="utf-8").strip()
         except OSError:
             return ""
+
+    @hookimpl
+    def system_prompt(self, prompt: str, state: State) -> str:
+        # Read the content of AGENTS.md under workspace
+        return DEFAULT_SYSTEM_PROMPT + "\n\n" + self._read_agents_file(state)
 
     @hookimpl
     def provide_tools(self) -> list[Tool]:
