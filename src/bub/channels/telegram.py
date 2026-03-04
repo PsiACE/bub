@@ -260,7 +260,7 @@ class TelegramChannel(BaseChannel[Message]):
     ) -> dict[str, Any] | None:
         if file_size is not None and file_size > self.INLINE_IMAGE_LIMIT_BYTES:
             logger.info(
-                "telegram.inline_image.skip file_id={} file_size={} limit={}",
+                "telegram.inline_image.skip_precheck file_id={} declared_size={} limit={}",
                 file_id,
                 file_size,
                 self.INLINE_IMAGE_LIMIT_BYTES,
@@ -276,7 +276,7 @@ class TelegramChannel(BaseChannel[Message]):
 
         if len(payload) > self.INLINE_IMAGE_LIMIT_BYTES:
             logger.info(
-                "telegram.inline_image.skip file_id={} file_size={} limit={}",
+                "telegram.inline_image.skip_after_download file_id={} actual_size={} limit={}",
                 file_id,
                 len(payload),
                 self.INLINE_IMAGE_LIMIT_BYTES,

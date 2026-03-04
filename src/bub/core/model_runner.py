@@ -23,6 +23,7 @@ from bub.tools.view import render_tool_prompt_block
 HINT_RE = re.compile(r"\$([A-Za-z0-9_.-]+)")
 TOOL_CONTINUE_PROMPT = "Continue the task."
 DATA_URL_PLACEHOLDER = "[inline image omitted]"
+CHANNEL_PREFIX = "channel: $"
 
 
 @dataclass(frozen=True)
@@ -205,7 +206,7 @@ class ModelRunner:
 
         prefix = ""
         payload_lines = lines
-        if lines[0].startswith("channel: $"):
+        if lines[0].startswith(CHANNEL_PREFIX):
             prefix = lines[0]
             payload_lines = lines[1:]
 
@@ -309,6 +310,13 @@ def _runtime_contract() -> str:
 
 
 def _extract_image_parts(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Extract inline images from *payload* and sanitize in place.
+
+    The function mutates *payload* by replacing ``data_url`` values with
+    a short placeholder so that the full base64 blob is not sent as text
+    to the model.  Callers should treat *payload* as consumed after this
+    call.
+    """
     media = payload.get("media")
     if not isinstance(media, dict):
         return []

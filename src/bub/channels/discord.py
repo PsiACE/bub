@@ -6,7 +6,7 @@ import contextlib
 import json
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 import discord
 from discord.ext import commands
@@ -44,7 +44,7 @@ class DiscordChannel(BaseChannel[discord.Message]):
     """Discord adapter based on discord.py."""
 
     name = "discord"
-    INLINE_IMAGE_LIMIT_BYTES = MAX_INLINE_IMAGE_BYTES
+    INLINE_IMAGE_LIMIT_BYTES: ClassVar[int] = MAX_INLINE_IMAGE_BYTES
 
     def __init__(self, runtime: AppRuntime) -> None:
         super().__init__(runtime)
@@ -313,7 +313,7 @@ class DiscordChannel(BaseChannel[discord.Message]):
         media = {"attachments": attachment_meta}
         if image_meta:
             media["images"] = image_meta
-        text = "\n".join(f"[Attachment: {att.filename}]" for att in message.attachments)
+        text = "\n".join(f"[Attachment: {meta['filename']}]" for meta in attachment_meta)
         return text, media
 
     @staticmethod
@@ -329,7 +329,7 @@ class DiscordChannel(BaseChannel[discord.Message]):
         mime_type = guess_image_mime(attachment.content_type, attachment.filename) or DEFAULT_IMAGE_MIME
         if attachment.size > self.INLINE_IMAGE_LIMIT_BYTES:
             logger.info(
-                "discord.inline_image.skip id={} size={} limit={}",
+                "discord.inline_image.skip_precheck id={} declared_size={} limit={}",
                 attachment.id,
                 attachment.size,
                 self.INLINE_IMAGE_LIMIT_BYTES,
@@ -344,7 +344,7 @@ class DiscordChannel(BaseChannel[discord.Message]):
 
         if len(payload) > self.INLINE_IMAGE_LIMIT_BYTES:
             logger.info(
-                "discord.inline_image.skip id={} size={} limit={}",
+                "discord.inline_image.skip_after_download id={} actual_size={} limit={}",
                 attachment.id,
                 len(payload),
                 self.INLINE_IMAGE_LIMIT_BYTES,
