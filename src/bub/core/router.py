@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass
+from html import escape
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +29,11 @@ class CommandExecutionResult:
     elapsed_ms: int
 
     def block(self) -> str:
-        return f'<command name="{self.name}" status="{self.status}">\n{self.output}\n</command>'
+        # Escape command payload so tool output cannot close or forge command tags.
+        safe_name = escape(self.name, quote=True)
+        safe_status = escape(self.status, quote=True)
+        safe_output = escape(self.output, quote=False)
+        return f'<command name="{safe_name}" status="{safe_status}">\n{safe_output}\n</command>'
 
 
 @dataclass(frozen=True)
