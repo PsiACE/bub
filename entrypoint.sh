@@ -2,10 +2,9 @@
 
 set -eo pipefail
 
-if [ -f "/workspace/bub_hooks.py" ]; then
-    cp /workspace/bub_hooks.py /app/.venv/lib/python3.12/site-packages/
-    echo "Hooks module bub_hooks.py copied to site-packages."
-    export BUB_HOOKS_MODULE="bub_hooks"
+if [ -f "/workspace/bub-reqs.txt" ]; then
+    echo "Installing additional requirements from /workspace/bub-reqs.txt"
+    uv pip install -r /workspace/bub-reqs.txt -p /app/.venv/bin/python
 fi
 
 if [ -f "/workspace/startup.sh" ]; then
