@@ -9,6 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from bub.channels.base import Channel
 from bub.channels.handler import BufferedMessageHandler
 from bub.channels.message import ChannelMessage
+from bub.channels.utils import wait_until_stopped
 from bub.envelope import content_of, field_of
 from bub.framework import BubFramework
 from bub.types import Envelope, MessageHandler
@@ -46,6 +47,7 @@ class ChannelManager:
         self._messages = asyncio.Queue[ChannelMessage]()
         self._ongoing_tasks: set[asyncio.Task] = set()
         self._session_handlers: dict[str, MessageHandler] = {}
+        self._load_channels()
 
     async def on_receive(self, message: ChannelMessage) -> None:
         channel = message.channel
@@ -67,13 +69,16 @@ class ChannelManager:
             self._session_handlers[session_id] = handler
         await self._session_handlers[session_id](message)
 
+    def get_channel(self, name: str) -> Channel | None:
+        return self._channels.get(name)
+
     async def dispatch(self, message: Envelope) -> bool:
         channel_name = field_of(message, "channel")
         if channel_name is None:
             return False
 
         channel_key = str(channel_name)
-        channel = self._channels.get(channel_key)
+        channel = self.get_channel(channel_key)
         if channel is None:
             return False
 
@@ -82,6 +87,8 @@ class ChannelManager:
             channel=channel_key,
             chat_id=str(field_of(message, "chat_id", "default")),
             content=content_of(message),
+            context=field_of(message, "context", {}),
+            kind=field_of(message, "kind", "normal"),
         )
         await channel.send(outbound)
         return True
@@ -100,14 +107,14 @@ class ChannelManager:
                 self._channels[channel.name] = channel
 
     async def listen_and_run(self) -> None:
-        self._load_channels()
+        stop_event = asyncio.Event()
         self.framework.bind_outbound_router(self)
         for channel in self.enabled_channels():
-            await channel.start()
+            await channel.start(stop_event)
         logger.info("channel.manager started listening")
         try:
             while True:
-                message = await self._messages.get()
+                message = await wait_until_stopped(self._messages.get(), stop_event)
                 task = asyncio.create_task(self.framework.process_inbound(message))
                 task.add_done_callback(lambda t: self._ongoing_tasks.discard(t))
                 self._ongoing_tasks.add(task)

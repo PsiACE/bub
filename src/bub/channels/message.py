@@ -1,7 +1,9 @@
 import json
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Self
+from typing import Any, Literal, Self
+
+type MessageKind = Literal["error", "normal", "command"]
 
 
 @dataclass
@@ -13,9 +15,10 @@ class ChannelMessage:
     content: str
     chat_id: str = "default"
     is_active: bool = False
+    kind: MessageKind = "normal"
     context: dict[str, Any] = field(default_factory=dict)
-    on_start: Callable[[Self], Coroutine[None, None, None]] | None = None
-    on_finish: Callable[[Self], Coroutine[None, None, None]] | None = None
+    on_start: Callable[[Self], Any] | None = None
+    on_finish: Callable[[Self], Any] | None = None
     output_channel: str = ""
 
     def __post_init__(self) -> None:

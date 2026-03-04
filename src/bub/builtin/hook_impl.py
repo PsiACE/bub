@@ -1,3 +1,4 @@
+import inspect
 from pathlib import Path
 
 import typer
@@ -41,7 +42,9 @@ class BuiltinImpl:
     async def load_state(self, message: ChannelMessage, session_id: str) -> State:
         on_start = field_of(message, "on_start")
         if on_start is not None:
-            await on_start(message)
+            result = on_start(message)
+            if inspect.isawaitable(result):
+                await result
         state = {"session_id": session_id, "_runtime_engine": self.engine}
         if context := field_of(message, "context_str"):
             state["context"] = context
@@ -51,7 +54,9 @@ class BuiltinImpl:
     async def save_state(self, session_id: str, state: State, message: ChannelMessage, model_output: str) -> None:
         on_finish = field_of(message, "on_finish")
         if on_finish is not None:
-            await on_finish(message)
+            result = on_finish(message)
+            if inspect.isawaitable(result):
+                await result
 
     @hookimpl
     def build_prompt(self, message: ChannelMessage, session_id: str, state: State) -> str:
@@ -61,9 +66,13 @@ class BuiltinImpl:
             state["_runtime_workspace"] = workspace.strip()
         elif "_runtime_workspace" not in state:
             state["_runtime_workspace"] = str(Path.cwd())
+        content = content_of(message)
+        if content.startswith(","):
+            message.kind = "command"
+            return content
         context = field_of(message, "context_str")
         context_prefix = f"{context}\n---\n" if context else ""
-        return f"{context_prefix}{content_of(message)}"
+        return f"{context_prefix}{content}"
 
     @hookimpl
     async def run_model(self, prompt: str, session_id: str, state: State) -> str:
@@ -76,6 +85,7 @@ class BuiltinImpl:
         app.command("run")(cli.run)
         app.command("hooks")(cli.list_hooks)
         app.command("message")(cli.message)
+        app.command("chat")(cli.chat)
 
     @hookimpl
     def system_prompt(self, prompt: str, state: State) -> str:
@@ -96,19 +106,23 @@ class BuiltinImpl:
 
     @hookimpl
     def provide_channels(self, message_handler: MessageHandler) -> list[Channel]:
+        from bub.channels.cli import CliChannel
         from bub.channels.telegram import TelegramChannel
 
-        return [TelegramChannel(on_receive=message_handler)]
+        return [
+            TelegramChannel(on_receive=message_handler),
+            CliChannel(on_receive=message_handler, engine=self.engine),
+        ]
 
     @hookimpl
     async def on_error(self, stage: str, error: Exception, message: Envelope | None) -> None:
-        logger.exception(f"Error at stage '{stage}' with message '{message}': {error}")
         if message is not None:
             outbound = ChannelMessage(
                 session_id=field_of(message, "session_id", "unknown"),
                 channel=field_of(message, "channel", "default"),
                 chat_id=field_of(message, "chat_id", "default"),
                 content=f"An error occurred at stage '{stage}': {error}",
+                kind="error",
             )
             await self.hooks.call_many("dispatch_outbound", message=outbound)
 
@@ -116,7 +130,8 @@ class BuiltinImpl:
     async def dispatch_outbound(self, message: Envelope) -> bool:
         content = content_of(message)
         session_id = field_of(message, "session_id")
-        logger.info("session.run.outbound session_id={} content={}", session_id, content)
+        if field_of(message, "output_channel") != "cli":
+            logger.info("session.run.outbound session_id={} content={}", session_id, content)
         if self._outbound_dispatcher is None:
             return False
         return await self._outbound_dispatcher(message)
@@ -135,5 +150,6 @@ class BuiltinImpl:
             chat_id=field_of(message, "chat_id", "default"),
             content=model_output,
             output_channel=field_of(message, "output_channel", "default"),
+            kind=field_of(message, "kind", "normal"),
         )
         return [outbound]

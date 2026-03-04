@@ -83,26 +83,29 @@ class BubFramework:
             )
             if not prompt:
                 prompt = content_of(inbound)
-            model_output = await self._hook_runtime.call_first(
-                "run_model", prompt=prompt, session_id=session_id, state=state
-            )
-            if model_output is None:
-                await self._hook_runtime.notify_error(
-                    stage="run_model:fallback",
-                    error=RuntimeError("no model skill returned output"),
-                    message=inbound,
+            model_output = ""
+            try:
+                model_output = await self._hook_runtime.call_first(
+                    "run_model", prompt=prompt, session_id=session_id, state=state
                 )
-                model_output = prompt
-            else:
-                model_output = str(model_output)
+                if model_output is None:
+                    await self._hook_runtime.notify_error(
+                        stage="run_model:fallback",
+                        error=RuntimeError("no model skill returned output"),
+                        message=inbound,
+                    )
+                    model_output = prompt
+                else:
+                    model_output = str(model_output)
+            finally:
+                await self._hook_runtime.call_many(
+                    "save_state",
+                    session_id=session_id,
+                    state=state,
+                    message=inbound,
+                    model_output=model_output,
+                )
 
-            await self._hook_runtime.call_many(
-                "save_state",
-                session_id=session_id,
-                state=state,
-                message=inbound,
-                model_output=model_output,
-            )
             outbounds = await self._collect_outbounds(inbound, session_id, state, model_output)
             for outbound in outbounds:
                 await self._hook_runtime.call_many("dispatch_outbound", message=outbound)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 from collections.abc import Callable
 from typing import Any, ClassVar
@@ -128,7 +129,7 @@ class TelegramChannel(Channel):
     def needs_debounce(self) -> bool:
         return True
 
-    async def start(self) -> None:
+    async def start(self, stop_event: asyncio.Event) -> None:
         proxy = self._settings.proxy
         logger.info(
             "telegram.start allow_users_count={} allow_chats_count={} proxy_enabled={}",
