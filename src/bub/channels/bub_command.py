@@ -109,7 +109,7 @@ def _parse_tape_subcommand(head: str, tokens: list[str]) -> str | None:
         return _format_command("tape.search", kwargs)
     if head == "reset":
         parsed = parse_kv_arguments(tokens)
-        kwargs: dict[str, object] = dict(parsed.kwargs)
+        kwargs = dict(parsed.kwargs)
         if parsed.positional and "archive" not in kwargs:
             raw = parsed.positional[0].strip().lower()
             if raw in {"1", "true", "yes", "y", "on", "archive"}:
