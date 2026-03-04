@@ -1,5 +1,6 @@
 import contextlib
 import hashlib
+import json
 import re
 from collections.abc import AsyncGenerator
 from dataclasses import asdict
@@ -7,7 +8,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
-from pydantic import json
 from pydantic.dataclasses import dataclass
 from rapidfuzz import fuzz, process
 from republic import LLM, Tape, TapeEntry
