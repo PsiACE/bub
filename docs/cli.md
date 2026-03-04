@@ -47,6 +47,16 @@ Press `Ctrl-X` to toggle between `agent` and `shell` mode.
 
 Use shell mode when you want to run multiple shell commands quickly.
 
+## Image Input
+
+CLI supports image reading in agent mode:
+
+- Paste from clipboard: `Ctrl-V`
+- Attach local file by path token: `@/absolute/path/to/image.png`
+- Paths with spaces: `@"./images/my chart.png"`
+
+Attached images are sent as multimodal input together with your text.
+
 ## Typical Workflow
 
 1. Check repo status: `,git status`

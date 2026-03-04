@@ -42,6 +42,22 @@ def _build_message(*, text: str = "hello", chat_id: int = 123, message_id: int =
     )
 
 
+class _DummyTelegramFile:
+    def __init__(self, data: bytes) -> None:
+        self._data = data
+
+    async def download_as_bytearray(self) -> bytearray:
+        return bytearray(self._data)
+
+
+class _DummyBot:
+    def __init__(self, data: bytes) -> None:
+        self._data = data
+
+    async def get_file(self, _file_id: str) -> _DummyTelegramFile:
+        return _DummyTelegramFile(self._data)
+
+
 @pytest.mark.asyncio
 async def test_get_session_prompt_wraps_text_with_notice_and_metadata() -> None:
     channel = _build_channel()
@@ -87,3 +103,25 @@ async def test_get_session_prompt_includes_reply_metadata() -> None:
     assert reply["from_user_id"] == 1000
     assert reply["from_username"] == "bot"
     assert reply["from_is_bot"] is True
+
+
+@pytest.mark.asyncio
+async def test_get_session_prompt_includes_inline_photo_image() -> None:
+    channel = _build_channel()
+    message = _build_message(text="")
+    message.text = None
+    message.caption = "look"
+    message.photo = [
+        SimpleNamespace(file_id="small", file_size=5, width=10, height=10),
+        SimpleNamespace(file_id="large", file_size=6, width=20, height=20),
+    ]
+    message.get_bot = lambda: _DummyBot(b"abcdef")  # type: ignore[assignment]
+
+    _session_id, prompt = await channel.get_session_prompt(message)  # type: ignore[arg-type]
+    data = json.loads(prompt)
+
+    assert data["type"] == "photo"
+    assert data["media"]["file_id"] == "large"
+    assert data["media"]["images"][0]["id"] == "large"
+    assert data["media"]["images"][0]["mime_type"] == "image/jpeg"
+    assert data["media"]["images"][0]["data_url"].startswith("data:image/jpeg;base64,")

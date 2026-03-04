@@ -14,6 +14,7 @@ from loguru import logger
 
 from bub.app.runtime import AppRuntime
 from bub.channels.base import BaseChannel, exclude_none
+from bub.channels.media import DEFAULT_IMAGE_MIME, MAX_INLINE_IMAGE_BYTES, guess_image_mime, to_data_url
 from bub.channels.utils import resolve_proxy
 from bub.core.agent_loop import LoopResult
 
@@ -43,6 +44,7 @@ class DiscordChannel(BaseChannel[discord.Message]):
     """Discord adapter based on discord.py."""
 
     name = "discord"
+    INLINE_IMAGE_LIMIT_BYTES = MAX_INLINE_IMAGE_BYTES
 
     def __init__(self, runtime: AppRuntime) -> None:
         super().__init__(runtime)
@@ -96,7 +98,7 @@ class DiscordChannel(BaseChannel[discord.Message]):
     async def get_session_prompt(self, message: discord.Message) -> tuple[str, str]:
         channel_id = str(message.channel.id)
         session_id = f"{self.name}:{channel_id}"
-        content, media = self._parse_message(message)
+        content, media = await self._parse_message_for_prompt(message)
 
         prefix = f"{self._config.command_prefix}bub "
         if content.startswith(prefix):
@@ -193,7 +195,9 @@ class DiscordChannel(BaseChannel[discord.Message]):
         if self._config.allow_channels and channel_id not in self._config.allow_channels:
             return False
 
-        if not message.content.strip():
+        has_text = bool(message.content.strip())
+        has_media = bool(message.attachments or message.stickers)
+        if not has_text and not has_media:
             return False
 
         sender_tokens = {str(message.author.id), message.author.name}
@@ -209,9 +213,9 @@ class DiscordChannel(BaseChannel[discord.Message]):
 
         if (
             isinstance(message.channel, discord.DMChannel)
-            or "bub" in message.content.lower()
+            or (has_text and "bub" in message.content.lower())
             or self._is_bub_scoped_thread(message)
-            or message.content.startswith(f"{self._config.command_prefix}bub")
+            or (has_text and message.content.startswith(f"{self._config.command_prefix}bub"))
         ):
             return True
 
@@ -263,6 +267,99 @@ class DiscordChannel(BaseChannel[discord.Message]):
             return "\n".join(lines), {"stickers": meta}
 
         return "[Unknown message type]", None
+
+    async def _parse_message_for_prompt(self, message: discord.Message) -> tuple[str, dict[str, Any] | None]:
+        content = message.content
+        media: dict[str, Any] = {}
+
+        attachment_text, attachment_media = await self._collect_attachment_media(message)
+        media.update(attachment_media)
+        if not content and attachment_text:
+            content = attachment_text
+
+        sticker_text, sticker_media = self._collect_sticker_media(message)
+        media.update(sticker_media)
+        if not content and sticker_text:
+            content = sticker_text
+
+        if not content:
+            return "[Unknown message type]", media or None
+        return content, media or None
+
+    async def _collect_attachment_media(self, message: discord.Message) -> tuple[str | None, dict[str, Any]]:
+        if not message.attachments:
+            return None, {}
+
+        attachment_meta: list[dict[str, Any]] = []
+        image_meta: list[dict[str, Any]] = []
+        for att in message.attachments:
+            meta = exclude_none({
+                "id": str(att.id),
+                "filename": att.filename,
+                "content_type": att.content_type,
+                "size": att.size,
+                "url": att.url,
+                "width": getattr(att, "width", None),
+                "height": getattr(att, "height", None),
+            })
+            attachment_meta.append(meta)
+
+            if not self._is_image_attachment(att):
+                continue
+            inline_image = await self._read_inline_image(att)
+            if inline_image is not None:
+                image_meta.append({**meta, **inline_image})
+
+        media = {"attachments": attachment_meta}
+        if image_meta:
+            media["images"] = image_meta
+        text = "\n".join(f"[Attachment: {att.filename}]" for att in message.attachments)
+        return text, media
+
+    @staticmethod
+    def _collect_sticker_media(message: discord.Message) -> tuple[str | None, dict[str, Any]]:
+        if not message.stickers:
+            return None, {}
+
+        sticker_lines = [f"[Sticker: {sticker.name}]" for sticker in message.stickers]
+        stickers = [{"id": str(sticker.id), "name": sticker.name} for sticker in message.stickers]
+        return "\n".join(sticker_lines), {"stickers": stickers}
+
+    async def _read_inline_image(self, attachment: discord.Attachment) -> dict[str, Any] | None:
+        mime_type = guess_image_mime(attachment.content_type, attachment.filename) or DEFAULT_IMAGE_MIME
+        if attachment.size > self.INLINE_IMAGE_LIMIT_BYTES:
+            logger.info(
+                "discord.inline_image.skip id={} size={} limit={}",
+                attachment.id,
+                attachment.size,
+                self.INLINE_IMAGE_LIMIT_BYTES,
+            )
+            return None
+
+        try:
+            payload = await attachment.read(use_cached=True)
+        except Exception:
+            logger.exception("discord.inline_image.read_error id={}", attachment.id)
+            return None
+
+        if len(payload) > self.INLINE_IMAGE_LIMIT_BYTES:
+            logger.info(
+                "discord.inline_image.skip id={} size={} limit={}",
+                attachment.id,
+                len(payload),
+                self.INLINE_IMAGE_LIMIT_BYTES,
+            )
+            return None
+
+        return {
+            "mime_type": mime_type,
+            "data_url": to_data_url(payload, mime_type),
+            "file_size": len(payload),
+        }
+
+    @staticmethod
+    def _is_image_attachment(attachment: discord.Attachment) -> bool:
+        return guess_image_mime(attachment.content_type, attachment.filename) is not None
 
     @staticmethod
     def _extract_reply_metadata(message: discord.Message) -> dict[str, Any] | None:

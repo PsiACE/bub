@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Any
 
 import pytest
 from republic import ToolAutoResult
@@ -93,14 +94,14 @@ class FakeTapeImpl:
             return []
 
     outputs: list[ToolAutoResult]
-    calls: list[tuple[str, str, int]] = field(default_factory=list)
+    calls: list[tuple[Any, str, int]] = field(default_factory=list)
     call_kwargs: list[dict[str, object]] = field(default_factory=list)
     query: _Query = field(default_factory=_Query)
 
     async def run_tools_async(
         self,
         *,
-        prompt: str,
+        prompt: Any,
         system_prompt: str,
         max_tokens: int,
         tools: list[object],
@@ -452,3 +453,33 @@ async def test_model_runner_uses_extra_headers_for_unknown_provider() -> None:
     kwargs = tape.tape.call_kwargs[0]
     assert kwargs.get("extra_headers") == ModelRunner.DEFAULT_HEADERS
     assert "http_options" not in kwargs
+
+
+@pytest.mark.asyncio
+async def test_model_runner_builds_multimodal_prompt_from_inline_images() -> None:
+    tape = FakeTapeService(FakeTapeImpl(outputs=[ToolAutoResult.text_result("assistant-only")]))
+    runner = ModelRunner(
+        tape=tape,  # type: ignore[arg-type]
+        router=SingleStepRouter(),  # type: ignore[arg-type]
+        tool_view=FakeToolView(),  # type: ignore[arg-type]
+        tools=[],
+        list_skills=lambda: [],
+        model="openrouter:test",
+        max_steps=1,
+        max_tokens=512,
+        model_timeout_seconds=90,
+        base_system_prompt="base",
+        get_workspace_system_prompt=lambda: "",
+    )
+
+    prompt = (
+        'channel: $telegram\n{"message":"[Photo]","chat_id":"123","media":{"images":[{"id":"img-1",'
+        '"mime_type":"image/png","data_url":"data:image/png;base64,AAAA"}]}}'
+    )
+    await runner.run(prompt)
+
+    first_prompt = tape.tape.calls[0][0]
+    assert isinstance(first_prompt, list)
+    assert first_prompt[0]["type"] == "text"
+    assert "[inline image omitted]" in first_prompt[0]["text"]
+    assert first_prompt[1] == {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}}

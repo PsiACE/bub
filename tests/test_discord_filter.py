@@ -20,10 +20,14 @@ class DummyMessage:
         content: str,
         channel: object,
         author: DummyAuthor | None = None,
+        attachments: list[object] | None = None,
+        stickers: list[object] | None = None,
     ) -> None:
         self.content = content
         self.channel = channel
         self.author = author or DummyAuthor()
+        self.attachments = attachments or []
+        self.stickers = stickers or []
         self.mentions: list[object] = []
         self.reference = None
 
@@ -71,3 +75,10 @@ def test_reject_empty_content_even_in_bub_thread() -> None:
     thread = SimpleNamespace(id=104, name="bub-help", parent=SimpleNamespace(name="forum"))
     message = DummyMessage(content="   ", channel=thread)
     assert channel.is_mentioned(message) is False  # type: ignore[arg-type]
+
+
+def test_allow_attachment_only_message_in_bub_thread() -> None:
+    channel = _build_channel()
+    thread = SimpleNamespace(id=105, name="bub-help", parent=SimpleNamespace(name="forum"))
+    message = DummyMessage(content="", channel=thread, attachments=[SimpleNamespace(filename="a.png")])
+    assert channel.is_mentioned(message) is True  # type: ignore[arg-type]

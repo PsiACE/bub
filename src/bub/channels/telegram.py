@@ -15,6 +15,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandl
 
 from bub.app.runtime import AppRuntime
 from bub.channels.base import BaseChannel, exclude_none
+from bub.channels.media import DEFAULT_IMAGE_MIME, MAX_INLINE_IMAGE_BYTES, guess_image_mime, to_data_url
 from bub.channels.utils import resolve_proxy
 from bub.core.agent_loop import LoopResult
 
@@ -112,6 +113,7 @@ class TelegramChannel(BaseChannel[Message]):
     """Telegram adapter using long polling mode."""
 
     name = "telegram"
+    INLINE_IMAGE_LIMIT_BYTES: ClassVar[int] = MAX_INLINE_IMAGE_BYTES
 
     def __init__(self, runtime: AppRuntime) -> None:
         super().__init__(runtime)
@@ -167,7 +169,9 @@ class TelegramChannel(BaseChannel[Message]):
     async def get_session_prompt(self, message: Message) -> tuple[str, str]:
         chat_id = str(message.chat_id)
         session_id = f"{self.name}:{chat_id}"
+        msg_type = _message_type(message)
         content, media = self._parse_message(message)
+        media = await self._augment_media_with_inline_images(message, msg_type=msg_type, media=media)
         if content.startswith("/bub "):
             content = content[5:]
 
@@ -177,7 +181,7 @@ class TelegramChannel(BaseChannel[Message]):
 
         metadata: dict[str, Any] = {
             "message_id": message.message_id,
-            "type": _message_type(message),
+            "type": msg_type,
             "username": message.from_user.username if message.from_user else "",
             "full_name": message.from_user.full_name if message.from_user else "",
             "sender_id": str(message.from_user.id) if message.from_user else "",
@@ -197,6 +201,97 @@ class TelegramChannel(BaseChannel[Message]):
 
         metadata_json = json.dumps({"message": content, "chat_id": chat_id, **metadata}, ensure_ascii=False)
         return session_id, metadata_json
+
+    async def _augment_media_with_inline_images(
+        self,
+        message: Message,
+        *,
+        msg_type: str,
+        media: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        if media is None:
+            return None
+
+        inline_images: list[dict[str, Any]] = []
+        if msg_type == "photo":
+            photos = getattr(message, "photo", None) or []
+            if photos:
+                largest = photos[-1]
+                image = await self._download_inline_image(
+                    message=message,
+                    file_id=largest.file_id,
+                    mime_type="image/jpeg",
+                    image_id=largest.file_id,
+                    file_size=largest.file_size,
+                    width=largest.width,
+                    height=largest.height,
+                )
+                if image is not None:
+                    inline_images.append(image)
+        elif msg_type == "document":
+            document = getattr(message, "document", None)
+            if document is not None:
+                mime_type = guess_image_mime(document.mime_type, document.file_name)
+                if mime_type is not None:
+                    image = await self._download_inline_image(
+                        message=message,
+                        file_id=document.file_id,
+                        mime_type=mime_type,
+                        image_id=document.file_id,
+                        file_size=document.file_size,
+                    )
+                    if image is not None:
+                        inline_images.append(image)
+
+        if inline_images:
+            media["images"] = inline_images
+        return media
+
+    async def _download_inline_image(
+        self,
+        *,
+        message: Message,
+        file_id: str,
+        mime_type: str,
+        image_id: str,
+        file_size: int | None = None,
+        width: int | None = None,
+        height: int | None = None,
+    ) -> dict[str, Any] | None:
+        if file_size is not None and file_size > self.INLINE_IMAGE_LIMIT_BYTES:
+            logger.info(
+                "telegram.inline_image.skip file_id={} file_size={} limit={}",
+                file_id,
+                file_size,
+                self.INLINE_IMAGE_LIMIT_BYTES,
+            )
+            return None
+
+        try:
+            telegram_file = await message.get_bot().get_file(file_id)
+            payload = bytes(await telegram_file.download_as_bytearray())
+        except Exception:
+            logger.exception("telegram.inline_image.download_error file_id={}", file_id)
+            return None
+
+        if len(payload) > self.INLINE_IMAGE_LIMIT_BYTES:
+            logger.info(
+                "telegram.inline_image.skip file_id={} file_size={} limit={}",
+                file_id,
+                len(payload),
+                self.INLINE_IMAGE_LIMIT_BYTES,
+            )
+            return None
+
+        resolved_mime = mime_type or DEFAULT_IMAGE_MIME
+        return exclude_none({
+            "id": image_id,
+            "mime_type": resolved_mime,
+            "file_size": len(payload),
+            "width": width,
+            "height": height,
+            "data_url": to_data_url(payload, resolved_mime),
+        })
 
     async def process_output(self, session_id: str, output: LoopResult) -> None:
         parts = [part for part in (output.immediate_output, output.assistant_output) if part]

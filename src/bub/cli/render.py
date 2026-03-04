@@ -21,6 +21,7 @@ class CliRenderer:
             f"model: {model}\n"
             "internal command prefix: ','\n"
             "shell command prefix: ',' at line start (Ctrl-X for shell mode)\n"
+            "image input: Ctrl-V paste or @/path/to/image.png\n"
             "type ',help' for command list"
         )
         self.console.print(Panel(body, title="Bub", border_style="cyan"))

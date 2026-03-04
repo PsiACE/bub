@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 import textwrap
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from loguru import logger
 from republic import Tool, ToolAutoResult
@@ -21,6 +22,7 @@ from bub.tools.view import render_tool_prompt_block
 
 HINT_RE = re.compile(r"\$([A-Za-z0-9_.-]+)")
 TOOL_CONTINUE_PROMPT = "Continue the task."
+DATA_URL_PLACEHOLDER = "[inline image omitted]"
 
 
 @dataclass(frozen=True)
@@ -163,12 +165,13 @@ class ModelRunner:
 
     async def _chat(self, prompt: str) -> _ChatResult:
         system_prompt = self._render_system_prompt()
+        chat_prompt: Any = self._build_multimodal_prompt(prompt)
         try:
             async with asyncio.timeout(self._model_timeout_seconds):
                 provider, _, _ = self._model.partition(":")
                 if provider.casefold() == "vertexai":
                     output = await self._tape.tape.run_tools_async(
-                        prompt=prompt,
+                        prompt=chat_prompt,
                         system_prompt=system_prompt,
                         max_tokens=self._max_tokens,
                         tools=self._tools,
@@ -176,7 +179,7 @@ class ModelRunner:
                     )
                 else:
                     output = await self._tape.tape.run_tools_async(
-                        prompt=prompt,
+                        prompt=chat_prompt,
                         system_prompt=system_prompt,
                         max_tokens=self._max_tokens,
                         tools=self._tools,
@@ -191,6 +194,45 @@ class ModelRunner:
         except Exception as exc:
             logger.exception("model.call.error")
             return _ChatResult(text="", error=f"model_call_error: {exc!s}")
+
+    def _build_multimodal_prompt(self, prompt: str) -> str | list[dict[str, Any]]:
+        if '"data_url"' not in prompt:
+            return prompt
+
+        lines = [line for line in prompt.splitlines() if line.strip()]
+        if not lines:
+            return prompt
+
+        prefix = ""
+        payload_lines = lines
+        if lines[0].startswith("channel: $"):
+            prefix = lines[0]
+            payload_lines = lines[1:]
+
+        sanitized_lines: list[str] = []
+        image_parts: list[dict[str, Any]] = []
+        for line in payload_lines:
+            stripped = line.strip()
+            if not stripped.startswith("{"):
+                sanitized_lines.append(line)
+                continue
+
+            try:
+                payload = json.loads(stripped)
+            except json.JSONDecodeError:
+                sanitized_lines.append(line)
+                continue
+
+            extracted = _extract_image_parts(payload)
+            image_parts.extend(extracted)
+            sanitized_lines.append(json.dumps(payload, ensure_ascii=False))
+
+        if not image_parts:
+            return prompt
+
+        text_lines = [prefix, *sanitized_lines] if prefix else sanitized_lines
+        text_payload = "\n".join(line for line in text_lines if line.strip())
+        return [{"type": "text", "text": text_payload}, *image_parts]
 
     def _render_system_prompt(self) -> str:
         blocks: list[str] = []
@@ -264,3 +306,29 @@ def _runtime_contract() -> str:
         3. Call the corresponding channel skill to deliver the message
         4. ONLY THEN end your turn
         </response_instruct>""")
+
+
+def _extract_image_parts(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    media = payload.get("media")
+    if not isinstance(media, dict):
+        return []
+    images = media.get("images")
+    if not isinstance(images, list):
+        return []
+
+    parts: list[dict[str, Any]] = []
+    sanitized_images: list[Any] = []
+    for image in images:
+        if not isinstance(image, dict):
+            sanitized_images.append(image)
+            continue
+
+        copied = dict(image)
+        data_url = copied.pop("data_url", None)
+        if isinstance(data_url, str) and data_url.startswith("data:image/"):
+            parts.append({"type": "image_url", "image_url": {"url": data_url}})
+            copied["data_url"] = DATA_URL_PLACEHOLDER
+        sanitized_images.append(copied)
+
+    media["images"] = sanitized_images
+    return parts
