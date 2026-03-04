@@ -1,3 +1,4 @@
+import asyncio
 from abc import ABC, abstractmethod
 from typing import ClassVar
 
@@ -10,7 +11,7 @@ class Channel(ABC):
     name: ClassVar[str] = "base"
 
     @abstractmethod
-    async def start(self) -> None:
+    async def start(self, stop_event: asyncio.Event) -> None:
         """Start listening for events and dispatching to handlers."""
 
     @abstractmethod

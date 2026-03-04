@@ -125,17 +125,9 @@ class HookRuntime:
         call_kwargs: dict[str, Any],
         kwargs: dict[str, Any],
     ) -> Any:
-        try:
-            value = impl.function(**call_kwargs)
-            if inspect.isawaitable(value):
-                value = await value
-        except Exception as error:
-            await self.notify_error(
-                stage=f"{hook_name}:{impl.plugin_name or '<unknown>'}",
-                error=error,
-                message=_message_from_kwargs(kwargs),
-            )
-            return _SKIP_VALUE
+        value = impl.function(**call_kwargs)
+        if inspect.isawaitable(value):
+            value = await value
         return value
 
     def _invoke_impl_sync(
@@ -146,15 +138,7 @@ class HookRuntime:
         call_kwargs: dict[str, Any],
         kwargs: dict[str, Any],
     ) -> Any:
-        try:
-            value = impl.function(**call_kwargs)
-        except Exception as error:
-            self.notify_error_sync(
-                stage=f"{hook_name}:{impl.plugin_name or '<unknown>'}",
-                error=error,
-                message=_message_from_kwargs(kwargs),
-            )
-            return _SKIP_VALUE
+        value = impl.function(**call_kwargs)
         if inspect.isawaitable(value):
             logger.warning(
                 "hook.async_not_supported hook={} adapter={}",

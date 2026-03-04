@@ -1,0 +1,162 @@
+import asyncio
+import contextlib
+from datetime import datetime
+from hashlib import md5
+from pathlib import Path
+
+from prompt_toolkit import PromptSession
+from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.formatted_text import FormattedText
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.patch_stdout import patch_stdout
+from rich import get_console
+
+from bub.builtin.engine import RuntimeEngine
+from bub.builtin.tape import TapeInfo
+from bub.channels.base import Channel
+from bub.channels.cli.renderer import CliRenderer
+from bub.channels.message import ChannelMessage
+from bub.envelope import content_of, field_of
+from bub.types import MessageHandler
+
+
+class CliChannel(Channel):
+    """A simple CLI channel for testing and debugging."""
+
+    name = "cli"
+    _stop_event: asyncio.Event
+
+    def __init__(self, on_receive: MessageHandler, engine: RuntimeEngine) -> None:
+        self._on_receive = on_receive
+        self._engine = engine
+        self._message_template = {
+            "chat_id": "cli_chat",
+            "channel": self.name,
+            "session_id": "cli_session",
+        }
+        self._mode = "agent"  # or "shell"
+        self._main_task: asyncio.Task | None = None
+        self._renderer = CliRenderer(get_console())
+        self._prompt = self._build_prompt(Path.cwd())
+        self._last_tape_info: TapeInfo | None = None
+
+    async def _refresh_tape_info(self) -> None:
+        tape = self._engine.tapes.session_tape(self._message_template["session_id"])
+        info = await self._engine.tapes.info(tape.name)
+        self._last_tape_info = info
+
+    def set_metadata(self, session_id: str | None = None, chat_id: str | None = None) -> None:
+        if session_id is not None:
+            self._message_template["session_id"] = session_id
+        if chat_id is not None:
+            self._message_template["chat_id"] = chat_id
+
+    async def start(self, stop_event: asyncio.Event) -> None:
+        self._stop_event = stop_event
+        self._main_task = asyncio.create_task(self._main_loop())
+
+    async def stop(self) -> None:
+        if self._main_task is not None:
+            self._main_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._main_task
+
+    async def send(self, message: ChannelMessage) -> None:
+        match message.kind:
+            case "error":
+                self._renderer.error(content_of(message))
+            case "command":
+                self._renderer.command_output(content_of(message))
+            case _:
+                self._renderer.assistant_output(content_of(message))
+
+    async def _main_loop(self) -> None:
+        workspace = Path.cwd()
+        self._renderer.welcome(model=self._engine.settings.model, workspace=str(workspace))
+        await self._refresh_tape_info()
+        request_completed = asyncio.Event()
+
+        while not self._stop_event.is_set():
+            try:
+                with patch_stdout(raw=True):
+                    raw = (await self._prompt.prompt_async(self._prompt_message())).strip()
+            except KeyboardInterrupt:
+                self._renderer.info("Interrupted. Use ',quit' to exit.")
+                continue
+            except EOFError:
+                break
+
+            if not raw:
+                continue
+            if raw in {",quit", ",exit"}:
+                break
+
+            request = self._normalize_input(raw)
+
+            async def on_request_complete(_) -> None:
+                await self._refresh_tape_info()
+                request_completed.set()
+
+            with self._renderer.console.status("[cyan]Processing...[/cyan]", spinner="dots"):
+                message = ChannelMessage(content=request, **self._message_template, on_finish=on_request_complete)
+                await self._on_receive(message)
+                await request_completed.wait()
+            request_completed.clear()
+
+        self._renderer.info("Bye.")
+        self._stop_event.set()
+
+    def _normalize_input(self, raw: str) -> str:
+        if self._mode != "shell":
+            return raw
+        if raw.startswith(","):
+            return raw
+        return f",{raw}"
+
+    def _prompt_message(self) -> FormattedText:
+        cwd = Path.cwd().name
+        symbol = ">" if self._mode == "agent" else ","
+        return FormattedText([("bold", f"{cwd} {symbol} ")])
+
+    def _build_prompt(self, workspace: Path) -> PromptSession[str]:
+        kb = KeyBindings()
+
+        @kb.add("c-x", eager=True)
+        def _toggle_mode(event) -> None:
+            self._mode = "shell" if self._mode == "agent" else "agent"
+            event.app.invalidate()
+
+        def _tool_sort_key(tool_name: str) -> tuple[str, str]:
+            section, _, name = tool_name.rpartition(".")
+            return (section, name)
+
+        history_file = self._history_file(self._engine.settings.home, workspace)
+        history_file.parent.mkdir(parents=True, exist_ok=True)
+        history = FileHistory(str(history_file))
+        tool_names = sorted((f",{tool.name}" for tool in self._engine.tools), key=_tool_sort_key)
+        completer = WordCompleter(tool_names, ignore_case=True)
+        return PromptSession(
+            completer=completer,
+            complete_while_typing=True,
+            key_bindings=kb,
+            history=history,
+            bottom_toolbar=self._render_bottom_toolbar,
+        )
+
+    def _render_bottom_toolbar(self) -> FormattedText:
+        info = self._last_tape_info
+        now = datetime.now().strftime("%H:%M")
+        left = f"{now}  mode:{self._mode}"
+        right = (
+            f"model:{self._engine.settings.model}  "
+            f"entries:{field_of(info, 'entries', '-')} "
+            f"anchors:{field_of(info, 'anchors', '-')} "
+            f"last:{field_of(info, 'last_anchor', None) or '-'}"
+        )
+        return FormattedText([("", f"{left}  {right}")])
+
+    @staticmethod
+    def _history_file(home: Path, workspace: Path) -> Path:
+        workspace_hash = md5(str(workspace).encode("utf-8"), usedforsecurity=False).hexdigest()
+        return home / "history" / f"{workspace_hash}.history"

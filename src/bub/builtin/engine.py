@@ -39,7 +39,7 @@ class RuntimeEngine:
             tape_store = InMemoryTapeStore()
         self._llm = _build_llm(self.settings, tape_store)
         self._pm = plugins_manager
-        self.tapes = TapeService(self._llm, Path.home() / ".bub" / "tapes")
+        self.tapes = TapeService(self._llm, self.settings.home / "tapes")
 
     @cached_property
     def tools(self) -> list[Tool]:
@@ -66,12 +66,14 @@ class RuntimeEngine:
     async def _run_command(self, tape: Tape, *, line: str) -> str:
         line = line[1:].strip()
         if not line:
-            return "error: empty command"
+            raise ValueError("empty command")
 
         name, arg_tokens = _parse_internal_command(line)
         start = time.monotonic()
         context = ToolContext(tape=tape.name, run_id="run_command", state=tape.context.state)
         tools = {tool.name: tool for tool in self.tools}
+        output = ""
+        status = "ok"
         try:
             if name not in tools:
                 output = await tools["bash"].run(context=context, cmd=line)
@@ -82,25 +84,25 @@ class RuntimeEngine:
                 output = tools[name].run(*args.positional, **args.kwargs)
                 if inspect.isawaitable(output):
                     output = await output
-            status = "ok"
         except Exception as exc:
             status = "error"
             output = f"{exc!s}"
-        elapsed_ms = int((time.monotonic() - start) * 1000)
-        output_text = output if isinstance(output, str) else str(output)
+            raise
+        else:
+            return output if isinstance(output, str) else str(output)
+        finally:
+            elapsed_ms = int((time.monotonic() - start) * 1000)
+            output_text = output if isinstance(output, str) else str(output)
 
-        event_payload = {
-            "raw": line,
-            "name": name,
-            "status": status,
-            "elapsed_ms": elapsed_ms,
-            "output": output_text,
-            "date": datetime.now(UTC).isoformat(),
-        }
-        await self.tapes.append_event(tape.name, "command", event_payload)
-        if status == "error":
-            return f"error: {output_text}"
-        return output_text
+            event_payload = {
+                "raw": line,
+                "name": name,
+                "status": status,
+                "elapsed_ms": elapsed_ms,
+                "output": output_text,
+                "date": datetime.now(UTC).isoformat(),
+            }
+            await self.tapes.append_event(tape.name, "command", event_payload)
 
     async def _run_model(self, *, tape: Tape, prompt: str) -> str:
         next_prompt = prompt
@@ -123,7 +125,7 @@ class RuntimeEngine:
                         "date": datetime.now(UTC).isoformat(),
                     },
                 )
-                return f"error: {exc!s}"
+                raise
 
             outcome = _resolve_tool_auto_result(output)
             elapsed_ms = int((time.monotonic() - start) * 1000)
@@ -166,9 +168,9 @@ class RuntimeEngine:
                     "date": datetime.now(UTC).isoformat(),
                 },
             )
-            return f"error: {outcome.error}"
+            raise RuntimeError(outcome.error)
 
-        return f"error: max_steps_reached={self.settings.max_steps}"
+        raise RuntimeError(f"max_steps_reached={self.settings.max_steps}")
 
     def _load_skills_prompt(self, prompt: str, workspace: Path) -> str:
         skill_index = {skill.name: skill for skill in discover_skills(workspace)}
