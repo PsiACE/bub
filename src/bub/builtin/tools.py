@@ -180,6 +180,7 @@ def get_builtin_tools() -> list[Tool]:
     return [
         show_help,
         bash,
+        skill_load,
         fs_read,
         fs_write,
         fs_edit,
