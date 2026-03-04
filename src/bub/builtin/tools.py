@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, cast
 
 from republic import Tool, ToolContext
 
+from bub.skills import discover_skills
 from bub.tools import tool
 
 if TYPE_CHECKING:
@@ -79,6 +80,19 @@ def fs_edit(path: str, old: str, new: str, start: int = 0, *, context: ToolConte
     return f"edited: {resolved_path}"
 
 
+@tool(context=True, name="skill.load")
+def skill_load(name: str, *, context: ToolContext) -> str:
+    from bub.builtin.engine import workspace_from_state
+
+    """Load a skill by name. The skill must be located in the 'skills' directory under the workspace and have a valid frontmatter."""
+    workspace = workspace_from_state(context.state)
+    skill_index = {skill.name: skill for skill in discover_skills(workspace)}
+    if name.casefold() not in skill_index:
+        return "(no such skill)"
+    skill = skill_index[name.casefold()]
+    return skill.body() or "(skill has no body)"
+
+
 @tool(context=True, name="tape.info")
 async def tape_info(context: ToolContext) -> str:
     """Get information about the current tape, such as number of entries and anchors."""
@@ -137,6 +151,7 @@ def show_help() -> str:
         "Commands use ',' at line start.\n"
         "Known internal commands:\n"
         "  ,help\n"
+        "  ,skill.load name=foo\n"
         "  ,tape.info\n"
         "  ,tape.search query=error\n"
         "  ,tape.handoff name=phase-1 summary='done'\n"
