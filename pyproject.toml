@@ -5,6 +5,7 @@ description = "Bub it. Build it. Batteries-included, hook-first AI framework."
 authors = [
     { name = "Chojan Shang", email = "psiace@apache.org" },
     { name = "Frost Ming", email = "me@frostming.com" },
+    { name = "Yihong", email = "zouzou0208@gmail.com" },
 ]
 readme = "README.md"
 requires-python = ">=3.12,<4.0"
