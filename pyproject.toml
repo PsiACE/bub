@@ -30,7 +30,6 @@ dependencies = [
     "prompt-toolkit>=3.0.0",
     "python-telegram-bot>=21.0",
     "loguru>=0.7.2",
-    "apscheduler>=3.11.2",
     "rapidfuzz>=3.14.3",
 ]
 

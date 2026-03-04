@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pluggy
+from loguru import logger
 
 from bub.envelope import content_of, field_of, unpack_batch
 from bub.hook_runtime import HookRuntime
@@ -52,6 +53,7 @@ class BubFramework:
                 plugin = entry_point.load()
                 self._plugin_manager.register(plugin, name=entry_point.name)
             except Exception as exc:
+                logger.warning(f"Failed to load plugin '{entry_point.name}': {exc}")
                 self._plugin_status[entry_point.name] = PluginStatus(is_success=False, detail=str(exc))
             else:
                 self._plugin_status[entry_point.name] = PluginStatus(is_success=True)

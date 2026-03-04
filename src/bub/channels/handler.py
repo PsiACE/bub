@@ -44,6 +44,12 @@ class BufferedMessageHandler:
     async def __call__(self, message: ChannelMessage) -> None:
         self._message_template = message
         now = self._loop.time()
+        if message.content.startswith(","):
+            logger.info(
+                "session.message received command session_id={}, content={}", message.session_id, message.content
+            )
+            await self._handler(message)
+            return
         if not message.is_active and (
             self._last_active_time is None or now - self._last_active_time > self.active_time_window
         ):
@@ -51,12 +57,6 @@ class BufferedMessageHandler:
             logger.info(
                 "session.message received ignored session_id={}, content={}", message.session_id, message.content
             )
-            return
-        if message.content.startswith(","):
-            logger.info(
-                "session.message received command session_id={}, content={}", message.session_id, message.content
-            )
-            await self._handler(message)
             return
         self._pending_prompts.append(message.content)
         if message.is_active:

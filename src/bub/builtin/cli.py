@@ -54,7 +54,6 @@ def list_hooks(
     workspace: Path | None = typer.Option(None, "--workspace", "-w"),
 ) -> None:
     """Show hook implementation mapping."""
-
     framework = _load_framework(workspace)
     report = framework.hook_report()
     if not report:
