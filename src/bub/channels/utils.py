@@ -1,11 +1,6 @@
-"""Channel utility helpers."""
-
-from __future__ import annotations
+from typing import Any
 
 
-def resolve_proxy(explicit_proxy: str | None) -> tuple[str | None, str]:
-    if explicit_proxy:
-        return explicit_proxy, "explicit"
-
-    # Proxy usage must be opt-in; ignore ambient env vars and OS proxy settings.
-    return None, "none"
+def exclude_none(d: dict[str, Any]) -> dict[str, Any]:
+    """Exclude None values from a dictionary."""
+    return {k: v for k, v in d.items() if v is not None}

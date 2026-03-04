@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pluggy
 from republic import AsyncTapeStore, Tool
 from republic.tape import TapeStore
 
-from bub.bus import BusProtocol
-from bub.types import Envelope, State
+from bub.types import Envelope, MessageHandler, State
+
+if TYPE_CHECKING:
+    from bub.channels.base import Channel
 
 BUB_HOOK_NAMESPACE = "bub"
 hookspec = pluggy.HookspecMarker(BUB_HOOK_NAMESPACE)
@@ -20,21 +22,12 @@ class BubHookSpecs:
     """Hook contract for Bub framework extensions."""
 
     @hookspec(firstresult=True)
-    def provide_bus(self) -> BusProtocol | None:
-        """Provide a bus instance for inbound/outbound envelopes."""
-
-    @hookspec(firstresult=True)
-    def normalize_inbound(self, message: Envelope) -> Envelope:
-        """Normalize or rewrite one inbound message."""
-        ...
-
-    @hookspec(firstresult=True)
     def resolve_session(self, message: Envelope) -> str:
         """Resolve session id for one inbound message."""
         raise NotImplementedError
 
     @hookspec(firstresult=True)
-    def load_state(self, session_id: str) -> State:
+    def load_state(self, message: Envelope, session_id: str) -> State:
         """Load state snapshot for one session."""
         raise NotImplementedError
 
@@ -96,3 +89,8 @@ class BubHookSpecs:
     def provide_tape_store(self) -> TapeStore | AsyncTapeStore:
         """Provide a tape store instance for Bub's conversation recording feature."""
         ...
+
+    @hookspec
+    def provide_channels(self, message_handler: MessageHandler) -> list[Channel]:
+        """Provide a list of channels for receiving messages."""
+        raise NotImplementedError

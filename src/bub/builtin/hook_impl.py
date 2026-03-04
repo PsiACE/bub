@@ -1,13 +1,17 @@
+from dataclasses import replace
 from pathlib import Path
 
 import typer
-from pluggy import PluginManager
+from loguru import logger
 from republic import Tool
 
 from bub.builtin.engine import RuntimeEngine, workspace_from_state
-from bub.envelope import content_of, field_of, normalize_envelope
+from bub.channels.base import Channel
+from bub.channels.message import ChannelMessage
+from bub.envelope import content_of, field_of
+from bub.hook_runtime import HookRuntime
 from bub.hookspecs import hookimpl
-from bub.types import Envelope, State
+from bub.types import Envelope, MessageHandler, OutboundDispatcher, State
 
 AGENTS_FILE_NAME = "AGENTS.md"
 
@@ -15,23 +19,18 @@ AGENTS_FILE_NAME = "AGENTS.md"
 class BuiltinImpl:
     """Default hook implementations for basic runtime operations."""
 
-    def __init__(self, plugin_manager: PluginManager) -> None:
-        self.plugin_manager = plugin_manager
-        self.engine = RuntimeEngine(plugin_manager)
+    def __init__(
+        self,
+        hooks: HookRuntime,
+        *,
+        outbound_dispatcher: OutboundDispatcher | None = None,
+    ) -> None:
+        self.hooks = hooks
+        self.engine = RuntimeEngine(hooks._plugin_manager)
+        self._outbound_dispatcher = outbound_dispatcher
 
     @hookimpl
-    def normalize_inbound(self, message: Envelope) -> Envelope:
-        envelope = normalize_envelope(message)
-        envelope["content"] = str(envelope.get("content", "")).strip()
-        metadata = envelope.get("metadata")
-        if not isinstance(metadata, dict):
-            metadata = {}
-        metadata.setdefault("listener", "runtime")
-        envelope["metadata"] = metadata
-        return envelope
-
-    @hookimpl
-    def resolve_session(self, message: Envelope) -> str:
+    def resolve_session(self, message: ChannelMessage) -> str:
         session_id = field_of(message, "session_id")
         if session_id is not None and str(session_id).strip():
             return str(session_id)
@@ -40,18 +39,32 @@ class BuiltinImpl:
         return f"{channel}:{chat_id}"
 
     @hookimpl
-    def load_state(self, session_id: str) -> State:
-        return {"session_id": session_id, "_runtime_engine": self.engine}
+    async def load_state(self, message: ChannelMessage, session_id: str) -> State:
+        on_start = field_of(message, "on_start")
+        if on_start is not None:
+            await on_start(message)
+        state = {"session_id": session_id, "_runtime_engine": self.engine}
+        if context := field_of(message, "context_str"):
+            state["context"] = context
+        return state
 
     @hookimpl
-    def build_prompt(self, message: Envelope, session_id: str, state: State) -> str:
+    async def save_state(self, session_id: str, state: State, message: ChannelMessage, model_output: str) -> None:
+        on_finish = field_of(message, "on_finish")
+        if on_finish is not None:
+            await on_finish(message)
+
+    @hookimpl
+    def build_prompt(self, message: ChannelMessage, session_id: str, state: State) -> str:
         _ = session_id
         workspace = field_of(message, "workspace")
         if isinstance(workspace, str) and workspace.strip():
             state["_runtime_workspace"] = workspace.strip()
         elif "_runtime_workspace" not in state:
             state["_runtime_workspace"] = str(Path.cwd())
-        return content_of(message)
+        context = field_of(message, "context_str")
+        context_prefix = f"{context}\n---\n" if context else ""
+        return f"{context_prefix}{content_of(message)}"
 
     @hookimpl
     async def run_model(self, prompt: str, session_id: str, state: State) -> str:
@@ -80,3 +93,25 @@ class BuiltinImpl:
         from bub.builtin.tools import get_builtin_tools
 
         return get_builtin_tools()
+
+    @hookimpl
+    def provide_channels(self, message_handler: MessageHandler) -> list[Channel]:
+        from bub.channels.telegram import TelegramChannel
+
+        return [TelegramChannel(on_receive=message_handler)]
+
+    @hookimpl
+    async def on_error(self, stage: str, error: Exception, message: ChannelMessage | None) -> None:
+        logger.exception(f"Error at stage '{stage}' with message '{message}': {error}")
+        if message is not None:
+            message = replace(message, content=str(error))
+            await self.hooks.call_many("dispatch_outbound", message=message)
+
+    @hookimpl
+    async def dispatch_outbound(self, message: Envelope) -> bool:
+        content = content_of(message)
+        session_id = field_of(message, "session_id")
+        logger.info("session.run.outbound session_id={} content={}", session_id, content)
+        if self._outbound_dispatcher is None:
+            return False
+        return await self._outbound_dispatcher(message)
