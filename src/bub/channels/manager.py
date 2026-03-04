@@ -73,7 +73,7 @@ class ChannelManager:
         return self._channels.get(name)
 
     async def dispatch(self, message: Envelope) -> bool:
-        channel_name = field_of(message, "channel")
+        channel_name = field_of(message, "output_channel", field_of(message, "channel"))
         if channel_name is None:
             return False
 
