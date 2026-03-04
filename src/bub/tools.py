@@ -5,8 +5,8 @@ from collections.abc import Callable
 from dataclasses import replace
 from typing import Any, overload
 
-from anthropic import BaseModel
 from loguru import logger
+from pydantic import BaseModel
 from republic import Tool
 from republic import tool as republic_tool
 
