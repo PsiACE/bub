@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
 from typing import Any, ClassVar
 
 from loguru import logger
@@ -125,6 +125,7 @@ class TelegramChannel(Channel):
         self._allow_users = {uid.strip() for uid in (self._settings.allow_users or "").split(",") if uid.strip()}
         self._allow_chats = {cid.strip() for cid in (self._settings.allow_chats or "").split(",") if cid.strip()}
         self._parser = TelegramMessageParser()
+        self._typing_tasks: dict[str, asyncio.Task] = {}
 
     @property
     def needs_debounce(self) -> bool:
@@ -160,6 +161,11 @@ class TelegramChannel(Channel):
                 await updater.stop()
             await self._app.stop()
             await self._app.shutdown()
+        for task in self._typing_tasks.values():
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+        self._typing_tasks.clear()
         logger.info("telegram.stopped")
 
     async def send(self, message: ChannelMessage) -> None:
@@ -220,8 +226,33 @@ class TelegramChannel(Channel):
             chat_id=chat_id,
             content=content,
             is_active=is_active,
+            lifespan=self.start_typing(chat_id),
             output_channel="null",  # disable outbound for telegram messages
         )
+
+    @contextlib.asynccontextmanager
+    async def start_typing(self, chat_id: str) -> AsyncGenerator[None, None]:
+        if chat_id in self._typing_tasks:
+            yield
+            return
+        task = asyncio.create_task(self._typing_loop(chat_id))
+        self._typing_tasks[chat_id] = task
+        try:
+            yield
+        finally:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+            del self._typing_tasks[chat_id]
+
+    async def _typing_loop(self, chat_id: str) -> None:
+        while True:
+            try:
+                await self._app.bot.send_chat_action(chat_id=chat_id, action="typing")
+                await asyncio.sleep(4)  # Telegram typing status lasts for 5 seconds, so we refresh it every 4 seconds
+            except Exception as e:
+                logger.error(f"Error in typing loop for chat_id={chat_id}: {e}")
+                break
 
 
 class TelegramMessageParser:

@@ -1,4 +1,4 @@
-import inspect
+import sys
 from pathlib import Path
 
 import typer
@@ -56,11 +56,9 @@ class BuiltinImpl:
 
     @hookimpl
     async def load_state(self, message: ChannelMessage, session_id: str) -> State:
-        on_start = field_of(message, "on_start")
-        if on_start is not None:
-            result = on_start(message)
-            if inspect.isawaitable(result):
-                await result
+        lifespan = field_of(message, "lifespan")
+        if lifespan is not None:
+            await lifespan.__aenter__()
         state = {"session_id": session_id, "_runtime_engine": self.engine}
         if context := field_of(message, "context_str"):
             state["context"] = context
@@ -68,11 +66,10 @@ class BuiltinImpl:
 
     @hookimpl
     async def save_state(self, session_id: str, state: State, message: ChannelMessage, model_output: str) -> None:
-        on_finish = field_of(message, "on_finish")
-        if on_finish is not None:
-            result = on_finish(message)
-            if inspect.isawaitable(result):
-                await result
+        tp, value, traceback = sys.exc_info()
+        lifespan = field_of(message, "lifespan")
+        if lifespan is not None:
+            await lifespan.__aexit__(tp, value, traceback)
 
     @hookimpl
     def build_prompt(self, message: ChannelMessage, session_id: str, state: State) -> str:
