@@ -5,10 +5,10 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Any
 
 import typer
 
+from bub.channels.message import ChannelMessage
 from bub.envelope import field_of
 from bub.framework import BubFramework
 
@@ -26,7 +26,7 @@ def _load_framework(workspace: Path | None) -> BubFramework:
 def run(
     message: str = typer.Argument(..., help="Inbound message content"),
     workspace: Path | None = typer.Option(None, "--workspace", "-w", help="Workspace root"),
-    channel: str = typer.Option("stdout", "--channel", help="Message channel"),
+    channel: str = typer.Option("cli", "--channel", help="Message channel"),
     chat_id: str = typer.Option("local", "--chat-id", help="Chat id"),
     sender_id: str = typer.Option("human", "--sender-id", help="Sender id"),
     session_id: str | None = typer.Option(None, "--session-id", help="Optional session id"),
@@ -34,14 +34,13 @@ def run(
     """Run one inbound message through the framework pipeline."""
 
     framework = _load_framework(workspace)
-    inbound: dict[str, Any] = {
-        "channel": channel,
-        "chat_id": chat_id,
-        "sender_id": sender_id,
-        "content": message,
-    }
-    if session_id is not None and session_id.strip():
-        inbound["session_id"] = session_id.strip()
+    inbound = ChannelMessage(
+        session_id=f"{channel}:{chat_id}" if session_id is None else session_id,
+        content=message,
+        channel=channel,
+        chat_id=chat_id,
+        context={"sender_id": sender_id},
+    )
 
     result = asyncio.run(framework.process_inbound(inbound))
     for outbound in result.outbounds:

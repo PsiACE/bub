@@ -1,6 +1,7 @@
 import contextlib
 import hashlib
 import re
+from collections.abc import AsyncGenerator
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -10,6 +11,8 @@ from pydantic import json
 from pydantic.dataclasses import dataclass
 from rapidfuzz import fuzz, process
 from republic import LLM, Tape, TapeEntry
+
+from bub.builtin.store import ForkTapeStore
 
 WORD_PATTERN = re.compile(r"[a-z0-9_/-]+")
 MIN_FUZZY_QUERY_LENGTH = 3
@@ -38,9 +41,10 @@ class AnchorSummary:
 
 
 class TapeService:
-    def __init__(self, llm: LLM, archive_path: Path) -> None:
+    def __init__(self, llm: LLM, archive_path: Path, store: ForkTapeStore) -> None:
         self._llm = llm
         self._archive_path = archive_path
+        self._store = store
 
     async def info(self, tape_name: str) -> TapeInfo:
         tape = self._llm.tape(tape_name)
@@ -175,6 +179,14 @@ class TapeService:
         tape = self._llm.tape(tape_name)
         await tape.append_async(TapeEntry.event(name=name, payload=payload, **meta))
 
-    def session_tape(self, session_id: str) -> Tape:
-        tape_name = hashlib.md5(session_id.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
+    def session_tape(self, session_id: str, workspace: Path) -> Tape:
+        workspace_hash = hashlib.md5(str(workspace.resolve()).encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
+        tape_name = (
+            workspace_hash + "__" + hashlib.md5(session_id.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
+        )
         return self._llm.tape(tape_name)
+
+    @contextlib.asynccontextmanager
+    async def fork_tape(self, tape_name: str) -> AsyncGenerator[None, None]:
+        async with self._store.fork(tape_name):
+            yield

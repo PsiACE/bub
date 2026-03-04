@@ -4,6 +4,7 @@ from pathlib import Path
 import typer
 from loguru import logger
 from republic import Tool
+from republic.tape import TapeStore
 
 from bub.builtin.engine import RuntimeEngine, workspace_from_state
 from bub.channels.base import Channel
@@ -153,3 +154,9 @@ class BuiltinImpl:
             kind=field_of(message, "kind", "normal"),
         )
         return [outbound]
+
+    @hookimpl
+    def provide_tape_store(self) -> TapeStore:
+        from bub.builtin.store import FileTapeStore
+
+        return FileTapeStore(directory=self.engine.settings.home / "tapes")
