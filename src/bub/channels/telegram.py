@@ -217,7 +217,6 @@ class TelegramChannel(Channel):
         reply_meta = self._parser.get_reply(message)
         if reply_meta:
             metadata["reply_to_message"] = reply_meta
-        print(f"TelegramChannel._build_message content={content} metadata={metadata}")
         content = json.dumps({"message": content, "chat_id": chat_id, **metadata}, ensure_ascii=False)
         is_active = MESSAGE_FILTER.filter(message) is not False
         return ChannelMessage(
