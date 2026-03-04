@@ -42,8 +42,7 @@ class BufferedMessageHandler:
         await self._handler(message)
 
     async def __call__(self, message: ChannelMessage) -> None:
-        if self._message_template is None:
-            self._message_template = message
+        self._message_template = message
         now = self._loop.time()
         if not message.is_active and (
             self._last_active_time is None or now - self._last_active_time > self.active_time_window
