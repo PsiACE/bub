@@ -29,7 +29,7 @@ class SkillMetadata:
     def body(self) -> str:
         front_matter_pattern = re.compile(r"^---\s*\n.*?\n---\s*\n", re.DOTALL)
         try:
-            content = self.location.read_text(encoding="utf-8")
+            content = self.location.read_text(encoding="utf-8").strip()
         except OSError:
             return ""
         return front_matter_pattern.sub("", content, count=1).strip()
@@ -61,7 +61,7 @@ def _read_skill(skill_dir: Path, *, source: str) -> SkillMetadata | None:
         return None
 
     try:
-        content = skill_file.read_text(encoding="utf-8")
+        content = skill_file.read_text(encoding="utf-8").strip()
     except OSError:
         return None
 
