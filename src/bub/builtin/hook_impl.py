@@ -1,4 +1,3 @@
-from dataclasses import replace
 from pathlib import Path
 
 import typer
@@ -76,6 +75,7 @@ class BuiltinImpl:
 
         app.command("run")(cli.run)
         app.command("hooks")(cli.list_hooks)
+        app.command("message")(cli.message)
 
     @hookimpl
     def system_prompt(self, prompt: str, state: State) -> str:
@@ -101,11 +101,16 @@ class BuiltinImpl:
         return [TelegramChannel(on_receive=message_handler)]
 
     @hookimpl
-    async def on_error(self, stage: str, error: Exception, message: ChannelMessage | None) -> None:
+    async def on_error(self, stage: str, error: Exception, message: Envelope | None) -> None:
         logger.exception(f"Error at stage '{stage}' with message '{message}': {error}")
         if message is not None:
-            message = replace(message, content=str(error))
-            await self.hooks.call_many("dispatch_outbound", message=message)
+            outbound = ChannelMessage(
+                session_id=field_of(message, "session_id", "unknown"),
+                channel=field_of(message, "channel", "default"),
+                chat_id=field_of(message, "chat_id", "default"),
+                content=f"An error occurred at stage '{stage}': {error}",
+            )
+            await self.hooks.call_many("dispatch_outbound", message=outbound)
 
     @hookimpl
     async def dispatch_outbound(self, message: Envelope) -> bool:
@@ -115,3 +120,20 @@ class BuiltinImpl:
         if self._outbound_dispatcher is None:
             return False
         return await self._outbound_dispatcher(message)
+
+    @hookimpl
+    def render_outbound(
+        self,
+        message: Envelope,
+        session_id: str,
+        state: State,
+        model_output: str,
+    ) -> list[ChannelMessage]:
+        outbound = ChannelMessage(
+            session_id=session_id,
+            channel=field_of(message, "channel", "default"),
+            chat_id=field_of(message, "chat_id", "default"),
+            content=model_output,
+            output_channel=field_of(message, "output_channel", "default"),
+        )
+        return [outbound]

@@ -65,25 +65,24 @@ class BubFramework:
         """Run one inbound message through hooks and return turn result."""
 
         try:
-            message = inbound
-            if isinstance(message, dict):
-                message.setdefault("workspace", str(self.workspace))
+            if isinstance(inbound, dict):
+                inbound.setdefault("workspace", str(self.workspace))
             session_id = await self._hook_runtime.call_first(
-                "resolve_session", message=message
-            ) or self._default_session_id(message)
-            if isinstance(message, dict):
-                message.setdefault("session_id", session_id)
+                "resolve_session", message=inbound
+            ) or self._default_session_id(inbound)
+            if isinstance(inbound, dict):
+                inbound.setdefault("session_id", session_id)
             state = {}
             for hook_state in reversed(
-                await self._hook_runtime.call_many("load_state", message=message, session_id=session_id)
+                await self._hook_runtime.call_many("load_state", message=inbound, session_id=session_id)
             ):
                 if isinstance(hook_state, dict):
                     state.update(hook_state)
             prompt = await self._hook_runtime.call_first(
-                "build_prompt", message=message, session_id=session_id, state=state
+                "build_prompt", message=inbound, session_id=session_id, state=state
             )
             if not prompt:
-                prompt = content_of(message)
+                prompt = content_of(inbound)
             model_output = await self._hook_runtime.call_first(
                 "run_model", prompt=prompt, session_id=session_id, state=state
             )
@@ -91,7 +90,7 @@ class BubFramework:
                 await self._hook_runtime.notify_error(
                     stage="run_model:fallback",
                     error=RuntimeError("no model skill returned output"),
-                    message=message,
+                    message=inbound,
                 )
                 model_output = prompt
             else:
@@ -101,10 +100,10 @@ class BubFramework:
                 "save_state",
                 session_id=session_id,
                 state=state,
-                message=message,
+                message=inbound,
                 model_output=model_output,
             )
-            outbounds = await self._collect_outbounds(message, session_id, state, model_output)
+            outbounds = await self._collect_outbounds(inbound, session_id, state, model_output)
             for outbound in outbounds:
                 await self._hook_runtime.call_many("dispatch_outbound", message=outbound)
             return TurnResult(session_id=session_id, prompt=prompt, model_output=model_output, outbounds=outbounds)

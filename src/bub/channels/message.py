@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Self
 
 
-@dataclass(frozen=True)
+@dataclass
 class ChannelMessage:
     """Structured message data from channels to framework."""
 
@@ -16,9 +16,12 @@ class ChannelMessage:
     context: dict[str, Any] = field(default_factory=dict)
     on_start: Callable[[Self], Coroutine[None, None, None]] | None = None
     on_finish: Callable[[Self], Coroutine[None, None, None]] | None = None
+    output_channel: str = ""
 
     def __post_init__(self) -> None:
         self.context.update({"channel": "$" + self.channel, "chat_id": self.chat_id})
+        if not self.output_channel:  # output to the same channel by default
+            self.output_channel = self.channel
 
     @property
     def context_str(self) -> str:

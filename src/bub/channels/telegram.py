@@ -218,6 +218,7 @@ class TelegramChannel(Channel):
             chat_id=chat_id,
             content=content,
             is_active=is_active,
+            output_channel="null",  # disable outbound for telegram messages
         )
 
 

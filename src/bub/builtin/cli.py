@@ -1,11 +1,9 @@
 """Builtin CLI command adapter."""
 
+# ruff: noqa: B008
 from __future__ import annotations
 
 import asyncio
-import os
-import shutil
-import sysconfig
 from pathlib import Path
 from typing import Any
 
@@ -27,7 +25,7 @@ def _load_framework(workspace: Path | None) -> BubFramework:
 
 def run(
     message: str = typer.Argument(..., help="Inbound message content"),
-    workspace: Path | None = typer.Option(None, "--workspace", "-w", help="Workspace root"),  # noqa: B008
+    workspace: Path | None = typer.Option(None, "--workspace", "-w", help="Workspace root"),
     channel: str = typer.Option("stdout", "--channel", help="Message channel"),
     chat_id: str = typer.Option("local", "--chat-id", help="Chat id"),
     sender_id: str = typer.Option("human", "--sender-id", help="Sender id"),
@@ -54,7 +52,7 @@ def run(
 
 
 def list_hooks(
-    workspace: Path | None = typer.Option(None, "--workspace", "-w"),  # noqa: B008
+    workspace: Path | None = typer.Option(None, "--workspace", "-w"),
 ) -> None:
     """Show hook implementation mapping."""
 
@@ -67,13 +65,14 @@ def list_hooks(
         typer.echo(f"{hook_name}: {', '.join(adapter_names)}")
 
 
-def _find_uv() -> Path | None:
-    """Find uv executable in the system."""
+def message(
+    workspace: Path | None = typer.Option(None, "--workspace", "-w"),
+    enable_channels: list[str] = typer.Option([], "--enable-channel", help="Channels to enable for CLI (default: all)"),
+) -> None:
+    """Start message listener(like telegram)."""
+    from bub.channels.manager import ChannelManager
 
-    this_path = sysconfig.get_path("scripts")
-    path_str = os.getenv("PATH", "")
+    framework = _load_framework(workspace)
 
-    uv_path = shutil.which("uv", path=f"{this_path}{os.pathsep}{path_str}")
-    if uv_path is not None:
-        return Path(uv_path)
-    return None
+    manager = ChannelManager(framework, enabled_channels=enable_channels or None)
+    asyncio.run(manager.listen_and_run())

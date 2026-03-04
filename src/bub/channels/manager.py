@@ -75,7 +75,6 @@ class ChannelManager:
         channel_key = str(channel_name)
         channel = self._channels.get(channel_key)
         if channel is None:
-            logger.warning(f"channel.manager outbound ignored unknown channel '{channel_key}'.")
             return False
 
         outbound = ChannelMessage(
@@ -89,7 +88,8 @@ class ChannelManager:
 
     def enabled_channels(self) -> list[Channel]:
         if "all" in self._enabled_channels:
-            return list(self._channels.values())
+            # Exclude 'cli' channel from 'all' to prevent interference with other channels
+            return [channel for name, channel in self._channels.items() if name != "cli"]
         return [channel for name, channel in self._channels.items() if name in self._enabled_channels]
 
     def _load_channels(self) -> None:
