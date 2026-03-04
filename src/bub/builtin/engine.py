@@ -15,10 +15,11 @@ from typing import Any
 
 from pluggy import PluginManager
 from republic import LLM, AsyncTapeStore, Tool, ToolAutoResult, ToolContext
-from republic.tape import InMemoryTapeStore, Tape, TapeStore
+from republic.tape import InMemoryTapeStore, Tape
 
 from bub.builtin.context import default_tape_context
 from bub.builtin.settings import RuntimeSettings
+from bub.builtin.store import ForkTapeStore
 from bub.builtin.tape import TapeService
 from bub.skills import discover_skills, render_skills_prompt
 from bub.tools import model_tools, render_tools_prompt
@@ -34,12 +35,16 @@ class RuntimeEngine:
 
     def __init__(self, plugins_manager: PluginManager) -> None:
         self.settings = _load_runtime_settings()
-        tape_store = plugins_manager.hook.provide_tape_store()
+        self._pm = plugins_manager
+
+    @cached_property
+    def tapes(self) -> TapeService:
+        tape_store = self._pm.hook.provide_tape_store()
         if tape_store is None:
             tape_store = InMemoryTapeStore()
-        self._llm = _build_llm(self.settings, tape_store)
-        self._pm = plugins_manager
-        self.tapes = TapeService(self._llm, self.settings.home / "tapes")
+        tape_store = ForkTapeStore(tape_store)
+        llm = _build_llm(self.settings, tape_store)
+        return TapeService(llm, self.settings.home / "tapes", tape_store)
 
     @cached_property
     def tools(self) -> list[Tool]:
@@ -56,12 +61,13 @@ class RuntimeEngine:
         stripped = prompt.strip()
         if not stripped:
             return "error: empty prompt"
-        tape = self.tapes.session_tape(session_id)
-        await self.tapes.ensure_bootstrap_anchor(tape.name)
+        tape = self.tapes.session_tape(session_id, workspace_from_state(state))
         tape.context.state.update(state)
-        if stripped.startswith(","):
-            return await self._run_command(tape=tape, line=stripped)
-        return await self._run_model(tape=tape, prompt=stripped)
+        async with self.tapes.fork_tape(tape.name):
+            await self.tapes.ensure_bootstrap_anchor(tape.name)
+            if stripped.startswith(","):
+                return await self._run_command(tape=tape, line=stripped)
+            return await self._run_model(tape=tape, prompt=stripped)
 
     async def _run_command(self, tape: Tape, *, line: str) -> str:
         line = line[1:].strip()
@@ -219,7 +225,7 @@ def _resolve_tool_auto_result(output: ToolAutoResult) -> _ToolAutoOutcome:
     return _ToolAutoOutcome(kind="error", error=f"{error_kind}: {output.error.message}")
 
 
-def _build_llm(settings: RuntimeSettings, tape_store: TapeStore | AsyncTapeStore) -> LLM:
+def _build_llm(settings: RuntimeSettings, tape_store: AsyncTapeStore) -> LLM:
     return LLM(
         settings.model,
         api_key=settings.api_key,

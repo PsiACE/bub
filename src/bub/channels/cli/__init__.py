@@ -40,9 +40,10 @@ class CliChannel(Channel):
         self._renderer = CliRenderer(get_console())
         self._prompt = self._build_prompt(Path.cwd())
         self._last_tape_info: TapeInfo | None = None
+        self._workspace = Path.cwd()
 
     async def _refresh_tape_info(self) -> None:
-        tape = self._engine.tapes.session_tape(self._message_template["session_id"])
+        tape = self._engine.tapes.session_tape(self._message_template["session_id"], self._workspace)
         info = await self._engine.tapes.info(tape.name)
         self._last_tape_info = info
 
@@ -72,8 +73,7 @@ class CliChannel(Channel):
                 self._renderer.assistant_output(content_of(message))
 
     async def _main_loop(self) -> None:
-        workspace = Path.cwd()
-        self._renderer.welcome(model=self._engine.settings.model, workspace=str(workspace))
+        self._renderer.welcome(model=self._engine.settings.model, workspace=str(self._workspace))
         await self._refresh_tape_info()
         request_completed = asyncio.Event()
 
@@ -98,8 +98,8 @@ class CliChannel(Channel):
                 await self._refresh_tape_info()
                 request_completed.set()
 
+            message = ChannelMessage(content=request, **self._message_template, on_finish=on_request_complete)
             with self._renderer.console.status("[cyan]Processing...[/cyan]", spinner="dots"):
-                message = ChannelMessage(content=request, **self._message_template, on_finish=on_request_complete)
                 await self._on_receive(message)
                 await request_completed.wait()
             request_completed.clear()
