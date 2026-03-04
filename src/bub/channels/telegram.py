@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 from collections.abc import Callable
 from typing import Any, ClassVar
 
 from loguru import logger
-from pydantic import Field, json
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from telegram import Message, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, filters
@@ -210,7 +211,7 @@ class TelegramChannel(Channel):
         reply_meta = self._parser.get_reply(message)
         if reply_meta:
             metadata["reply_to_message"] = reply_meta
-
+        print(f"TelegramChannel._build_message content={content} metadata={metadata}")
         content = json.dumps({"message": content, "chat_id": chat_id, **metadata}, ensure_ascii=False)
         is_active = MESSAGE_FILTER.filter(message) is not False
         return ChannelMessage(
