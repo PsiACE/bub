@@ -8,6 +8,7 @@ Use channels when you want either local interactive operation or remote operatio
 - `cli` (local): interactive terminal channel used by `uv run bub chat`.
 - [Telegram](telegram.md): direct messages and group chats.
 - [Discord](discord.md): servers, channels, and threads.
+- [Feishu](feishu.md): WebSocket event subscription for 1:1 and group chats.
 
 ## Run Entry
 
@@ -24,11 +25,12 @@ If the process exits immediately, check that at least one channel is enabled in 
 - CLI session key: `cli` or `cli:<name>` (from `--session-id`).
 - Telegram session key: `telegram:<chat_id>`
 - Discord session key: `discord:<channel_id>`
+- Feishu session key: `feishu:<chat_id>` (group) or `feishu:<open_id>` (1:1)
 
 This keeps message history isolated per conversation endpoint.
 
 ## Runtime Semantics
 
-- `uv run bub chat` runs `CliChannel` via `ChannelManager`, sharing the same channel pipeline as Telegram/Discord.
+- `uv run bub chat` runs `CliChannel` via `ChannelManager`, sharing the same channel pipeline as Telegram/Discord/Feishu.
 - CLI sets `debounce_enabled = False`, so each input is processed immediately.
 - Message channels keep debounce enabled to batch short bursts before model execution.

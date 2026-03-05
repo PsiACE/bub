@@ -70,6 +70,10 @@ class ChannelManager:
             from bub.channels.discord import DiscordChannel
 
             result.append(DiscordChannel)
+        if self.runtime.settings.feishu_enabled:
+            from bub.channels.feishu import FeishuChannel
+
+            result.append(FeishuChannel)
         return result
 
     async def _process_input[T](self, channel: BaseChannel[T], message: T) -> None:

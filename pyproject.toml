@@ -50,6 +50,9 @@ Documentation = "https://bub.build"
 bub = "bub.cli:app"
 
 [dependency-groups]
+feishu = [
+    "lark-oapi>=1.4.20",
+]
 dev = [
     "pytest>=7.2.0",
     "tox-uv>=1.11.3",

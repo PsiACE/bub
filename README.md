@@ -89,6 +89,17 @@ BUB_DISCORD_ALLOW_CHANNELS='["123456789012345678"]'
 uv run bub message
 ```
 
+Feishu (WebSocket):
+
+```bash
+BUB_FEISHU_ENABLED=true
+BUB_FEISHU_APP_ID=cli_xxx
+BUB_FEISHU_APP_SECRET=xxx
+BUB_FEISHU_ALLOW_FROM='["ou_xxx","user@example.com"]'
+BUB_FEISHU_ALLOW_CHATS='["oc_xxx"]'
+uv run bub message
+```
+
 ## Development
 
 ```bash

@@ -30,7 +30,7 @@ Choose one mode based on your operation target:
 
 1. Interactive local operator:
    `uv run bub chat`
-2. Channel service (Telegram/Discord):
+2. Channel service (Telegram/Discord/Feishu):
    `uv run bub message`
 3. Scheduler-only autonomous mode:
    `uv run bub idle`
@@ -61,6 +61,16 @@ BUB_DISCORD_ENABLED=true
 BUB_DISCORD_TOKEN=discord_bot_token
 BUB_DISCORD_ALLOW_FROM='["123456789012345678","your_discord_name"]'
 BUB_DISCORD_ALLOW_CHANNELS='["123456789012345678"]'
+```
+
+Feishu (WebSocket):
+
+```bash
+BUB_FEISHU_ENABLED=true
+BUB_FEISHU_APP_ID=cli_xxx
+BUB_FEISHU_APP_SECRET=xxx
+BUB_FEISHU_ALLOW_FROM='["ou_xxx","user@example.com"]'
+BUB_FEISHU_ALLOW_CHATS='["oc_xxx"]'
 ```
 
 Start channel service:
@@ -100,7 +110,7 @@ Health checklist:
 2. Model key is loaded:
    `rg -n "BUB_MODEL|OPENROUTER_API_KEY|LLM_API_KEY" .env`
 3. Channel flags are correct:
-   `rg -n "BUB_TELEGRAM_ENABLED|BUB_DISCORD_ENABLED" .env`
+   `rg -n "BUB_TELEGRAM_ENABLED|BUB_DISCORD_ENABLED|BUB_FEISHU_ENABLED" .env`
 4. Logs show channel startup:
    `uv run bub message` and confirm `channel.manager.start` output.
 

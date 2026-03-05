@@ -19,6 +19,7 @@ class DummyRuntime:
             model = "openrouter:test"
             telegram_enabled = False
             discord_enabled = False
+            feishu_enabled = False
             telegram_token = None
             telegram_allow_from = ()
             telegram_allow_chats = ()

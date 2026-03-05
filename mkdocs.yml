@@ -20,6 +20,7 @@ nav:
       - CLI (Local): cli.md
       - Telegram: telegram.md
       - Discord: discord.md
+      - Feishu: feishu.md
 
 plugins:
   - search

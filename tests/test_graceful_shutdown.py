@@ -11,6 +11,7 @@ from bub.cli.app import _serve_channels
 class _Settings:
     telegram_enabled = False
     discord_enabled = False
+    feishu_enabled = False
 
 
 class _Runtime:

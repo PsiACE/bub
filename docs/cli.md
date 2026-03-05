@@ -21,7 +21,7 @@ uv run bub chat \
 Other run modes:
 
 - `uv run bub run "summarize current repo status"`: one-shot message and exit.
-- `uv run bub message`: run enabled message channels (Telegram/Discord).
+- `uv run bub message`: run enabled message channels (Telegram/Discord/Feishu).
 - `uv run bub idle`: run scheduler only (no interactive CLI).
 
 ## How Input Is Interpreted

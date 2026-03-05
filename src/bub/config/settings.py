@@ -55,6 +55,15 @@ class Settings(BaseSettings):
     discord_command_prefix: str = "!"
     discord_proxy: str | None = None
 
+    feishu_enabled: bool = False
+    feishu_app_id: str | None = None
+    feishu_app_secret: str | None = None
+    feishu_encrypt_key: str | None = None
+    feishu_verification_token: str | None = None
+    feishu_allow_from: list[str] = Field(default_factory=list)
+    feishu_allow_chats: list[str] = Field(default_factory=list)
+    feishu_domain: str | None = None
+
     @property
     def resolved_api_key(self) -> str | None:
         if self.api_key:
