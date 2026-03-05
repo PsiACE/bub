@@ -9,13 +9,23 @@ copyright: Copyright (c) 2026 Bub Build contributors.
 
 nav:
   - Home: index.md
-  - Architecture: architecture.md
-  - Extension Guide: extension-guide.md
-  - CLI: cli.md
-  - Channels: channels.md
-  - Skills: skills.md
+  - Core:
+      - Overview: core/index.md
+      - Architecture: architecture.md
+      - Key Features: features.md
+  - Workflows:
+      - Overview: workflows/index.md
+      - CLI: cli.md
+      - Skills: skills.md
+  - Channels:
+      - Overview: channels/index.md
+      - Telegram: channels/telegram.md
   - Deployment: deployment.md
-  - Key Features: features.md
+  - Extension Guide: extension-guide.md
+  - Posts:
+      - Overview: posts/index.md
+      - 2025-07-16 Bootstrap Milestone: posts/2025-07-16-baby-bub-bootstrap-milestone.md
+      - 2026-03-01 Socialized Evaluation: posts/2026-03-01-bub-socialized-evaluation-and-agent-partnership.md
 
 plugins:
   - search
