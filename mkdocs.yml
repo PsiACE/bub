@@ -10,8 +10,11 @@ copyright: Copyright (c) 2026 Bub Build contributors.
 nav:
   - Home: index.md
   - Architecture: architecture.md
-  - Skills: skills.md
+  - Extension Guide: extension-guide.md
   - CLI: cli.md
+  - Channels: channels.md
+  - Skills: skills.md
+  - Deployment: deployment.md
   - Key Features: features.md
 
 plugins:

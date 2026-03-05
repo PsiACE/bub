@@ -1,34 +1,87 @@
 # Channels
 
-Bub supports running the same agent loop through channel adapters.
-Use channels when you want either local interactive operation or remote operation from mobile/shared team environments.
+Bub uses channel adapters to run the same agent pipeline across different I/O endpoints.
 
-## Supported Channels
+## Builtin Channels
 
-- `cli` (local): interactive terminal channel used by `uv run bub chat`.
-- [Telegram](telegram.md): direct messages and group chats.
-- [Discord](discord.md): servers, channels, and threads.
+- `cli`: local interactive terminal channel (`uv run bub chat`)
+- `telegram`: Telegram bot channel (`uv run bub message`)
 
-## Run Entry
+## Run Modes
 
-Start channel mode with:
+Local interactive mode:
+
+```bash
+uv run bub chat
+```
+
+Channel listener mode (all non-`cli` channels by default):
 
 ```bash
 uv run bub message
 ```
 
-If the process exits immediately, check that at least one channel is enabled in `.env`.
+Enable only Telegram:
 
-## Session Isolation
+```bash
+uv run bub message --enable-channel telegram
+```
 
-- CLI session key: `cli` or `cli:<name>` (from `--session-id`).
-- Telegram session key: `telegram:<chat_id>`
-- Discord session key: `discord:<channel_id>`
+## Session Semantics
 
-This keeps message history isolated per conversation endpoint.
+- `run` command default session id: `<channel>:<chat_id>`
+- Telegram channel session id: `telegram:<chat_id>`
+- `chat` command default session id: `cli_session` (override with `--session-id`)
 
-## Runtime Semantics
+## Debounce Behavior
 
-- `uv run bub chat` runs `CliChannel` via `ChannelManager`, sharing the same channel pipeline as Telegram/Discord.
-- CLI sets `debounce_enabled = False`, so each input is processed immediately.
-- Message channels keep debounce enabled to batch short bursts before model execution.
+- `cli` does not debounce; each input is processed immediately.
+- Other channels can debounce and batch inbound messages per session.
+- Comma commands (`,` prefix) always bypass debounce and execute immediately.
+
+## About Discord
+
+Core Bub does not currently include a builtin Discord adapter.
+If you need Discord, implement it in an external plugin via `provide_channels`.
+
+## Telegram Configuration
+
+Environment variables are read by `TelegramSettings` (`src/bub/channels/telegram.py`).
+
+Required:
+
+```bash
+BUB_TELEGRAM_TOKEN=123456:token
+```
+
+Optional allowlists (comma-separated):
+
+```bash
+BUB_TELEGRAM_ALLOW_USERS=123456789,your_username
+BUB_TELEGRAM_ALLOW_CHATS=123456789,-1001234567890
+```
+
+Optional proxy:
+
+```bash
+BUB_TELEGRAM_PROXY=http://127.0.0.1:7890
+```
+
+## Telegram Message Behavior
+
+- Session id is `telegram:<chat_id>`.
+- `/start` is handled by builtin channel logic.
+- `/bub ...` is accepted and normalized to plain prompt content.
+- Non-command messages are ingested; active/follow-up behavior is decided by channel filter metadata plus debounce handling.
+
+## Telegram Outbound Behavior
+
+- Outbound is sent back to Telegram chat via bot API.
+- Empty outbound text is ignored.
+- If outbound content is JSON, the `"message"` field is used when present.
+
+## Telegram Access Control
+
+- If `BUB_TELEGRAM_ALLOW_CHATS` is set, non-listed chats are ignored.
+- If `BUB_TELEGRAM_ALLOW_USERS` is set, non-listed users are denied.
+- In group chats, keep allowlists strict for production bots.
