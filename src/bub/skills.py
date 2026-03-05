@@ -80,10 +80,10 @@ def _read_skill(skill_dir: Path, *, source: str) -> SkillMetadata | None:
     )
 
 
-def _parse_frontmatter(content: str) -> tuple[dict[str, object], str]:
+def _parse_frontmatter(content: str) -> dict[str, Any]:
     lines = content.splitlines()
     if not lines or lines[0].strip() != "---":
-        return {}, content
+        return {}
 
     for idx, line in enumerate(lines[1:], start=1):
         if line.strip() == "---":
@@ -92,11 +92,9 @@ def _parse_frontmatter(content: str) -> tuple[dict[str, object], str]:
                 parsed = yaml.safe_load(payload)
             except yaml.YAMLError:
                 parsed = {}
-            body = "\n".join(lines[idx + 1 :])
             if isinstance(parsed, dict):
-                return {str(key).lower(): value for key, value in parsed.items()}, body
-            return {}, body
-    return {}, content
+                return {str(key).lower(): value for key, value in parsed.items()}
+    return {}
 
 
 def _is_valid_frontmatter(*, skill_dir: Path, metadata: dict[str, object]) -> bool:
