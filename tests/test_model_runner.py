@@ -432,7 +432,30 @@ async def test_model_runner_maps_headers_for_vertexai() -> None:
 
 
 @pytest.mark.asyncio
-async def test_model_runner_uses_extra_headers_for_unknown_provider() -> None:
+async def test_model_runner_does_not_send_headers_for_gemini() -> None:
+    tape = FakeTapeService(FakeTapeImpl(outputs=[ToolAutoResult.text_result("assistant-only")]))
+    runner = ModelRunner(
+        tape=tape,  # type: ignore[arg-type]
+        router=SingleStepRouter(),  # type: ignore[arg-type]
+        tool_view=FakeToolView(),  # type: ignore[arg-type]
+        tools=[],
+        list_skills=lambda: [],
+        model="gemini:test",
+        max_steps=1,
+        max_tokens=512,
+        model_timeout_seconds=90,
+        base_system_prompt="base",
+        get_workspace_system_prompt=lambda: "",
+    )
+
+    await runner.run("hi")
+    kwargs = tape.tape.call_kwargs[0]
+    assert "extra_headers" not in kwargs
+    assert "http_options" not in kwargs
+
+
+@pytest.mark.asyncio
+async def test_model_runner_does_not_send_headers_for_unknown_provider() -> None:
     tape = FakeTapeService(FakeTapeImpl(outputs=[ToolAutoResult.text_result("assistant-only")]))
     runner = ModelRunner(
         tape=tape,  # type: ignore[arg-type]
@@ -450,5 +473,5 @@ async def test_model_runner_uses_extra_headers_for_unknown_provider() -> None:
 
     await runner.run("hi")
     kwargs = tape.tape.call_kwargs[0]
-    assert kwargs.get("extra_headers") == ModelRunner.DEFAULT_HEADERS
+    assert "extra_headers" not in kwargs
     assert "http_options" not in kwargs
