@@ -31,7 +31,7 @@ Collect these before execution:
 2. If source metadata says sender is a bot (`sender_is_bot=true`), do not use reply mode.
 3. In the bot-source case, send a normal message and prefix content with `@<sender_username>` (or the provided source username).
 4. For long-running tasks, optionally send one progress message, then edit that same message for final status.
-5. Use literal newlines in message text when line breaks are needed.
+5. For multi-line text, pass the content via heredoc command substitution instead of embedding raw line breaks in quoted strings.
 6. Avoid emitting HTML tags in message content; use Markdown for formatting instead.
 
 ## Active Response Policy
@@ -74,6 +74,17 @@ Paths are relative to this skill directory.
 uv run ./scripts/telegram_send.py \
   --chat-id <CHAT_ID> \
   --message "<TEXT>"
+
+# Send multi-line message (heredoc)
+uv run ./scripts/telegram_send.py \
+  --chat-id <CHAT_ID> \
+  --message "$(cat <<'EOF'
+Build finished successfully.
+Summary:
+- 12 tests passed
+- 0 failures
+EOF
+)"
 
 # Send reply to a specific message
 uv run ./scripts/telegram_send.py \
