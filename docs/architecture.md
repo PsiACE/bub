@@ -2,62 +2,59 @@
 
 ## Core Components
 
-- `BubFramework`: creates the plugin manager, loads hooks, runs turns
-- `BubHookSpecs`: defines hook contracts (`firstresult` and broadcast hooks)
-- `HookRuntime`: executes hook implementations with per-impl fault isolation
-- `MessageBus`: default in-memory bus (replaceable via hook)
+- `BubFramework`: creates the plugin manager, loads plugins, and runs `process_inbound()`.
+- `BubHookSpecs`: defines all hook contracts (`src/bub/hookspecs.py`).
+- `HookRuntime`: executes hooks with sync/async compatibility helpers (`src/bub/hook_runtime.py`).
+- `RuntimeEngine`: builtin model-and-tools runtime (`src/bub/builtin/engine.py`).
+- `ChannelManager`: starts channels, buffers inbound messages, and routes outbound messages (`src/bub/channels/manager.py`).
 
 ## Turn Lifecycle
 
-`process_inbound()` executes hooks in this order:
+`BubFramework.process_inbound()` currently executes in this order:
 
-1. `normalize_inbound(message)`
-2. `resolve_session(message)`
-3. `load_state(session_id)` (defaults to `{}`)
-4. `build_prompt(message, session_id, state)` (defaults to message `content`)
-5. `run_model(prompt, session_id, state)`
-6. `save_state(...)` (broadcast)
-7. `render_outbound(...)` (broadcast)
-8. `dispatch_outbound(message)` (broadcast per outbound)
+1. Populate inbound `workspace` when inbound is a `dict`.
+2. `resolve_session(message)` via `call_first` (fallback to `channel:chat_id` if empty).
+3. `load_state(message, session_id)` via `call_many`, then merge returned state dicts.
+4. `build_prompt(message, session_id, state)` via `call_first` (fallback to inbound `content` if empty).
+5. `run_model(prompt, session_id, state)` via `call_first`.
+6. `save_state(...)` via `call_many` in a `finally` block.
+7. `render_outbound(...)` via `call_many`, then flatten all batches.
+8. If no outbound exists, emit one fallback outbound.
+9. For each outbound, execute `dispatch_outbound(message)` via `call_many`.
 
-If `render_outbound` yields nothing, the framework emits one fallback outbound:
+## Hook Priority Semantics
 
-```text
-{
-  "content": model_output,
-  "session_id": session_id,
-  "channel": ...?,   # if exists in inbound
-  "chat_id": ...?    # if exists in inbound
-}
-```
+- Registration order:
+1. Builtin plugin `builtin`
+2. External entry points (`group="bub"`)
+- Execution order:
+1. `HookRuntime` reverses pluggy implementation order, so later-registered plugins run first.
+2. `call_first` returns the first non-`None` value.
+3. `call_many` collects every implementation return value (including `None`).
+- Merge/override details:
+1. `load_state` is reversed again before merge so high-priority plugins win on key collisions.
+2. `provide_channels` is reversed in `ChannelManager`, so high-priority plugins can override channel names.
 
-## Precedence And Override Semantics
+## Error Behavior
 
-- Hook registration order:
-  1. Builtin plugin `bub.builtin.hook_impl`
-  2. External entry points (`group="bub"`)
-- Execution order: `HookRuntime` reverses pluggy impl order, so later-registered plugins run first
-- For `firstresult` hooks: first non-`None` value wins
-- For broadcast hooks (for example `save_state`): all implementations are attempted
+- For normal hooks, `HookRuntime` does not swallow implementation errors.
+- `process_inbound()` catches top-level exceptions, notifies `on_error(stage="turn", ...)`, then re-raises.
+- `on_error` itself is observer-safe: one failing observer does not block the others.
+- In sync calls (`call_first_sync`/`call_many_sync`), awaitable return values are skipped with a warning.
 
-## Fault Isolation And Fallbacks
+## Builtin Runtime Notes
 
-- A failing hook implementation does not crash the whole turn; `on_error` is notified
-- If `run_model` returns no value, fallback is `model_output = prompt`
-- `create_bus()` falls back to `MessageBus` when no plugin provides a bus
-- `handle_bus_once()` consumes one inbound from bus and publishes produced outbounds
+Builtin `BuiltinImpl` behavior includes:
 
-## Builtin Runtime
-
-Builtin `run_model` is implemented by `RuntimeEngine`:
-
-- Regular prompts run through Republic `run_tools_async`
-- Comma-prefixed input goes through internal command dispatch (`help/tools/fs.*/...`)
-- Unknown comma commands are executed as shell commands
-- Runtime events are persisted at `.bub/runtime/<session-hash>.jsonl`
+- `build_prompt`: supports comma command mode; non-command text may include `context_str`.
+- `run_model`: delegates to `RuntimeEngine.run()`.
+- `system_prompt`: combines a default prompt with workspace `AGENTS.md`.
+- `provide_tools`: returns builtin tools.
+- `provide_channels`: returns `telegram` and `cli` channel adapters.
+- `provide_tape_store`: returns a file-backed tape store under `~/.bub/tapes`.
 
 ## Boundaries
 
-- `Envelope` is intentionally weakly typed (`Any`) and read via helper accessors
-- There is no global enforced business schema for messages or cross-plugin state
-- Skill discovery/validation is a separate subsystem (see `skills.md`)
+- `Envelope` stays intentionally weakly typed (`Any` + accessor helpers).
+- There is no globally enforced schema for cross-plugin `state`.
+- Runtime behavior in this document is aligned with current source code.

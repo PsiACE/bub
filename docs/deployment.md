@@ -1,14 +1,14 @@
 # Deployment Guide
 
-This page covers production-oriented setups for Bub, including local process management and Docker Compose.
+This page covers practical Bub deployment paths based on the current repository behavior.
 
 ## 1) Prerequisites
 
 - Python 3.12+
 - `uv` installed
-- A valid model provider key (for example `OPENROUTER_API_KEY` or `LLM_API_KEY`)
+- a valid model provider key (for example `OPENROUTER_API_KEY`)
 
-Quick bootstrap:
+Bootstrap:
 
 ```bash
 git clone https://github.com/bubbuild/bub.git
@@ -17,61 +17,57 @@ uv sync
 cp env.example .env
 ```
 
-Minimum `.env`:
+Minimum `.env` example:
 
 ```bash
 BUB_MODEL=openrouter:qwen/qwen3-coder-next
 OPENROUTER_API_KEY=sk-or-...
 ```
 
-## 2) Deployment Modes
+## 2) Runtime Modes
 
-Choose one mode based on your operation target:
+Choose one command based on your operation target:
 
-1. Interactive local operator:
-   `uv run bub chat`
-2. Channel service (Telegram/Discord):
-   `uv run bub message`
-3. Scheduler-only autonomous mode:
-   `uv run bub idle`
+1. Interactive local operator: `uv run bub chat`
+2. Channel listener service: `uv run bub message`
+3. One-shot task execution: `uv run bub run "summarize this repo"`
 
-One-shot operation:
+## 3) Telegram Channel Setup
 
-```bash
-uv run bub run "summarize changes in this repo"
-```
+Current core channel integration is Telegram.
 
-## 3) Message Channel Deployment
-
-Enable channels in `.env` first.
-
-Telegram:
+Required:
 
 ```bash
-BUB_TELEGRAM_ENABLED=true
 BUB_TELEGRAM_TOKEN=123456:token
-BUB_TELEGRAM_ALLOW_FROM='["123456789","your_username"]'
-BUB_TELEGRAM_ALLOW_CHATS='["123456789","-1001234567890"]'
 ```
 
-Discord:
+Optional allowlists (comma-separated values):
 
 ```bash
-BUB_DISCORD_ENABLED=true
-BUB_DISCORD_TOKEN=discord_bot_token
-BUB_DISCORD_ALLOW_FROM='["123456789012345678","your_discord_name"]'
-BUB_DISCORD_ALLOW_CHANNELS='["123456789012345678"]'
+BUB_TELEGRAM_ALLOW_USERS=123456789,your_username
+BUB_TELEGRAM_ALLOW_CHATS=123456789,-1001234567890
 ```
 
-Start channel service:
+Optional proxy:
 
 ```bash
-uv run bub message
+BUB_TELEGRAM_PROXY=http://127.0.0.1:7890
 ```
 
-## 4) Docker Compose Deployment
+Run listener:
 
-The repository already provides `Dockerfile`, `docker-compose.yml`, and `entrypoint.sh`.
+```bash
+uv run bub message --enable-channel telegram
+```
+
+## 4) Docker Compose
+
+Repository assets:
+
+- `Dockerfile`
+- `docker-compose.yml`
+- `entrypoint.sh`
 
 Build and run:
 
@@ -80,10 +76,12 @@ docker compose up -d --build
 docker compose logs -f app
 ```
 
-Behavior in container:
+Current entrypoint behavior:
 
-- If `/workspace/startup.sh` exists, container starts `bub idle` in background, then executes `startup.sh`.
-- Otherwise, container starts `bub message`.
+- if `/workspace/startup.sh` exists, entrypoint tries to start `bub idle` in background, then runs `startup.sh`
+- otherwise it starts `bub message`
+
+Important: core CLI currently does not expose a builtin `idle` command. If you rely on `startup.sh`, verify your image/plugin setup provides it, or adjust `entrypoint.sh`.
 
 Default mounts in `docker-compose.yml`:
 
@@ -93,18 +91,16 @@ Default mounts in `docker-compose.yml`:
 
 ## 5) Operational Checks
 
-Health checklist:
-
-1. Process is running:
-   `ps aux | rg "bub (chat|message|idle)"`
-2. Model key is loaded:
+1. Verify process:
+   `ps aux | rg "bub (chat|message|run)"`
+2. Verify model config:
    `rg -n "BUB_MODEL|OPENROUTER_API_KEY|LLM_API_KEY" .env`
-3. Channel flags are correct:
-   `rg -n "BUB_TELEGRAM_ENABLED|BUB_DISCORD_ENABLED" .env`
-4. Logs show channel startup:
-   `uv run bub message` and confirm `channel.manager.start` output.
+3. Verify Telegram settings:
+   `rg -n "BUB_TELEGRAM_TOKEN|BUB_TELEGRAM_ALLOW_USERS|BUB_TELEGRAM_ALLOW_CHATS" .env`
+4. Verify startup logs:
+   `uv run bub message --enable-channel telegram`
 
-## 6) Safe Upgrade Procedure
+## 6) Safe Upgrade
 
 ```bash
 git fetch --all --tags
@@ -115,4 +111,4 @@ uv run mypy
 uv run pytest -q
 ```
 
-Then restart your service mode (`chat`, `message`, or container service).
+Then restart your service command.

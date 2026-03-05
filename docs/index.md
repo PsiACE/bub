@@ -1,23 +1,25 @@
 # Bub
 
-Bub currently implements a minimal hook-first framework:
+Bub is a hook-first AI framework built on top of `pluggy`.
 
-- The core orchestrates one message turn end-to-end
-- Builtin hooks provide default CLI and runtime behavior
-- External plugins join the same lifecycle via entry points (`group="bub"`)
+- `BubFramework` runs one inbound message through a deterministic turn pipeline.
+- Builtin plugin `bub.builtin.hook_impl` provides default CLI, runtime, and channel behavior.
+- External plugins join the same lifecycle via Python entry points (`group="bub"`).
 
-## Where To Look
+## Code Entry Points
 
 - CLI bootstrap: `src/bub/__main__.py`
-- Core runtime orchestration: `src/bub/framework.py`
-- Hook specifications: `src/bub/hookspecs.py`
-- Hook execution isolation: `src/bub/hook_runtime.py`
+- Runtime orchestration: `src/bub/framework.py`
+- Hook contracts: `src/bub/hookspecs.py`
+- Hook dispatcher runtime: `src/bub/hook_runtime.py`
 - Builtin implementations: `src/bub/builtin/*`
-- Skill discovery/validation: `src/bub/skills.py`
+- Skill discovery: `src/bub/skills.py`
 
 ## Read Next
 
-- `architecture.md`: lifecycle, hook precedence, and fault isolation
-- `cli.md`: `bub run`, `bub hooks`, `bub install`, and comma commands
-- `skills.md`: `SKILL.md` frontmatter rules and override behavior
-- `features.md`: current capabilities and known boundaries
+- `architecture.md`: real execution flow, precedence, and error semantics
+- `extension-guide.md`: how to build and publish hook-based extensions
+- `cli.md`: `bub run/hooks/message/chat` usage
+- `channels.md`: builtin channels and session behavior
+- `skills.md`: `SKILL.md` discovery and override rules
+- `features.md`: capabilities and current boundaries

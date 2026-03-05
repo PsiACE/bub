@@ -1,39 +1,35 @@
 # CLI
 
-`bub` currently exposes three commands: `run`, `hooks`, and `install`.
+`bub` currently exposes four builtin commands: `run`, `hooks`, `message`, and `chat`.
 
 ## `bub run`
 
-Run one inbound message through the full framework lifecycle.
+Run one inbound message through the full framework pipeline and print outbounds.
 
 ```bash
-uv run bub run "hello" --channel stdout --chat-id local
+uv run bub run "hello" --channel cli --chat-id local
 ```
 
-When runtime is disabled or unavailable, output safely falls back to the input prompt text:
+Common options:
+
+- `--workspace/-w`: workspace root
+- `--channel`: source channel (default `cli`)
+- `--chat-id`: source endpoint id (default `local`)
+- `--sender-id`: sender identity (default `human`)
+- `--session-id`: explicit session id (default is `<channel>:<chat_id>`)
+
+Comma-prefixed input enters internal command mode:
 
 ```bash
-BUB_RUNTIME_ENABLED=0 uv run bub run "hello"
+uv run bub run ",help"
+uv run bub run ",tools"
+uv run bub run ",fs.read path=README.md"
 ```
 
-Run with runtime enabled:
+Unknown comma commands fall back to shell execution:
 
 ```bash
-BUB_RUNTIME_ENABLED=1 BUB_API_KEY=your_key uv run bub run "summarize current repo status"
-```
-
-Comma-prefixed inputs invoke internal command mode:
-
-```bash
-BUB_RUNTIME_ENABLED=0 uv run bub run ",help"
-BUB_RUNTIME_ENABLED=0 uv run bub run ",tools"
-BUB_RUNTIME_ENABLED=0 uv run bub run ",fs.read path=README.md"
-```
-
-Unknown comma commands are executed as shell commands:
-
-```bash
-BUB_RUNTIME_ENABLED=0 uv run bub run ",echo hello-from-shell"
+uv run bub run ",echo hello-from-shell"
 ```
 
 ## `bub hooks`
@@ -44,24 +40,35 @@ Print hook-to-plugin bindings discovered at startup.
 uv run bub hooks
 ```
 
-## `bub install`
+## `bub message`
 
-Install plugins from PyPI requirement spec or GitHub shorthand.
+Start channel listener mode (defaults to all non-`cli` channels).
 
 ```bash
-uv run bub install my-plugin-package
-uv run bub install owner/repo
+uv run bub message
 ```
 
-`owner/repo` is converted to:
+Enable only selected channels:
 
-```text
-git+https://github.com/owner/repo.git
+```bash
+uv run bub message --enable-channel telegram
+```
+
+## `bub chat`
+
+Start an interactive REPL session via the `cli` channel.
+
+```bash
+uv run bub chat
+uv run bub chat --chat-id local --session-id cli:local
 ```
 
 ## Notes
 
-- `--workspace` is supported by `run` and `hooks`
-- `BUB_RUNTIME_ENABLED` supports `0`, `1`, and `auto` (default)
-- Session id defaults to `channel:chat_id` when `--session-id` is not provided
-- `run` prints each outbound as `[channel:chat_id] content`
+- `--workspace` is supported by `run`, `hooks`, `message`, and `chat`.
+- `run` prints each outbound as:
+
+```text
+[channel:chat_id]
+content
+```

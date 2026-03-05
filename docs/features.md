@@ -2,34 +2,34 @@
 
 ## Framework Core
 
-- Hook-first architecture with `pluggy`
-- Deterministic turn lifecycle in `BubFramework.process_inbound()`
-- Safe fallbacks for missing bus, missing model output, and missing outbound renderers
-- Per-hook-implementation fault isolation via `HookRuntime`
+- Hook-first architecture powered by `pluggy`.
+- Deterministic turn pipeline in `BubFramework.process_inbound()`.
+- Safe fallback to prompt text when `run_model` returns no value (with `on_error` notification).
+- Automatic fallback outbound when `render_outbound` produces nothing.
 
-## Skills
+## Runtime And Commands
 
-- `SKILL.md` frontmatter validation (`name`, `description`, optional fields)
-- Deterministic discovery/override order: project -> global -> builtin
-- Skill body loading for runtime commands like `,skills.describe`
+- Builtin CLI commands: `run`, `hooks`, `message`, `chat`.
+- Builtin `RuntimeEngine`:
+  - normal input goes through model + tool loop (Republic)
+  - comma-prefixed input enters internal command mode (`,help`, `,tools`, `,fs.read`, etc.)
+  - unknown internal commands fall back to shell execution via the `bash` tool
+- Runtime events are persisted to tapes (default under `~/.bub/tapes`).
 
-## Runtime
+## Channel Capability
 
-- Builtin CLI commands: `run`, `hooks`, `install`
-- Builtin runtime engine with:
-  - LLM turn execution through Republic tools
-  - Internal comma command mode (`help`, `tools`, `fs.*`, `tape.*`, `skills.*`)
-  - Shell fallback for unknown comma commands
-- Runtime event logging to `.bub/runtime/*.jsonl`
+- Builtin channels: `cli` and `telegram`.
+- `message` mode runs the same framework pipeline for channel-driven traffic.
+- Outbound delivery is routed by `ChannelManager`, keeping business hooks channel-agnostic.
 
 ## Plugin Extensibility
 
-- External plugins loaded from Python entry points (`group="bub"`)
-- First-result hooks for override-style behavior
-- Broadcast hooks for multi-observer side effects (`save_state`, `dispatch_outbound`, `on_error`)
+- External plugins are loaded via Python entry points (`group="bub"`).
+- Later-registered plugins run first and can override builtin behavior.
+- Supports both first-result hooks (override style) and broadcast hooks (observer style).
 
 ## Current Boundaries
 
-- No strict envelope schema: `Envelope` is `Any`
-- No enforced global persistence/state format across plugins
-- Repository currently ships the `src/bub_skills` root, but no mandatory builtin skill pack behavior in core
+- No strict envelope schema: `Envelope` is intentionally flexible.
+- No centralized key contract for shared plugin `state`.
+- Core repository does not currently ship a builtin Discord channel adapter.
