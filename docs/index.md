@@ -1,25 +1,47 @@
 # Bub
 
-Bub is a hook-first AI framework built on top of `pluggy`.
+Bub is a hook-first AI framework for running agent workflows through CLI and message channels.
 
-- `BubFramework` runs one inbound message through a deterministic turn pipeline.
-- Builtin plugin `bub.builtin.hook_impl` provides default CLI, runtime, and channel behavior.
-- External plugins join the same lifecycle via Python entry points (`group="bub"`).
+## Quick Start
 
-## Code Entry Points
+Install dependencies and create local config:
 
-- CLI bootstrap: `src/bub/__main__.py`
-- Runtime orchestration: `src/bub/framework.py`
-- Hook contracts: `src/bub/hookspecs.py`
-- Hook dispatcher runtime: `src/bub/hook_runtime.py`
-- Builtin implementations: `src/bub/builtin/*`
-- Skill discovery: `src/bub/skills.py`
+```bash
+git clone https://github.com/bubbuild/bub.git
+cd bub
+uv sync
+cp env.example .env
+```
+
+Run interactive local chat:
+
+```bash
+uv run bub chat
+```
+
+Run a one-shot task:
+
+```bash
+uv run bub run "summarize this repository"
+```
+
+Start channel listener mode:
+
+```bash
+uv run bub message
+```
+
+## Deployment
+
+For production setup and operations, read:
+
+- [Deployment Guide](deployment.md)
+- [Channels Overview](channels/index.md)
+- [Telegram Channel](channels/telegram.md)
 
 ## Read Next
 
-- `architecture.md`: real execution flow, precedence, and error semantics
-- `extension-guide.md`: how to build and publish hook-based extensions
-- `cli.md`: `bub run/hooks/message/chat` usage
-- `channels.md`: builtin channels and session behavior
-- `skills.md`: `SKILL.md` discovery and override rules
-- `features.md`: capabilities and current boundaries
+- [Core Overview](core/index.md): architecture and capability summary in one place
+- [Workflows Overview](workflows/index.md): CLI and skills usage in one place
+- [Extension Guide](extension-guide.md): build and publish hook-based extensions
+- [Posts](posts/index.md): project notes and updates

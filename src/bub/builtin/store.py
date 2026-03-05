@@ -7,6 +7,7 @@ import json
 import threading
 from collections.abc import AsyncGenerator, Iterable
 from dataclasses import asdict
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
@@ -191,8 +192,11 @@ class TapeFile:
             return None
         if not isinstance(meta, dict):
             meta = {}
-        timestamp = payload.get("timestamp", 0.0)
-        return TapeEntry(entry_id, kind, dict(entry_payload), dict(meta), timestamp)
+        if "date" in payload:
+            date = payload["date"]
+        else:
+            date = datetime.fromtimestamp(payload.get("timestamp", 0.0), tz=UTC).isoformat()
+        return TapeEntry(entry_id, kind, dict(entry_payload), dict(meta), date)
 
     def append(self, entry: TapeEntry) -> None:
         with self._lock:

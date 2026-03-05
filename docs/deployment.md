@@ -34,31 +34,14 @@ Choose one command based on your operation target:
 
 ## 3) Telegram Channel Setup
 
-Current core channel integration is Telegram.
+Telegram configuration and runtime behavior are documented in:
 
-Required:
+- `docs/channels/telegram.md`
 
-```bash
-BUB_TELEGRAM_TOKEN=123456:token
-```
-
-Optional allowlists (comma-separated values):
+Quick start:
 
 ```bash
-BUB_TELEGRAM_ALLOW_USERS=123456789,your_username
-BUB_TELEGRAM_ALLOW_CHATS=123456789,-1001234567890
-```
-
-Optional proxy:
-
-```bash
-BUB_TELEGRAM_PROXY=http://127.0.0.1:7890
-```
-
-Run listener:
-
-```bash
-uv run bub message --enable-channel telegram
+BUB_TELEGRAM_TOKEN=123456:token uv run bub message --enable-channel telegram
 ```
 
 ## 4) Docker Compose

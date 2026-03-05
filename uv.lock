@@ -123,7 +123,7 @@ requires-dist = [
     { name = "python-telegram-bot", specifier = ">=21.0" },
     { name = "pyyaml", specifier = ">=6.0.0" },
     { name = "rapidfuzz", specifier = ">=3.14.3" },
-    { name = "republic", specifier = ">=0.5.2" },
+    { name = "republic", specifier = ">=0.5.3" },
     { name = "rich", specifier = ">=13.0.0" },
     { name = "typer", specifier = ">=0.9.0" },
 ]
@@ -1130,15 +1130,15 @@ wheels = [
 
 [[package]]
 name = "republic"
-version = "0.5.2"
+version = "0.5.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "any-llm-sdk" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/49/d0/a509e91a47c77ef02d66693f8b7564cee913445ba0946e0ce7081e641381/republic-0.5.2.tar.gz", hash = "sha256:c3e3f3a4735a2f460ffb9872c27268975a0686882c4189917b384b35bfdfad5a", size = 100151, upload-time = "2026-03-01T06:33:18.957Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6a/45/21c3cd167dad5e3d2434c9454a298d85b49fe0f4740f21f35ee50f4da89d/republic-0.5.3.tar.gz", hash = "sha256:31b43d41026a3d877c894c8bf06e3295929401a991f606d3d17ce1a63562c688", size = 100213, upload-time = "2026-03-05T10:52:22.704Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/68/49/897203df2bf680091de74b88692283f421584fa1de7e7b5069efce578020/republic-0.5.2-py3-none-any.whl", hash = "sha256:bfa540e35a2f1cec22ff68fa23703eeb1ee9ccdad8dc946cc8533bfae0989530", size = 39807, upload-time = "2026-03-01T06:33:17.43Z" },
+    { url = "https://files.pythonhosted.org/packages/06/eb/77769fbc7877b38ed98d17ec5ae174e3f0b0bdafa2f5be4ef054d49efe11/republic-0.5.3-py3-none-any.whl", hash = "sha256:82bb6654fcfbb22ebd9267b23bc22a7d5fe7dc46fe9fe1a56e46e26f5ce8bcf9", size = 39881, upload-time = "2026-03-05T10:52:23.606Z" },
 ]
 
 [[package]]
