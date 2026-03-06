@@ -28,11 +28,10 @@ Collect these before execution:
 ## Execution Policy
 
 1. If handling a direct user message in Telegram and `message_id` is known, prefer reply mode (`--reply-to`).
-2. If source metadata says sender is a bot (`sender_is_bot=true`), do not use reply mode.
-3. In the bot-source case, send a normal message and prefix content with `@<sender_username>` (or the provided source username).
-4. For long-running tasks, optionally send one progress message, then edit that same message for final status.
-5. For multi-line text, pass the content via heredoc command substitution instead of embedding raw line breaks in quoted strings.
-6. Avoid emitting HTML tags in message content; use Markdown for formatting instead.
+2. If source metadata says sender is a bot (`sender_is_bot=true`), do not use reply mode, but send a normal message and prefix content with `@<sender_username>` (or the provided source username).
+3. For long-running tasks, optionally send one progress message, then edit that same message for final status.
+4. For multi-line text, pass the content via heredoc command substitution instead of embedding raw line breaks in quoted strings.
+5. Avoid emitting HTML tags in message content; use Markdown for formatting instead.
 
 ## Active Response Policy
 
@@ -125,13 +124,3 @@ For other actions that not covered by these scripts, use `curl` to call Telegram
 - `--message-id`, `-m`: required
 - `--text`, `-t`: required
 - `--token`: optional (normally not needed)
-
-## Failure Handling
-
-- On HTTP errors, inspect API response text and adjust identifiers/permissions.
-- If edit fails because message is not editable, fall back to a new send.
-- If reply target is invalid, resend without `--reply-to` only when context threading is non-critical.
-- For task-level failures (not only API failures), notify the Telegram user with:
-  - what failed
-  - what was already completed
-  - what will happen next (retry/manual action/escalation)
