@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     model: str = "openrouter:qwen/qwen3-coder-next"
     api_key: str | None = None
     api_base: str | None = None
+    use_responses: bool = False
     ollama_api_key: str | None = None
     ollama_api_base: str | None = None
     llm_api_key: str | None = Field(default=None, validation_alias="LLM_API_KEY")

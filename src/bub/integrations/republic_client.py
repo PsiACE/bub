@@ -30,6 +30,7 @@ def build_llm(settings: Settings, store: FileTapeStore) -> LLM:
         settings.model,
         api_key=settings.resolved_api_key,
         api_base=settings.api_base,
+        use_responses=settings.use_responses,
         tape_store=store,
         context=default_tape_context(),
         client_args=client_args,
