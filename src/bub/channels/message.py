@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import contextlib
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 
 type MessageKind = Literal["error", "normal", "command"]
@@ -29,3 +31,12 @@ class ChannelMessage:
     def context_str(self) -> str:
         """String representation of the context for prompt building."""
         return json.dumps(self.context, ensure_ascii=False)[1:-1]
+
+    @classmethod
+    def from_batch(cls, batch: list[ChannelMessage]) -> ChannelMessage:
+        """Create a single message by combining a batch of messages."""
+        if not batch:
+            raise ValueError("Batch cannot be empty")
+        template = batch[-1]
+        content = "\n".join(message.content for message in batch)
+        return replace(template, content=content)

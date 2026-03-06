@@ -28,7 +28,7 @@ uv run bub run "summarize this repository"
 Start channel listener mode:
 
 ```bash
-uv run bub message
+uv run bub gateway
 ```
 
 ## Deployment

@@ -9,7 +9,7 @@ services:
     volumes:
       - ${BUB_WORKSPACE_PATH:-.}:/workspace
       - ${BUB_HOME:-${HOME}/.bub}:/data
-      - ${BUB_AGENT_HOME:-${HOME}/.agent}:/root/.agent
+      - ${BUB_AGENT_HOME:-${HOME}/.agents}:/root/.agents
     stdin_open: true
     tty: true
     restart: unless-stopped

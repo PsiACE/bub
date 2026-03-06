@@ -3,19 +3,21 @@ from pathlib import Path
 
 import typer
 from loguru import logger
-from republic import Tool
 from republic.tape import TapeStore
 
-from bub.builtin.engine import RuntimeEngine
+from bub.builtin.agent import Agent
 from bub.channels.base import Channel
 from bub.channels.message import ChannelMessage
 from bub.envelope import content_of, field_of
-from bub.hook_runtime import HookRuntime
+from bub.framework import BubFramework
 from bub.hookspecs import hookimpl
-from bub.types import Envelope, MessageHandler, OutboundDispatcher, State
+from bub.types import Envelope, MessageHandler, State
 
 AGENTS_FILE_NAME = "AGENTS.md"
 DEFAULT_SYSTEM_PROMPT = """\
+<general_instruct>
+Call tools or use skills to finish the task users assigned. When enough evidence is collected, return plain natural language answer.
+</general_instruct>
 <context_contract>
 Excessively long context may cause model call failures. In this case, you MAY use tape.info to the token usage and you SHOULD use tape.handoff tool to shorten the length of the retrieved history.
 </context_contract>
@@ -35,15 +37,11 @@ There is a skill named `{channel}` for each channel that you need to figure out 
 class BuiltinImpl:
     """Default hook implementations for basic runtime operations."""
 
-    def __init__(
-        self,
-        hooks: HookRuntime,
-        *,
-        outbound_dispatcher: OutboundDispatcher | None = None,
-    ) -> None:
-        self.hooks = hooks
-        self.engine = RuntimeEngine(hooks._plugin_manager)
-        self._outbound_dispatcher = outbound_dispatcher
+    def __init__(self, framework: BubFramework) -> None:
+        from bub.builtin import tools  # noqa: F401
+
+        self.framework = framework
+        self.agent = Agent(framework)
 
     @hookimpl
     def resolve_session(self, message: ChannelMessage) -> str:
@@ -59,7 +57,7 @@ class BuiltinImpl:
         lifespan = field_of(message, "lifespan")
         if lifespan is not None:
             await lifespan.__aenter__()
-        state = {"session_id": session_id, "_runtime_engine": self.engine}
+        state = {"session_id": session_id, "_runtime_agent": self.agent}
         if context := field_of(message, "context_str"):
             state["context"] = context
         return state
@@ -73,12 +71,6 @@ class BuiltinImpl:
 
     @hookimpl
     def build_prompt(self, message: ChannelMessage, session_id: str, state: State) -> str:
-        _ = session_id
-        workspace = field_of(message, "workspace")
-        if isinstance(workspace, str) and workspace.strip():
-            state["_runtime_workspace"] = workspace.strip()
-        elif "_runtime_workspace" not in state:
-            state["_runtime_workspace"] = str(Path.cwd())
         content = content_of(message)
         if content.startswith(","):
             message.kind = "command"
@@ -89,16 +81,16 @@ class BuiltinImpl:
 
     @hookimpl
     async def run_model(self, prompt: str, session_id: str, state: State) -> str:
-        return await self.engine.run(session_id=session_id, prompt=prompt, state=state)
+        return await self.agent.run(session_id=session_id, prompt=prompt, state=state)
 
     @hookimpl
     def register_cli_commands(self, app: typer.Typer) -> None:
         from bub.builtin import cli
 
         app.command("run")(cli.run)
-        app.command("hooks")(cli.list_hooks)
-        app.command("message")(cli.message)
         app.command("chat")(cli.chat)
+        app.command("hooks", hidden=True)(cli.list_hooks)
+        app.command("message", hidden=True)(app.command("gateway")(cli.gateway))
 
     def _read_agents_file(self, state: State) -> str:
         workspace = state.get("_runtime_workspace", str(Path.cwd()))
@@ -116,19 +108,13 @@ class BuiltinImpl:
         return DEFAULT_SYSTEM_PROMPT + "\n\n" + self._read_agents_file(state)
 
     @hookimpl
-    def provide_tools(self) -> list[Tool]:
-        from bub.builtin.tools import get_builtin_tools
-
-        return get_builtin_tools()
-
-    @hookimpl
     def provide_channels(self, message_handler: MessageHandler) -> list[Channel]:
         from bub.channels.cli import CliChannel
         from bub.channels.telegram import TelegramChannel
 
         return [
             TelegramChannel(on_receive=message_handler),
-            CliChannel(on_receive=message_handler, engine=self.engine),
+            CliChannel(on_receive=message_handler, agent=self.agent),
         ]
 
     @hookimpl
@@ -141,7 +127,7 @@ class BuiltinImpl:
                 content=f"An error occurred at stage '{stage}': {error}",
                 kind="error",
             )
-            await self.hooks.call_many("dispatch_outbound", message=outbound)
+            await self.framework._hook_runtime.call_many("dispatch_outbound", message=outbound)
 
     @hookimpl
     async def dispatch_outbound(self, message: Envelope) -> bool:
@@ -149,9 +135,7 @@ class BuiltinImpl:
         session_id = field_of(message, "session_id")
         if field_of(message, "output_channel") != "cli":
             logger.info("session.run.outbound session_id={} content={}", session_id, content)
-        if self._outbound_dispatcher is None:
-            return False
-        return await self._outbound_dispatcher(message)
+        return await self.framework.dispatch_via_router(message)
 
     @hookimpl
     def render_outbound(
@@ -175,4 +159,4 @@ class BuiltinImpl:
     def provide_tape_store(self) -> TapeStore:
         from bub.builtin.store import FileTapeStore
 
-        return FileTapeStore(directory=self.engine.settings.home / "tapes")
+        return FileTapeStore(directory=self.agent.settings.home / "tapes")

@@ -13,49 +13,39 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any
 
-from pluggy import PluginManager
-from republic import LLM, AsyncTapeStore, Tool, ToolAutoResult, ToolContext
+from republic import LLM, AsyncTapeStore, ToolAutoResult, ToolContext
 from republic.tape import InMemoryTapeStore, Tape
 
 from bub.builtin.context import default_tape_context
-from bub.builtin.settings import RuntimeSettings
+from bub.builtin.settings import AgentSettings
 from bub.builtin.store import ForkTapeStore
 from bub.builtin.tape import TapeService
+from bub.framework import BubFramework
 from bub.skills import discover_skills, render_skills_prompt
-from bub.tools import model_tools, render_tools_prompt
+from bub.tools import REGISTRY, model_tools, render_tools_prompt
 from bub.types import State
+from bub.utils import workspace_from_state
 
 CONTINUE_PROMPT = "Continue the task."
 DEFAULT_BUB_HEADERS = {"HTTP-Referer": "https://bub.build/", "X-Title": "Bub"}
 HINT_RE = re.compile(r"\$([A-Za-z0-9_.-]+)")
 
 
-class RuntimeEngine:
-    """Runtime engine with command compatibility and Republic model driving."""
+class Agent:
+    """Agent that processes prompts using hooks and tools. Backed by republic."""
 
-    def __init__(self, plugins_manager: PluginManager) -> None:
+    def __init__(self, framework: BubFramework) -> None:
         self.settings = _load_runtime_settings()
-        self._pm = plugins_manager
+        self.framework = framework
 
     @cached_property
     def tapes(self) -> TapeService:
-        tape_store = self._pm.hook.provide_tape_store()
+        tape_store = self.framework.get_tape_store()
         if tape_store is None:
             tape_store = InMemoryTapeStore()
         tape_store = ForkTapeStore(tape_store)
         llm = _build_llm(self.settings, tape_store)
         return TapeService(llm, self.settings.home / "tapes", tape_store)
-
-    @cached_property
-    def tools(self) -> list[Tool]:
-        tools: dict[str, Tool] = {}
-        for provided in reversed(self._pm.hook.provide_tools()):
-            tools.update((tool.name, tool) for tool in provided)
-        return list(tools.values())
-
-    @cached_property
-    def model_tools(self) -> list[Tool]:
-        return model_tools(self.tools)
 
     async def run(self, *, session_id: str, prompt: str, state: State) -> str:
         stripped = prompt.strip()
@@ -67,7 +57,7 @@ class RuntimeEngine:
             await self.tapes.ensure_bootstrap_anchor(tape.name)
             if stripped.startswith(","):
                 return await self._run_command(tape=tape, line=stripped)
-            return await self._run_model(tape=tape, prompt=stripped)
+            return await self._agent_loop(tape=tape, prompt=stripped)
 
     async def _run_command(self, tape: Tape, *, line: str) -> str:
         line = line[1:].strip()
@@ -77,17 +67,16 @@ class RuntimeEngine:
         name, arg_tokens = _parse_internal_command(line)
         start = time.monotonic()
         context = ToolContext(tape=tape.name, run_id="run_command", state=tape.context.state)
-        tools = {tool.name: tool for tool in self.tools}
         output = ""
         status = "ok"
         try:
-            if name not in tools:
-                output = await tools["bash"].run(context=context, cmd=line)
+            if name not in REGISTRY:
+                output = await REGISTRY["bash"].run(context=context, cmd=line)
             else:
                 args = _parse_args(arg_tokens)
-                if tools[name].context:
+                if REGISTRY[name].context:
                     args.kwargs["context"] = context
-                output = tools[name].run(*args.positional, **args.kwargs)
+                output = REGISTRY[name].run(*args.positional, **args.kwargs)
                 if inspect.isawaitable(output):
                     output = await output
         except Exception as exc:
@@ -110,7 +99,7 @@ class RuntimeEngine:
             }
             await self.tapes.append_event(tape.name, "command", event_payload)
 
-    async def _run_model(self, *, tape: Tape, prompt: str) -> str:
+    async def _agent_loop(self, *, tape: Tape, prompt: str) -> str:
         next_prompt = prompt
 
         for step in range(1, self.settings.max_steps + 1):
@@ -184,21 +173,21 @@ class RuntimeEngine:
         return render_skills_prompt(list(skill_index.values()), expanded_skills=expanded_skills)
 
     async def _run_tools_once(self, *, tape: Tape, prompt: str) -> ToolAutoResult:
+        extra_options = {"extra_headers": DEFAULT_BUB_HEADERS} if self.settings.model.startswith("openrouter:") else {}
         async with asyncio.timeout(self.settings.model_timeout_seconds):
             return await tape.run_tools_async(
                 prompt=prompt,
                 system_prompt=self._system_prompt(prompt, state=tape.context.state),
                 max_tokens=self.settings.max_tokens,
-                tools=self.model_tools,
-                extra_headers=DEFAULT_BUB_HEADERS,
+                tools=model_tools(REGISTRY.values()),
+                **extra_options,
             )
 
     def _system_prompt(self, prompt: str, state: State) -> str:
         blocks: list[str] = []
-        for result in reversed(self._pm.hook.system_prompt(prompt=prompt, state=state)):
-            if result:
-                blocks.append(result)
-        tools_prompt = render_tools_prompt(self.tools)
+        if result := self.framework.get_system_prompt(prompt=prompt, state=state):
+            blocks.append(result)
+        tools_prompt = render_tools_prompt(REGISTRY.values())
         if tools_prompt:
             blocks.append(tools_prompt)
         workspace = workspace_from_state(state)
@@ -225,7 +214,7 @@ def _resolve_tool_auto_result(output: ToolAutoResult) -> _ToolAutoOutcome:
     return _ToolAutoOutcome(kind="error", error=f"{error_kind}: {output.error.message}")
 
 
-def _build_llm(settings: RuntimeSettings, tape_store: AsyncTapeStore) -> LLM:
+def _build_llm(settings: AgentSettings, tape_store: AsyncTapeStore) -> LLM:
     return LLM(
         settings.model,
         api_key=settings.api_key,
@@ -235,8 +224,8 @@ def _build_llm(settings: RuntimeSettings, tape_store: AsyncTapeStore) -> LLM:
     )
 
 
-def _load_runtime_settings() -> RuntimeSettings:
-    return RuntimeSettings()
+def _load_runtime_settings() -> AgentSettings:
+    return AgentSettings()
 
 
 @dataclass(frozen=True)
@@ -267,10 +256,3 @@ def _parse_args(args_tokens: list[str]) -> Args:
         else:
             positional.append(token)
     return Args(positional=positional, kwargs=kwargs)
-
-
-def workspace_from_state(state: State) -> Path:
-    raw = state.get("_runtime_workspace")
-    if isinstance(raw, str) and raw.strip():
-        return Path(raw).expanduser().resolve()
-    return Path.cwd().resolve()

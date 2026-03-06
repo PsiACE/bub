@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import pluggy
-from republic import AsyncTapeStore, Tool
+from republic import AsyncTapeStore
 from republic.tape import TapeStore
 
 from bub.types import Envelope, MessageHandler, State
@@ -78,11 +78,6 @@ class BubHookSpecs:
     @hookspec
     def system_prompt(self, prompt: str, state: State) -> str:
         """Provide a system prompt to be prepended to all model prompts."""
-        raise NotImplementedError
-
-    @hookspec
-    def provide_tools(self) -> list[Tool]:
-        """Return a list of tools to be registered in the framework's tool registry."""
         raise NotImplementedError
 
     @hookspec(firstresult=True)

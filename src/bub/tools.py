@@ -1,7 +1,7 @@
 import inspect
 import json
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import replace
 from typing import Any, overload
 
@@ -9,6 +9,9 @@ from loguru import logger
 from pydantic import BaseModel
 from republic import Tool
 from republic import tool as republic_tool
+
+# Central registry for tools. Tools defined with the @tool decorator are automatically added here.
+REGISTRY: dict[str, Tool] = {}
 
 
 def _add_logging(tool: Tool) -> Tool:
@@ -117,10 +120,13 @@ def tool(
         context=context,
     )
     if isinstance(result, Tool):
+        REGISTRY[result.name] = result
         return _add_logging(result)
 
     def decorator(func: Callable) -> Tool:
-        return _add_logging(result(func))
+        tool_instance = _add_logging(result(func))
+        REGISTRY[tool_instance.name] = tool_instance
+        return tool_instance
 
     return decorator
 
@@ -129,12 +135,12 @@ def _to_model_name(name: str) -> str:
     return name.replace(".", "_")
 
 
-def model_tools(tools: list[Tool]) -> list[Tool]:
+def model_tools(tools: Iterable[Tool]) -> list[Tool]:
     """Helper to convert a list of Tool instances into a format accepted by LLMs."""
     return [replace(tool, name=_to_model_name(tool.name)) for tool in tools]
 
 
-def render_tools_prompt(tools: list[Tool]) -> str:
+def render_tools_prompt(tools: Iterable[Tool]) -> str:
     """Render a human-readable description of tools for model prompts."""
     if not tools:
         return ""

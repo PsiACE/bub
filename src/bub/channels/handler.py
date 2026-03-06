@@ -1,5 +1,4 @@
 import asyncio
-from dataclasses import replace
 
 from loguru import logger
 
@@ -14,12 +13,11 @@ class BufferedMessageHandler:
         self, handler: MessageHandler, *, active_time_window: float, max_wait_seconds: float, debounce_seconds: float
     ) -> None:
         self._handler = handler
-        self._pending_prompts: list[str] = []
+        self._pending_messages: list[ChannelMessage] = []
         self._last_active_time: float | None = None
         self._event = asyncio.Event()
         self._timer: asyncio.TimerHandle | None = None
         self._in_processing: asyncio.Task | None = None
-        self._message_template: ChannelMessage | None = None
         self._loop = asyncio.get_running_loop()
 
         self.active_time_window = active_time_window
@@ -34,15 +32,12 @@ class BufferedMessageHandler:
 
     async def _process(self) -> None:
         await self._event.wait()
-        content = "\n".join(self._pending_prompts)
-        self._pending_prompts.clear()
+        message = ChannelMessage.from_batch(self._pending_messages)
+        self._pending_messages.clear()
         self._in_processing = None
-        assert self._message_template is not None  # noqa: S101
-        message = replace(self._message_template, content=content)
         await self._handler(message)
 
     async def __call__(self, message: ChannelMessage) -> None:
-        self._message_template = message
         now = self._loop.time()
         if message.content.startswith(","):
             logger.info(
@@ -58,7 +53,7 @@ class BufferedMessageHandler:
                 "session.message received ignored session_id={}, content={}", message.session_id, message.content
             )
             return
-        self._pending_prompts.append(message.content)
+        self._pending_messages.append(message)
         if message.is_active:
             self._last_active_time = now
             logger.info(

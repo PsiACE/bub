@@ -5,7 +5,7 @@ Bub uses channel adapters to run the same agent pipeline across different I/O en
 ## Builtin Channels
 
 - `cli`: local interactive terminal channel (`uv run bub chat`)
-- `telegram`: Telegram bot channel (`uv run bub message`)
+- `telegram`: Telegram bot channel (`uv run bub gateway`)
 
 See [Telegram](telegram.md) for channel-specific configuration and runtime behavior.
 
@@ -20,13 +20,13 @@ uv run bub chat
 Channel listener mode (all non-`cli` channels by default):
 
 ```bash
-uv run bub message
+uv run bub gateway
 ```
 
 Enable only Telegram:
 
 ```bash
-uv run bub message --enable-channel telegram
+uv run bub gateway --enable-channel telegram
 ```
 
 ## Session Semantics

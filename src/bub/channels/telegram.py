@@ -15,8 +15,8 @@ from telegram.ext import MessageHandler as TelegramMessageHandler
 
 from bub.channels.base import Channel
 from bub.channels.message import ChannelMessage
-from bub.channels.utils import exclude_none
 from bub.types import MessageHandler
+from bub.utils import exclude_none
 
 
 class TelegramSettings(BaseSettings):

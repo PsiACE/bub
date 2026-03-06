@@ -1,6 +1,9 @@
 import asyncio
 from collections.abc import Coroutine
+from pathlib import Path
 from typing import Any
+
+from bub.types import State
 
 
 def exclude_none(d: dict[str, Any]) -> dict[str, Any]:
@@ -20,3 +23,10 @@ async def wait_until_stopped[T](coro: Coroutine[None, None, T], stop_event: asyn
     else:
         waiter.cancel()
         return task.result()
+
+
+def workspace_from_state(state: State) -> Path:
+    raw = state.get("_runtime_workspace")
+    if isinstance(raw, str) and raw.strip():
+        return Path(raw).expanduser().resolve()
+    return Path.cwd().resolve()

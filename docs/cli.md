@@ -1,6 +1,6 @@
 # CLI
 
-`bub` currently exposes four builtin commands: `run`, `hooks`, `message`, and `chat`.
+`bub` currently exposes four builtin commands: `run`, `gateway`, `chat`, and the hidden compatibility command `message`.
 
 ## `bub run`
 
@@ -12,7 +12,7 @@ uv run bub run "hello" --channel cli --chat-id local
 
 Common options:
 
-- `--workspace/-w`: workspace root
+- `--workspace/-w`: workspace root, declared once on the top-level CLI and shared by all subcommands
 - `--channel`: source channel (default `cli`)
 - `--chat-id`: source endpoint id (default `local`)
 - `--sender-id`: sender identity (default `human`)
@@ -40,19 +40,23 @@ Print hook-to-plugin bindings discovered at startup.
 uv run bub hooks
 ```
 
-## `bub message`
+`hooks` remains available for diagnostics, but it is hidden from the top-level help.
+
+## `bub gateway`
 
 Start channel listener mode (defaults to all non-`cli` channels).
 
 ```bash
-uv run bub message
+uv run bub gateway
 ```
 
 Enable only selected channels:
 
 ```bash
-uv run bub message --enable-channel telegram
+uv run bub gateway --enable-channel telegram
 ```
+
+`bub message` is kept as a hidden compatibility alias and forwards to the same command implementation.
 
 ## `bub chat`
 
@@ -65,7 +69,7 @@ uv run bub chat --chat-id local --session-id cli:local
 
 ## Notes
 
-- `--workspace` is supported by `run`, `hooks`, `message`, and `chat`.
+- `--workspace` is parsed before the subcommand, for example `uv run bub --workspace /repo chat`.
 - `run` prints each outbound as:
 
 ```text

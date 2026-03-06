@@ -37,7 +37,30 @@ my_plugin = "my_package.plugin:my_plugin"
 
 `BubFramework.load_hooks()` loads builtin first, then entry points in `group="bub"`.
 
-## 3) Ship Skills In Extension Packages
+## 3) Expose Tools By Importing The Module
+
+Tools are registered through the `@tool` decorator's import-time side effect.
+Your plugin must import the module that contains the `@tool` definitions before the agent starts using them.
+
+Example:
+
+```python
+from __future__ import annotations
+
+from bub import hookimpl
+
+from . import tools  # noqa: F401
+
+
+class MyPlugin:
+    @hookimpl
+    def system_prompt(self, prompt, state):
+        return "extension prompt"
+```
+
+If that import is missing, the tool module never runs, nothing is inserted into `bub.tools.REGISTRY`, and the tool will not be available to the agent or CLI completion.
+
+## 4) Ship Skills In Extension Packages
 
 Extension packages can also ship skills by including a top-level `bub_skills/` directory in the distribution.
 
@@ -64,7 +87,7 @@ includes = ["src/"]
 At runtime, Bub discovers builtin skills from `<site-packages>/bub_skills`, so packaged skills in that location are loaded automatically.
 These skills use normal precedence rules and can still be overridden by workspace (`.agents/skills`) or user (`~/.agents/skills`) skills.
 
-## 4) Hook Execution Semantics
+## 5) Hook Execution Semantics
 
 `HookRuntime` drives most framework hooks:
 
@@ -85,25 +108,26 @@ Current `process_inbound()` hook usage:
 Other hook consumers:
 
 - `register_cli_commands`: called by `call_many_sync`
-- `provide_channels`: called by `call_many_sync` in `ChannelManager`
-- `system_prompt`, `provide_tools`, `provide_tape_store`: consumed by `RuntimeEngine`
+- `provide_channels`: called by `call_many_sync` in `BubFramework.get_channels()`
+- `system_prompt`, `provide_tape_store`: consumed by `BubFramework` and the builtin `Agent`
 
-## 5) Priority And Override Rules
+## 6) Priority And Override Rules
 
 - Builtin plugin is registered first.
 - Later plugins have higher runtime precedence.
 - `HookRuntime` reverses pluggy implementation order so later registration runs first.
 - For `load_state`, framework re-reverses before merge so high-priority values overwrite low-priority values.
 
-## 6) Sync vs Async Rules
+## 7) Sync vs Async Rules
 
 - Async hook calls can run both sync and async implementations.
 - Sync hook calls skip awaitable return values and log a warning.
 - Therefore, keep bootstrap hooks synchronous:
   - `register_cli_commands`
   - `provide_channels`
+  - `provide_tape_store`
 
-## 7) Signature Matching
+## 8) Signature Matching
 
 `HookRuntime` passes only parameters declared in your function signature.
 You can safely omit unused hook arguments.
@@ -120,7 +144,7 @@ class SessionPlugin:
         return "my-session"
 ```
 
-## 8) Minimal End-To-End Example
+## 9) Minimal End-To-End Example
 
 ```python
 from __future__ import annotations
@@ -147,8 +171,9 @@ uv run bub run "hello"
 
 Check that your plugin is listed for `build_prompt` / `run_model`, and output reflects your override.
 
-## 9) Common Pitfalls
+## 10) Common Pitfalls
 
+- Defining `@tool` functions without importing the module from your plugin means the tools never register.
 - Returning awaitables from hooks invoked via sync paths (`call_many_sync` / `call_first_sync`) causes skip.
 - Assuming hook failures are isolated: non-`on_error` hook exceptions propagate and can fail the turn.
 - Using stale hook names: always confirm against `src/bub/hookspecs.py`.

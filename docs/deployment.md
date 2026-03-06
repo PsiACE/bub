@@ -29,7 +29,7 @@ OPENROUTER_API_KEY=sk-or-...
 Choose one command based on your operation target:
 
 1. Interactive local operator: `uv run bub chat`
-2. Channel listener service: `uv run bub message`
+2. Channel listener service: `uv run bub gateway`
 3. One-shot task execution: `uv run bub run "summarize this repo"`
 
 ## 3) Telegram Channel Setup
@@ -41,7 +41,7 @@ Telegram configuration and runtime behavior are documented in:
 Quick start:
 
 ```bash
-BUB_TELEGRAM_TOKEN=123456:token uv run bub message --enable-channel telegram
+BUB_TELEGRAM_TOKEN=123456:token uv run bub gateway --enable-channel telegram
 ```
 
 ## 4) Docker Compose
@@ -61,10 +61,8 @@ docker compose logs -f app
 
 Current entrypoint behavior:
 
-- if `/workspace/startup.sh` exists, entrypoint tries to start `bub idle` in background, then runs `startup.sh`
-- otherwise it starts `bub message`
-
-Important: core CLI currently does not expose a builtin `idle` command. If you rely on `startup.sh`, verify your image/plugin setup provides it, or adjust `entrypoint.sh`.
+- if `/workspace/startup.sh` exists, entrypoint tries to run `startup.sh`
+- otherwise it starts `bub gateway`
 
 Default mounts in `docker-compose.yml`:
 
@@ -75,13 +73,13 @@ Default mounts in `docker-compose.yml`:
 ## 5) Operational Checks
 
 1. Verify process:
-   `ps aux | rg "bub (chat|message|run)"`
+   `ps aux | rg "bub (chat|gateway|run)"`
 2. Verify model config:
    `rg -n "BUB_MODEL|OPENROUTER_API_KEY|LLM_API_KEY" .env`
 3. Verify Telegram settings:
    `rg -n "BUB_TELEGRAM_TOKEN|BUB_TELEGRAM_ALLOW_USERS|BUB_TELEGRAM_ALLOW_CHATS" .env`
 4. Verify startup logs:
-   `uv run bub message --enable-channel telegram`
+   `uv run bub gateway --enable-channel telegram`
 
 ## 6) Safe Upgrade
 

@@ -8,7 +8,9 @@ DEFAULT_MAX_TOKENS = 1024
 DEFAULT_HOME = pathlib.Path.home() / ".bub"
 
 
-class RuntimeSettings(BaseSettings):
+class AgentSettings(BaseSettings):
+    """Configuration settings for the Agent, loaded from environment variables with prefix BUB_ or from a .env file."""
+
     model_config = SettingsConfigDict(env_prefix="BUB_", env_parse_none_str="null", extra="ignore", env_file=".env")
 
     home: pathlib.Path = Field(default=DEFAULT_HOME)
