@@ -135,8 +135,10 @@ def _is_valid_metadata_field(metadata_field: object) -> bool:
     return all(isinstance(key, str) and isinstance(value, str) for key, value in metadata_field.items())
 
 
-def _builtin_skills_root() -> Path:
-    return Path(__file__).resolve().parent.parent / "bub_skills"
+def _builtin_skills_root() -> list[Path]:
+    import importlib
+
+    return [Path(p) for p in importlib.import_module("bub_skills").__path__]
 
 
 def _iter_skill_roots(workspace_path: Path) -> list[tuple[Path, str]]:
@@ -155,7 +157,8 @@ def _iter_skill_roots(workspace_path: Path) -> list[tuple[Path, str]]:
         elif source == "global":
             roots.append((Path.home() / PROJECT_SKILLS_DIR, source))
         elif source == "builtin":
-            roots.append((_builtin_skills_root(), source))
+            for path in _builtin_skills_root():
+                roots.append((path, source))
     return roots
 
 
