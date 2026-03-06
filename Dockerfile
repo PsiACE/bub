@@ -36,7 +36,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock README.md LICENSE entrypoint.sh ./
 # Copy the full source and install
 COPY src ./src
-RUN uv sync --no-dev && uv pip install "aio-pika" && \
+RUN uv sync --no-dev && uv pip install "any-llm-sdk[gemini]" && \
     chmod +x /app/entrypoint.sh
 
 WORKDIR /workspace
