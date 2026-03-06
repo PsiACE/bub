@@ -2,18 +2,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import typer
 
 from bub.framework import BubFramework
 
 
 def create_cli_app() -> typer.Typer:
-    app = typer.Typer(name="bub", help="Batteries-included, hook-first AI framework", add_completion=False)
-    framework = BubFramework(Path.cwd())
+    framework = BubFramework()
     framework.load_hooks()
-    framework.register_cli_commands(app)
+    app = framework.create_cli_app()
 
     if not app.registered_commands:
 

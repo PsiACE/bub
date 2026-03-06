@@ -5,21 +5,21 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from republic import Tool, ToolContext
+from republic import ToolContext
 
 from bub.skills import discover_skills
 from bub.tools import tool
 
 if TYPE_CHECKING:
-    from bub.builtin.engine import RuntimeEngine
+    from bub.builtin.agent import Agent
 
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 30
 
 
-def _get_runtime(context: ToolContext) -> RuntimeEngine:
-    if "_runtime_engine" not in context.state:
-        raise RuntimeError("no runtime engine found in tool context")
-    return cast("RuntimeEngine", context.state["_runtime_engine"])
+def _get_agent(context: ToolContext) -> Agent:
+    if "_runtime_agent" not in context.state:
+        raise RuntimeError("no runtime agent found in tool context")
+    return cast("Agent", context.state["_runtime_agent"])
 
 
 @tool(context=True)
@@ -83,7 +83,7 @@ def fs_edit(path: str, old: str, new: str, start: int = 0, *, context: ToolConte
 @tool(context=True, name="skill.load")
 def skill_load(name: str, *, context: ToolContext) -> str:
     """Load the skill content by name. The skill must be located in predefined locations and have a valid frontmatter."""
-    from bub.builtin.engine import workspace_from_state
+    from bub.utils import workspace_from_state
 
     workspace = workspace_from_state(context.state)
     skill_index = {skill.name: skill for skill in discover_skills(workspace)}
@@ -96,8 +96,8 @@ def skill_load(name: str, *, context: ToolContext) -> str:
 @tool(context=True, name="tape.info")
 async def tape_info(context: ToolContext) -> str:
     """Get information about the current tape, such as number of entries and anchors."""
-    runtime = _get_runtime(context)
-    info = await runtime.tapes.info(context.tape or "")
+    agent = _get_agent(context)
+    info = await agent.tapes.info(context.tape or "")
     return (
         f"name: {info.name}\n"
         f"entries: {info.entries}\n"
@@ -111,8 +111,8 @@ async def tape_info(context: ToolContext) -> str:
 @tool(context=True, name="tape.search")
 async def tape_search(query: str, limit: int = 20, *, context: ToolContext) -> str:
     """Search for entries in the current tape that match the query. Returns a list of matching entries."""
-    runtime = _get_runtime(context)
-    entries = await runtime.tapes.search(context.tape or "", query=query, limit=limit)
+    agent = _get_agent(context)
+    entries = await agent.tapes.search(context.tape or "", query=query, limit=limit)
     if not entries:
         return "(no matches)"
     return "\n".join(f"- {json.dumps(entry.payload)}" for entry in entries)
@@ -121,24 +121,24 @@ async def tape_search(query: str, limit: int = 20, *, context: ToolContext) -> s
 @tool(context=True, name="tape.reset")
 async def tape_reset(archive: bool = False, *, context: ToolContext) -> str:
     """Reset the current tape, optionally archiving it."""
-    runtime = _get_runtime(context)
-    result = await runtime.tapes.reset(context.tape or "", archive=archive)
+    agent = _get_agent(context)
+    result = await agent.tapes.reset(context.tape or "", archive=archive)
     return result
 
 
 @tool(context=True, name="tape.handoff")
 async def tape_handoff(name: str = "handoff", summary: str = "", *, context: ToolContext) -> str:
     """Add a handoff anchor to the current tape."""
-    runtime = _get_runtime(context)
-    await runtime.tapes.handoff(context.tape or "", name=name, state={"summary": summary})
+    agent = _get_agent(context)
+    await agent.tapes.handoff(context.tape or "", name=name, state={"summary": summary})
     return f"anchor added: {name}"
 
 
 @tool(context=True, name="tape.anchors")
 async def tape_anchors(*, context: ToolContext) -> str:
     """List anchors in the current tape."""
-    runtime = _get_runtime(context)
-    anchors = await runtime.tapes.anchors(context.tape or "")
+    agent = _get_agent(context)
+    anchors = await agent.tapes.anchors(context.tape or "")
     if not anchors:
         return "(no anchors)"
     return "\n".join(f"- {anchor.name}" for anchor in anchors)
@@ -174,19 +174,3 @@ def _resolve_path(context: ToolContext, raw_path: str) -> Path:
         raise TypeError("runtime workspace must be a filesystem path")
     workspace_path = Path(workspace)
     return (workspace_path / path).resolve()
-
-
-def get_builtin_tools() -> list[Tool]:
-    return [
-        show_help,
-        bash,
-        skill_load,
-        fs_read,
-        fs_write,
-        fs_edit,
-        tape_info,
-        tape_search,
-        tape_reset,
-        tape_handoff,
-        tape_anchors,
-    ]

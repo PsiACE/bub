@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from bub.channels.utils import exclude_none, wait_until_stopped
+from bub.utils import exclude_none, wait_until_stopped
 
 
 def test_exclude_none_keeps_non_none_values() -> None:

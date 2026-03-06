@@ -9,10 +9,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from bub.channels.base import Channel
 from bub.channels.handler import BufferedMessageHandler
 from bub.channels.message import ChannelMessage
-from bub.channels.utils import wait_until_stopped
 from bub.envelope import content_of, field_of
 from bub.framework import BubFramework
 from bub.types import Envelope, MessageHandler
+from bub.utils import wait_until_stopped
 
 
 class ChannelSettings(BaseSettings):
@@ -38,7 +38,7 @@ class ChannelSettings(BaseSettings):
 class ChannelManager:
     def __init__(self, framework: BubFramework, enabled_channels: Collection[str] | None = None) -> None:
         self.framework = framework
-        self._channels: dict[str, Channel] = {}
+        self._channels: dict[str, Channel] = self.framework.get_channels(self.on_receive)
         self._settings = ChannelSettings()
         if enabled_channels is not None:
             self._enabled_channels = list(enabled_channels)
@@ -47,7 +47,6 @@ class ChannelManager:
         self._messages = asyncio.Queue[ChannelMessage]()
         self._ongoing_tasks: set[asyncio.Task] = set()
         self._session_handlers: dict[str, MessageHandler] = {}
-        self._load_channels()
 
     async def on_receive(self, message: ChannelMessage) -> None:
         channel = message.channel
@@ -98,13 +97,6 @@ class ChannelManager:
             # Exclude 'cli' channel from 'all' to prevent interference with other channels
             return [channel for name, channel in self._channels.items() if name != "cli"]
         return [channel for name, channel in self._channels.items() if name in self._enabled_channels]
-
-    def _load_channels(self) -> None:
-        for result in reversed(
-            self.framework._hook_runtime.call_many_sync("provide_channels", message_handler=self.on_receive)
-        ):
-            for channel in result:
-                self._channels[channel.name] = channel
 
     async def listen_and_run(self) -> None:
         stop_event = asyncio.Event()

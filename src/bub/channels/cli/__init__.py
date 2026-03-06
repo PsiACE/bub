@@ -13,12 +13,13 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.patch_stdout import patch_stdout
 from rich import get_console
 
-from bub.builtin.engine import RuntimeEngine
+from bub.builtin.agent import Agent
 from bub.builtin.tape import TapeInfo
 from bub.channels.base import Channel
 from bub.channels.cli.renderer import CliRenderer
 from bub.channels.message import ChannelMessage
 from bub.envelope import content_of, field_of
+from bub.tools import REGISTRY
 from bub.types import MessageHandler
 
 
@@ -28,9 +29,9 @@ class CliChannel(Channel):
     name = "cli"
     _stop_event: asyncio.Event
 
-    def __init__(self, on_receive: MessageHandler, engine: RuntimeEngine) -> None:
+    def __init__(self, on_receive: MessageHandler, agent: Agent) -> None:
         self._on_receive = on_receive
-        self._engine = engine
+        self._agent = agent
         self._message_template = {
             "chat_id": "cli_chat",
             "channel": self.name,
@@ -44,8 +45,8 @@ class CliChannel(Channel):
         self._workspace = Path.cwd()
 
     async def _refresh_tape_info(self) -> None:
-        tape = self._engine.tapes.session_tape(self._message_template["session_id"], self._workspace)
-        info = await self._engine.tapes.info(tape.name)
+        tape = self._agent.tapes.session_tape(self._message_template["session_id"], self._workspace)
+        info = await self._agent.tapes.info(tape.name)
         self._last_tape_info = info
 
     def set_metadata(self, session_id: str | None = None, chat_id: str | None = None) -> None:
@@ -74,7 +75,7 @@ class CliChannel(Channel):
                 self._renderer.assistant_output(content_of(message))
 
     async def _main_loop(self) -> None:
-        self._renderer.welcome(model=self._engine.settings.model, workspace=str(self._workspace))
+        self._renderer.welcome(model=self._agent.settings.model, workspace=str(self._workspace))
         await self._refresh_tape_info()
         request_completed = asyncio.Event()
 
@@ -142,10 +143,10 @@ class CliChannel(Channel):
             section, _, name = tool_name.rpartition(".")
             return (section, name)
 
-        history_file = self._history_file(self._engine.settings.home, workspace)
+        history_file = self._history_file(self._agent.settings.home, workspace)
         history_file.parent.mkdir(parents=True, exist_ok=True)
         history = FileHistory(str(history_file))
-        tool_names = sorted((f",{tool.name}" for tool in self._engine.tools), key=_tool_sort_key)
+        tool_names = sorted((f",{name}" for name in REGISTRY), key=_tool_sort_key)
         completer = WordCompleter(tool_names, ignore_case=True)
         return PromptSession(
             completer=completer,
@@ -160,7 +161,7 @@ class CliChannel(Channel):
         now = datetime.now().strftime("%H:%M")
         left = f"{now}  mode:{self._mode}"
         right = (
-            f"model:{self._engine.settings.model}  "
+            f"model:{self._agent.settings.model}  "
             f"entries:{field_of(info, 'entries', '-')} "
             f"anchors:{field_of(info, 'anchors', '-')} "
             f"last:{field_of(info, 'last_anchor', None) or '-'}"

@@ -4,15 +4,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pluggy
+import typer
 from loguru import logger
+from republic import AsyncTapeStore
+from republic.tape import TapeStore
 
 from bub.envelope import content_of, field_of, unpack_batch
 from bub.hook_runtime import HookRuntime
 from bub.hookspecs import BUB_HOOK_NAMESPACE, BubHookSpecs
-from bub.types import Envelope, OutboundChannelRouter, TurnResult
+from bub.types import Envelope, MessageHandler, OutboundChannelRouter, TurnResult
+
+if TYPE_CHECKING:
+    from bub.channels.base import Channel
 
 
 @dataclass(frozen=True)
@@ -24,8 +30,8 @@ class PluginStatus:
 class BubFramework:
     """Minimal framework core. Everything grows from hook skills."""
 
-    def __init__(self, workspace: Path) -> None:
-        self.workspace = workspace.resolve()
+    def __init__(self) -> None:
+        self.workspace = Path.cwd().resolve()
         self._plugin_manager = pluggy.PluginManager(BUB_HOOK_NAMESPACE)
         self._plugin_manager.add_hookspecs(BubHookSpecs)
         self._hook_runtime = HookRuntime(self._plugin_manager)
@@ -35,7 +41,7 @@ class BubFramework:
     def _load_builtin_hooks(self) -> None:
         from bub.builtin.hook_impl import BuiltinImpl
 
-        impl = BuiltinImpl(self._hook_runtime, outbound_dispatcher=self.dispatch_via_router)
+        impl = BuiltinImpl(self)
 
         try:
             self._plugin_manager.register(impl, name="builtin")
@@ -51,6 +57,8 @@ class BubFramework:
         for entry_point in importlib.metadata.entry_points(group="bub"):
             try:
                 plugin = entry_point.load()
+                if callable(plugin):  # Support entry points that are classes
+                    plugin = plugin(self)
                 self._plugin_manager.register(plugin, name=entry_point.name)
             except Exception as exc:
                 logger.warning(f"Failed to load plugin '{entry_point.name}': {exc}")
@@ -58,23 +66,32 @@ class BubFramework:
             else:
                 self._plugin_status[entry_point.name] = PluginStatus(is_success=True)
 
-    def register_cli_commands(self, app: Any) -> None:
-        """Ask skills to register CLI commands."""
+    def create_cli_app(self) -> typer.Typer:
+        """Create CLI app by collecting commands from hooks. Can be used for custom CLI entry point."""
+        app = typer.Typer(name="bub", help="Batteries-included, hook-first AI framework", add_completion=False)
+
+        @app.callback(invoke_without_command=True)
+        def _main(
+            ctx: typer.Context,
+            workspace: str | None = typer.Option(None, "--workspace", "-w", help="Path to the workspace"),
+        ) -> None:
+            if workspace:
+                self.workspace = Path(workspace).resolve()
+            ctx.obj = self
 
         self._hook_runtime.call_many_sync("register_cli_commands", app=app)
+        return app
 
     async def process_inbound(self, inbound: Envelope) -> TurnResult:
         """Run one inbound message through hooks and return turn result."""
 
         try:
-            if isinstance(inbound, dict):
-                inbound.setdefault("workspace", str(self.workspace))
             session_id = await self._hook_runtime.call_first(
                 "resolve_session", message=inbound
             ) or self._default_session_id(inbound)
             if isinstance(inbound, dict):
                 inbound.setdefault("session_id", session_id)
-            state = {}
+            state = {"_runtime_workspace": str(self.workspace)}
             for hook_state in reversed(
                 await self._hook_runtime.call_many("load_state", message=inbound, session_id=session_id)
             ):
@@ -169,3 +186,21 @@ class BubFramework:
         if chat_id is not None:
             fallback["chat_id"] = chat_id
         return [fallback]
+
+    def get_channels(self, message_handler: MessageHandler) -> dict[str, Channel]:
+        channels: dict[str, Channel] = {}
+        for result in self._hook_runtime.call_many_sync("provide_channels", message_handler=message_handler):
+            for channel in result:
+                if channel.name not in channels:
+                    channels[channel.name] = channel
+        return channels
+
+    def get_tape_store(self) -> TapeStore | AsyncTapeStore | None:
+        return self._hook_runtime.call_first_sync("provide_tape_store")
+
+    def get_system_prompt(self, prompt: str, state: dict[str, Any]) -> str:
+        return "\n\n".join(
+            result
+            for result in reversed(self._hook_runtime.call_many_sync("system_prompt", prompt=prompt, state=state))
+            if result
+        )
