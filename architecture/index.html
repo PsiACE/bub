@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="generator" content="mkdocs-1.6.1, mkdocs-terminal-4.8.0">
+    
+    <meta name="description" content="An agent partner for real teams: visible execution, reliable collaboration."> 
+    
+    <meta name="author" content="Bub Build"> 
+    
+    <link rel="canonical" href="https://bub.build/architecture/"><link rel="icon" type="image/png" sizes="192x192" href="../img/android-chrome-192x192.png" />
+<link rel="icon" type="image/png" sizes="512x512" href="../img/android-chrome-512x512.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="../img/apple-touch-icon.png" />
+<link rel="shortcut icon" type="image/png" sizes="48x48" href="../img/favicon.ico" />
+<link rel="icon" type="image/png" sizes="16x16" href="../img/favicon-16x16.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="../img/favicon-32x32.png" />
+
+
+    
+ 
+<title>Architecture - bub</title>
+
+
+<link href="../css/fontawesome/css/fontawesome.min.css" rel="stylesheet">
+<link href="../css/fontawesome/css/solid.min.css" rel="stylesheet">
+<link href="../css/normalize.css" rel="stylesheet">
+<link href="../css/terminal.css" rel="stylesheet">
+<link href="../css/theme.css" rel="stylesheet">
+<link href="../css/theme.tile_grid.css" rel="stylesheet">
+<link href="../css/theme.footer.css" rel="stylesheet">
+<!-- dark color palette -->
+<link href="../css/palettes/dark.css" rel="stylesheet">
+
+<!-- page layout -->
+<style>
+/* initially set page layout to a one column grid */
+.terminal-mkdocs-main-grid {
+    display: grid;
+    grid-column-gap: 1.4em;
+    grid-template-columns: auto;
+    grid-template-rows: auto;
+}
+
+/*  
+*   when side navigation is not hidden, use a two column grid.  
+*   if the screen is too narrow, fall back to the initial one column grid layout.
+*   in this case the main content will be placed under the navigation panel. 
+*/
+@media only screen and (min-width: 70em) {
+    .terminal-mkdocs-main-grid {
+        grid-template-columns: 4fr 9fr;
+    }
+}</style>
+
+
+
+    
+    <link href="../assets/_mkdocstrings.css" rel="stylesheet">  
+    
+    
+
+    
+    <!-- search css support -->
+<link href="../css/search/bootstrap-modal.css" rel="stylesheet">
+<!-- search scripts -->
+<script>
+    var base_url = "..",
+    shortcuts = "{}";
+</script>
+<script src="../js/jquery/jquery-1.10.1.min.js" defer></script>
+<script src="../js/bootstrap/bootstrap.min.js" defer></script>
+<script src="../js/mkdocs/base.js" defer></script>
+    
+    
+    
+    
+    <script src="../search/main.js"></script>
+    
+
+    
+</head>
+
+<body class="terminal"><div class="container">
+    <div class="terminal-nav">
+        <header class="terminal-logo">
+            <div id="mkdocs-terminal-site-name" class="logo terminal-prompt"><a href="https://bub.build/" class="no-style">bub</a></div>
+        </header>
+        
+        <nav class="terminal-menu">
+            
+            <ul vocab="https://schema.org/" typeof="BreadcrumbList">
+                
+                
+                <li property="itemListElement" typeof="ListItem">
+                    <a href=".." class="menu-item " property="item" typeof="WebPage">
+                        <span property="name">Home</span>
+                    </a>
+                    <meta property="position" content="0">
+                </li>
+                
+                
+                
+                
+                
+                
+                
+                
+                <li property="itemListElement" typeof="ListItem">
+                    <a href="../deployment/" class="menu-item " property="item" typeof="WebPage">
+                        <span property="name">Deployment</span>
+                    </a>
+                    <meta property="position" content="1">
+                </li>
+                
+                
+                <li property="itemListElement" typeof="ListItem">
+                    <a href="../extension-guide/" class="menu-item " property="item" typeof="WebPage">
+                        <span property="name">Extension Guide</span>
+                    </a>
+                    <meta property="position" content="2">
+                </li>
+                
+                
+                
+                    
+                    
+
+
+<li property="itemListElement" typeof="ListItem">
+    <a href="#" class="menu-item" data-toggle="modal" data-target="#mkdocs_search_modal" property="item" typeof="SearchAction">
+        <i aria-hidden="true" class="fa fa-search"></i> <span property="name">Search</span>
+    </a>
+    <meta property="position" content="3">
+</li>
+                    
+            </ul>
+            
+        </nav>
+    </div>
+</div>
+        
+    <div class="container">
+        <div class="terminal-mkdocs-main-grid"><aside id="terminal-mkdocs-side-panel"><nav>
+    <ul class="terminal-mkdocs-side-nav-items">
+        
+          <li class="terminal-mkdocs-side-nav-li">
+    
+    
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="..">Home</a>
+        
+    
+    
+    
+       </li>
+        
+          <li class="terminal-mkdocs-side-nav-li">
+    
+        
+        
+        
+            
+    
+        
+        <span class="
+        
+    terminal-mkdocs-side-nav-item--active terminal-mkdocs-side-nav-section-no-index">Core</span>
+    
+    
+        
+        
+            <ul class="terminal-mkdocs-side-nav-li-ul">
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../core/">Overview</a>
+        
+    
+    </li>
+            
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        <span class="terminal-mkdocs-side-nav-item--active">Architecture</span>
+    
+    </li>
+            
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../features/">Key Features</a>
+        
+    
+    </li>
+            
+            
+    </ul>
+        
+    
+       </li>
+        
+          <li class="terminal-mkdocs-side-nav-li">
+    
+        
+        
+        
+            
+    
+        
+        
+            
+            
+            <span class="
+        
+    terminal-mkdocs-side-nav-item terminal-mkdocs-side-nav-section-no-index">Workflows</span>
+        
+    
+    
+        
+        
+            <ul class="terminal-mkdocs-side-nav-li-ul">
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../workflows/">Overview</a>
+        
+    
+    </li>
+            
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../cli/">CLI</a>
+        
+    
+    </li>
+            
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../skills/">Skills</a>
+        
+    
+    </li>
+            
+            
+    </ul>
+        
+    
+       </li>
+        
+          <li class="terminal-mkdocs-side-nav-li">
+    
+        
+        
+        
+            
+    
+        
+        
+            
+            
+            <span class="
+        
+    terminal-mkdocs-side-nav-item terminal-mkdocs-side-nav-section-no-index">Channels</span>
+        
+    
+    
+        
+        
+            <ul class="terminal-mkdocs-side-nav-li-ul">
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../channels/">Overview</a>
+        
+    
+    </li>
+            
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../channels/telegram/">Telegram</a>
+        
+    
+    </li>
+            
+            
+    </ul>
+        
+    
+       </li>
+        
+          <li class="terminal-mkdocs-side-nav-li">
+    
+    
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../deployment/">Deployment</a>
+        
+    
+    
+    
+       </li>
+        
+          <li class="terminal-mkdocs-side-nav-li">
+    
+    
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../extension-guide/">Extension Guide</a>
+        
+    
+    
+    
+       </li>
+        
+          <li class="terminal-mkdocs-side-nav-li">
+    
+        
+        
+        
+            
+    
+        
+        
+            
+            
+            <span class="
+        
+    terminal-mkdocs-side-nav-item terminal-mkdocs-side-nav-section-no-index">Posts</span>
+        
+    
+    
+        
+        
+            <ul class="terminal-mkdocs-side-nav-li-ul">
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../posts/">Overview</a>
+        
+    
+    </li>
+            
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../posts/2025-07-16-baby-bub-bootstrap-milestone/">2025-07-16 Bootstrap Milestone</a>
+        
+    
+    </li>
+            
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../posts/2026-03-01-bub-socialized-evaluation-and-agent-partnership/">2026-03-01 Socialized Evaluation</a>
+        
+    
+    </li>
+            
+            
+    </ul>
+        
+    
+       </li>
+        
+    </ul>
+</nav><hr>
+<nav>
+    <ul>
+        <li><a href="#architecture">Architecture</a></li>
+        <li><a href="#core-components">Core Components</a></li><li><a href="#turn-lifecycle">Turn Lifecycle</a></li><li><a href="#hook-priority-semantics">Hook Priority Semantics</a></li><li><a href="#error-behavior">Error Behavior</a></li><li><a href="#builtin-runtime-notes">Builtin Runtime Notes</a></li><li><a href="#boundaries">Boundaries</a></li>
+    </ul>
+</nav>
+</aside>
+            <main id="terminal-mkdocs-main-content">
+<section id="mkdocs-terminal-content">
+    <h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h1>
+<h2 id="core-components">Core Components<a class="headerlink" href="#core-components" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>BubFramework</code>: creates the plugin manager, loads plugins, and runs <code>process_inbound()</code>.</li>
+<li><code>BubHookSpecs</code>: defines all hook contracts (<code>src/bub/hookspecs.py</code>).</li>
+<li><code>HookRuntime</code>: executes hooks with sync/async compatibility helpers (<code>src/bub/hook_runtime.py</code>).</li>
+<li><code>Agent</code>: builtin model-and-tools runtime (<code>src/bub/builtin/agent.py</code>).</li>
+<li><code>ChannelManager</code>: starts channels, buffers inbound messages, and routes outbound messages (<code>src/bub/channels/manager.py</code>).</li>
+</ul>
+<h2 id="turn-lifecycle">Turn Lifecycle<a class="headerlink" href="#turn-lifecycle" title="Permanent link">&para;</a></h2>
+<p><code>BubFramework.process_inbound()</code> currently executes in this order:</p>
+<ol>
+<li>Resolve session via <code>resolve_session(message)</code> (fallback to <code>channel:chat_id</code> if empty).</li>
+<li>Initialize state with <code>_runtime_workspace</code> from <code>BubFramework.workspace</code>.</li>
+<li>Merge all <code>load_state(message, session_id)</code> dicts.</li>
+<li>Build prompt via <code>build_prompt(message, session_id, state)</code> (fallback to inbound <code>content</code> if empty).</li>
+<li>Execute <code>run_model(prompt, session_id, state)</code>.</li>
+<li>Always execute <code>save_state(...)</code> in a <code>finally</code> block.</li>
+<li>Render outbound batches via <code>render_outbound(...)</code>, then flatten them.</li>
+<li>If no outbound exists, emit one fallback outbound.</li>
+<li>Dispatch each outbound via <code>dispatch_outbound(message)</code>.</li>
+</ol>
+<h2 id="hook-priority-semantics">Hook Priority Semantics<a class="headerlink" href="#hook-priority-semantics" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Registration order:</li>
+<li>Builtin plugin <code>builtin</code></li>
+<li>External entry points (<code>group="bub"</code>)</li>
+<li>Execution order:</li>
+<li><code>HookRuntime</code> reverses pluggy implementation order, so later-registered plugins run first.</li>
+<li><code>call_first</code> returns the first non-<code>None</code> value.</li>
+<li><code>call_many</code> collects every implementation return value (including <code>None</code>).</li>
+<li>Merge/override details:</li>
+<li><code>load_state</code> is reversed again before merge so high-priority plugins win on key collisions.</li>
+<li><code>provide_channels</code> is collected by <code>BubFramework.get_channels()</code>, and the first channel name wins, so high-priority plugins can override builtin channel names.</li>
+</ul>
+<h2 id="error-behavior">Error Behavior<a class="headerlink" href="#error-behavior" title="Permanent link">&para;</a></h2>
+<ul>
+<li>For normal hooks, <code>HookRuntime</code> does not swallow implementation errors.</li>
+<li><code>process_inbound()</code> catches top-level exceptions, notifies <code>on_error(stage="turn", ...)</code>, then re-raises.</li>
+<li><code>on_error</code> itself is observer-safe: one failing observer does not block the others.</li>
+<li>In sync calls (<code>call_first_sync</code>/<code>call_many_sync</code>), awaitable return values are skipped with a warning.</li>
+</ul>
+<h2 id="builtin-runtime-notes">Builtin Runtime Notes<a class="headerlink" href="#builtin-runtime-notes" title="Permanent link">&para;</a></h2>
+<p>Builtin <code>BuiltinImpl</code> behavior includes:</p>
+<ul>
+<li><code>build_prompt</code>: supports comma command mode; non-command text may include <code>context_str</code>.</li>
+<li><code>run_model</code>: delegates to <code>Agent.run()</code>.</li>
+<li><code>system_prompt</code>: combines a default prompt with workspace <code>AGENTS.md</code>.</li>
+<li><code>register_cli_commands</code>: installs <code>run</code>, <code>gateway</code>, <code>chat</code>, plus hidden compatibility/diagnostic commands.</li>
+<li><code>provide_channels</code>: returns <code>telegram</code> and <code>cli</code> channel adapters.</li>
+<li><code>provide_tape_store</code>: returns a file-backed tape store under <code>~/.bub/tapes</code>.</li>
+</ul>
+<h2 id="boundaries">Boundaries<a class="headerlink" href="#boundaries" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>Envelope</code> stays intentionally weakly typed (<code>Any</code> + accessor helpers).</li>
+<li>There is no globally enforced schema for cross-plugin <code>state</code>.</li>
+<li>Runtime behavior in this document is aligned with current source code.</li>
+</ul>
+</section>
+
+            </main>
+        </div>
+        <hr><footer>
+    <div class="terminal-mkdocs-footer-grid">
+        <div id="terminal-mkdocs-footer-copyright-info">
+            
+            <p class="text-center text-muted">Copyright (c) 2026 Bub Build contributors.</p>
+             Site built with <a href="http://www.mkdocs.org">MkDocs</a> and <a href="https://github.com/ntno/mkdocs-terminal">Terminal for MkDocs</a>.
+        </div>
+    </div>
+</footer>
+    </div>
+
+    
+    <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="alertdialog" aria-modal="true" aria-labelledby="searchModalLabel">
+    <div class="modal-dialog modal-lg" role="search">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="searchModalLabel">Search</h5>
+                <button type="button" class="close btn btn-default btn-ghost" data-dismiss="modal" aria-label="Close">x</button>
+            </div>
+            <div class="modal-body">
+                <p id="searchInputLabel">Type to start searching</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" aria-labelledby="searchInputLabel" placeholder="" id="mkdocs-search-query" title="Please enter search terms here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No document matches found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+    
+    
+</body>
+
+</html>

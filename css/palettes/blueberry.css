@@ -1,0 +1,31 @@
+/*! blueberry.css | MIT License | github.com/ntno/mkdocs-terminal */
+
+:root {
+  --cream: #ffffcc;
+  --black: #190910;
+  --digital-navy: #000080;
+  --authentic-blue: #3737aa;
+  --corn-harvest: #8a6801;
+  --light-grey: #d4d4d4;
+  --dark-grey: #5e5e5e;
+  --white: #f7f7f7;
+
+  --global-font-size: 15px;
+  --global-line-height: 1.4em;
+  --global-space: 10px;
+  --font-stack: "Fira Code", Menlo, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace, serif;
+  --mono-font-stack: "Fira Code", Menlo, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace, serif;
+  --background-color: var(--cream);
+  --page-width: 60em;
+  --font-color: var(--black);
+  --invert-font-color: var(--white);
+  --primary-color: var(--digital-navy);
+  --secondary-color: var(--authentic-blue);
+  --tertiary-color: var(--authentic-blue);
+  --error-color: var(--corn-harvest);
+  --progress-bar-background: var(--light-grey);
+  --progress-bar-fill: var(--dark-grey);
+  --code-bg-color: var(--white);
+  --input-style: solid;
+  --display-h1-decoration: none;
+}

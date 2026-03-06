@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="generator" content="mkdocs-1.6.1, mkdocs-terminal-4.8.0">
+    
+    <meta name="description" content="An agent partner for real teams: visible execution, reliable collaboration."> 
+    
+    <meta name="author" content="Bub Build"> 
+    
+    <link rel="canonical" href="https://bub.build/posts/2026-03-01-bub-socialized-evaluation-and-agent-partnership/"><link rel="icon" type="image/png" sizes="192x192" href="../../img/android-chrome-192x192.png" />
+<link rel="icon" type="image/png" sizes="512x512" href="../../img/android-chrome-512x512.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="../../img/apple-touch-icon.png" />
+<link rel="shortcut icon" type="image/png" sizes="48x48" href="../../img/favicon.ico" />
+<link rel="icon" type="image/png" sizes="16x16" href="../../img/favicon-16x16.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="../../img/favicon-32x32.png" />
+
+
+    
+ 
+<title>2026-03-01 Socialized Evaluation - bub</title>
+
+
+<link href="../../css/fontawesome/css/fontawesome.min.css" rel="stylesheet">
+<link href="../../css/fontawesome/css/solid.min.css" rel="stylesheet">
+<link href="../../css/normalize.css" rel="stylesheet">
+<link href="../../css/terminal.css" rel="stylesheet">
+<link href="../../css/theme.css" rel="stylesheet">
+<link href="../../css/theme.tile_grid.css" rel="stylesheet">
+<link href="../../css/theme.footer.css" rel="stylesheet">
+<!-- dark color palette -->
+<link href="../../css/palettes/dark.css" rel="stylesheet">
+
+<!-- page layout -->
+<style>
+/* initially set page layout to a one column grid */
+.terminal-mkdocs-main-grid {
+    display: grid;
+    grid-column-gap: 1.4em;
+    grid-template-columns: auto;
+    grid-template-rows: auto;
+}
+
+/*  
+*   when side navigation is not hidden, use a two column grid.  
+*   if the screen is too narrow, fall back to the initial one column grid layout.
+*   in this case the main content will be placed under the navigation panel. 
+*/
+@media only screen and (min-width: 70em) {
+    .terminal-mkdocs-main-grid {
+        grid-template-columns: 4fr 9fr;
+    }
+}</style>
+
+
+
+    
+    <link href="../../assets/_mkdocstrings.css" rel="stylesheet">  
+    
+    
+
+    
+    <!-- search css support -->
+<link href="../../css/search/bootstrap-modal.css" rel="stylesheet">
+<!-- search scripts -->
+<script>
+    var base_url = "../..",
+    shortcuts = "{}";
+</script>
+<script src="../../js/jquery/jquery-1.10.1.min.js" defer></script>
+<script src="../../js/bootstrap/bootstrap.min.js" defer></script>
+<script src="../../js/mkdocs/base.js" defer></script>
+    
+    
+    
+    
+    <script src="../../search/main.js"></script>
+    
+
+    
+</head>
+
+<body class="terminal"><div class="container">
+    <div class="terminal-nav">
+        <header class="terminal-logo">
+            <div id="mkdocs-terminal-site-name" class="logo terminal-prompt"><a href="https://bub.build/" class="no-style">bub</a></div>
+        </header>
+        
+        <nav class="terminal-menu">
+            
+            <ul vocab="https://schema.org/" typeof="BreadcrumbList">
+                
+                
+                <li property="itemListElement" typeof="ListItem">
+                    <a href="../.." class="menu-item " property="item" typeof="WebPage">
+                        <span property="name">Home</span>
+                    </a>
+                    <meta property="position" content="0">
+                </li>
+                
+                
+                
+                
+                
+                
+                
+                
+                <li property="itemListElement" typeof="ListItem">
+                    <a href="../../deployment/" class="menu-item " property="item" typeof="WebPage">
+                        <span property="name">Deployment</span>
+                    </a>
+                    <meta property="position" content="1">
+                </li>
+                
+                
+                <li property="itemListElement" typeof="ListItem">
+                    <a href="../../extension-guide/" class="menu-item " property="item" typeof="WebPage">
+                        <span property="name">Extension Guide</span>
+                    </a>
+                    <meta property="position" content="2">
+                </li>
+                
+                
+                
+                    
+                    
+
+
+<li property="itemListElement" typeof="ListItem">
+    <a href="#" class="menu-item" data-toggle="modal" data-target="#mkdocs_search_modal" property="item" typeof="SearchAction">
+        <i aria-hidden="true" class="fa fa-search"></i> <span property="name">Search</span>
+    </a>
+    <meta property="position" content="3">
+</li>
+                    
+            </ul>
+            
+        </nav>
+    </div>
+</div>
+        
+    <div class="container">
+        <div class="terminal-mkdocs-main-grid"><aside id="terminal-mkdocs-side-panel"><nav>
+    <ul class="terminal-mkdocs-side-nav-items">
+        
+          <li class="terminal-mkdocs-side-nav-li">
+    
+    
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../..">Home</a>
+        
+    
+    
+    
+       </li>
+        
+          <li class="terminal-mkdocs-side-nav-li">
+    
+        
+        
+        
+            
+    
+        
+        
+            
+            
+            <span class="
+        
+    terminal-mkdocs-side-nav-item terminal-mkdocs-side-nav-section-no-index">Core</span>
+        
+    
+    
+        
+        
+            <ul class="terminal-mkdocs-side-nav-li-ul">
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../../core/">Overview</a>
+        
+    
+    </li>
+            
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../../architecture/">Architecture</a>
+        
+    
+    </li>
+            
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../../features/">Key Features</a>
+        
+    
+    </li>
+            
+            
+    </ul>
+        
+    
+       </li>
+        
+          <li class="terminal-mkdocs-side-nav-li">
+    
+        
+        
+        
+            
+    
+        
+        
+            
+            
+            <span class="
+        
+    terminal-mkdocs-side-nav-item terminal-mkdocs-side-nav-section-no-index">Workflows</span>
+        
+    
+    
+        
+        
+            <ul class="terminal-mkdocs-side-nav-li-ul">
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../../workflows/">Overview</a>
+        
+    
+    </li>
+            
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../../cli/">CLI</a>
+        
+    
+    </li>
+            
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../../skills/">Skills</a>
+        
+    
+    </li>
+            
+            
+    </ul>
+        
+    
+       </li>
+        
+          <li class="terminal-mkdocs-side-nav-li">
+    
+        
+        
+        
+            
+    
+        
+        
+            
+            
+            <span class="
+        
+    terminal-mkdocs-side-nav-item terminal-mkdocs-side-nav-section-no-index">Channels</span>
+        
+    
+    
+        
+        
+            <ul class="terminal-mkdocs-side-nav-li-ul">
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../../channels/">Overview</a>
+        
+    
+    </li>
+            
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../../channels/telegram/">Telegram</a>
+        
+    
+    </li>
+            
+            
+    </ul>
+        
+    
+       </li>
+        
+          <li class="terminal-mkdocs-side-nav-li">
+    
+    
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../../deployment/">Deployment</a>
+        
+    
+    
+    
+       </li>
+        
+          <li class="terminal-mkdocs-side-nav-li">
+    
+    
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../../extension-guide/">Extension Guide</a>
+        
+    
+    
+    
+       </li>
+        
+          <li class="terminal-mkdocs-side-nav-li">
+    
+        
+        
+        
+            
+    
+        
+        <span class="
+        
+    terminal-mkdocs-side-nav-item--active terminal-mkdocs-side-nav-section-no-index">Posts</span>
+    
+    
+        
+        
+            <ul class="terminal-mkdocs-side-nav-li-ul">
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../">Overview</a>
+        
+    
+    </li>
+            
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        
+            <a class="terminal-mkdocs-side-nav-item" href="../2025-07-16-baby-bub-bootstrap-milestone/">2025-07-16 Bootstrap Milestone</a>
+        
+    
+    </li>
+            
+        
+            
+            
+             
+                <li class="terminal-mkdocs-side-nav-li-ul-li">
+    
+        
+        <span class="terminal-mkdocs-side-nav-item--active">2026-03-01 Socialized Evaluation</span>
+    
+    </li>
+            
+            
+    </ul>
+        
+    
+       </li>
+        
+    </ul>
+</nav><hr>
+<nav>
+    <ul>
+        <li><a href="#bub-socialized-evaluation-and-agent-partnership">Bub: Socialized Evaluation and Agent Partnership</a></li>
+        <li><a href="#from-tool-execution-to-human-partnership">From Tool Execution to Human Partnership</a></li><li><a href="#socialized-evaluation-as-a-system-principle">Socialized Evaluation as a System Principle</a></li><li><a href="#why-operator-equivalence-by-default">Why Operator Equivalence by Default</a></li><li><a href="#relationship-to-republic">Relationship to Republic</a></li><li><a href="#closing">Closing</a></li>
+    </ul>
+</nav>
+</aside>
+            <main id="terminal-mkdocs-main-content">
+    
+    
+    
+    
+    
+
+<section id="mkdocs-terminal-content">
+    <h1 id="bub-socialized-evaluation-and-agent-partnership">Bub: Socialized Evaluation and Agent Partnership<a class="headerlink" href="#bub-socialized-evaluation-and-agent-partnership" title="Permanent link">&para;</a></h1>
+<p>I care less about whether an agent can complete a demo task, and more about whether a real team can trust it under pressure.
+That is where most systems fail: not at capability, but at collaboration.</p>
+<p>Bub is not designed as a personal-only assistant.
+It is designed for shared environments where humans and agents are treated as equivalent operators.
+Current deployments may use one primary agent, but the collaboration model itself is symmetric: the same boundaries, evidence model, and handoff semantics apply to both humans and agents.</p>
+<p>The practical goal is simple: when work gets messy, Bub should still feel like a dependable teammate.
+It should make execution visible, handoff safe, and continuation predictable.</p>
+<h2 id="from-tool-execution-to-human-partnership">From Tool Execution to Human Partnership<a class="headerlink" href="#from-tool-execution-to-human-partnership" title="Permanent link">&para;</a></h2>
+<p>Many agent systems focus on whether a model can execute commands.
+For real teams, that is not enough.
+What matters is whether outcomes remain understandable, reviewable, and improvable over long time horizons.</p>
+<p>Bub treats this as a first-class design target:</p>
+<ul>
+<li>Agents should assist human workflows, not replace human judgment.</li>
+<li>Operator decisions, agent actions, and execution evidence should stay visible.</li>
+<li>Collaboration should remain stable when more operators and automation layers join.</li>
+</ul>
+<h2 id="socialized-evaluation-as-a-system-principle">Socialized Evaluation as a System Principle<a class="headerlink" href="#socialized-evaluation-as-a-system-principle" title="Permanent link">&para;</a></h2>
+<p>In Bub, evaluation is not only model-centric.
+It is social by design:</p>
+<ul>
+<li>Can teammates inspect what happened and why?</li>
+<li>Can reviewers audit decisions without hidden state?</li>
+<li>Can future operators continue work from recorded evidence?</li>
+<li>Can all operators (human or agent) coordinate without opaque side effects?</li>
+</ul>
+<p>If the answer is no, the system is not reliable enough for production collaboration.
+The term "Socialized Evaluation" follows the framing in <a href="https://psiace.me/posts/im-and-socialized-evaluation/">Instant Messaging and Socialized Evaluation</a>.</p>
+<h2 id="why-operator-equivalence-by-default">Why Operator Equivalence by Default<a class="headerlink" href="#why-operator-equivalence-by-default" title="Permanent link">&para;</a></h2>
+<p>Single-user flows can hide many structural problems.
+Multi-operator settings expose them quickly: state conflicts, unclear responsibility, and fragile context boundaries.</p>
+<p>Bub is built with these constraints from day one:</p>
+<ul>
+<li>Explicit command boundaries.</li>
+<li>Verifiable execution history with explicit anchor and handoff points.</li>
+<li>Handoff and anchors for continuity across people and phases.</li>
+<li>Channel/runtime neutrality for different operation surfaces.</li>
+</ul>
+<p>This is how Bub moves from "assistant behavior" to "collaboration infrastructure."</p>
+<h2 id="relationship-to-republic">Relationship to Republic<a class="headerlink" href="#relationship-to-republic" title="Permanent link">&para;</a></h2>
+<p>Bub uses <a href="https://github.com/bubbuild/republic">Republic</a> as its context runtime.
+Republic's key value is not "a better memory trick." It reframes the problem: keep interaction history as verifiable facts, then assemble minimally sufficient context for each task.
+Bub builds on that model to support practical collaboration workflows where humans and agents participate as equivalent operators.</p>
+<h2 id="closing">Closing<a class="headerlink" href="#closing" title="Permanent link">&para;</a></h2>
+<p>Our direction is simple:</p>
+<p>Build agents that are useful in real social systems, not only impressive in isolated demos.</p>
+</section>
+
+<section id="mkdocs-terminal-after-content">
+    
+</section>
+
+            </main>
+        </div>
+        <hr><footer>
+    <div class="terminal-mkdocs-footer-grid">
+        <div id="terminal-mkdocs-footer-copyright-info">
+            
+            <p class="text-center text-muted">Copyright (c) 2026 Bub Build contributors.</p>
+             Site built with <a href="http://www.mkdocs.org">MkDocs</a> and <a href="https://github.com/ntno/mkdocs-terminal">Terminal for MkDocs</a>.
+        </div>
+    </div>
+</footer>
+    </div>
+
+    
+    <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="alertdialog" aria-modal="true" aria-labelledby="searchModalLabel">
+    <div class="modal-dialog modal-lg" role="search">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="searchModalLabel">Search</h5>
+                <button type="button" class="close btn btn-default btn-ghost" data-dismiss="modal" aria-label="Close">x</button>
+            </div>
+            <div class="modal-body">
+                <p id="searchInputLabel">Type to start searching</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" aria-labelledby="searchInputLabel" placeholder="" id="mkdocs-search-query" title="Please enter search terms here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No document matches found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+    
+    
+</body>
+
+</html>

@@ -1,0 +1,22 @@
+/*! pink.css | MIT License | github.com/Gioni06/terminal.css/issues/9 */
+
+:root {
+    --global-font-size: 15px;
+    --global-line-height: 1.4em;
+    --global-space: 10px;
+    --font-stack: 'Fira Code', Menlo, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace, serif;
+    --mono-font-stack: 'Fira Code', Menlo, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace, serif;
+    --background-color: #ffffff;
+    --page-width: 60em;
+    --font-color: #190910;
+    --invert-font-color: #f7f7f7;
+    --primary-color: #f90d7a;
+    --secondary-color: #715864;
+    --tertiary-color: #715864;
+    --error-color: #bb0047;
+    --progress-bar-background: #d4d4d4;
+    --progress-bar-fill: #5e5e5e;
+    --code-bg-color: #f7f7f7;
+    --input-style: solid;
+    --display-h1-decoration: none;
+}

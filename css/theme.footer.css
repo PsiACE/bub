@@ -1,0 +1,25 @@
+/* grid for footer */
+
+.terminal-mkdocs-footer-grid {
+    display: grid;
+    grid-row-gap: 2em;
+    grid-column-gap: 2em;
+    grid-template-columns: auto;
+    grid-template-rows: auto;
+}
+
+
+/* place prev/next links to the right of copyright info when screen is wide enough */
+
+@media only screen and (min-width: 50em) {
+    .terminal-mkdocs-footer-grid {
+        grid-template-columns: 6fr 3fr;
+    }
+    #terminal-mkdocs-footer-prev-next {
+        text-align: right;
+    }
+}
+
+#terminal-mkdocs-footer-copyright-info {
+    text-align: left;
+}

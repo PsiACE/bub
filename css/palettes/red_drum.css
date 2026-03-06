@@ -1,0 +1,31 @@
+/*! red_drum.css | MIT License | github.com/ntno/mkdocs-terminal */
+
+:root {
+  --pale-goldenrod: #eee8aa;
+  --black: #190910;
+  --white: #f7f7f7;
+  --dark-red: #8b0000;
+  --old-rose: #8b5a5b;
+  --sea-blue: #00678c;
+  --light-grey: #d4d4d4;
+  --dark-grey: #5e5e5e;
+
+  --global-font-size: 15px;
+  --global-line-height: 1.4em;
+  --global-space: 10px;
+  --font-stack: "Fira Code", Menlo, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace, serif;
+  --mono-font-stack: "Fira Code", Menlo, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace, serif;
+  --background-color: var(--pale-goldenrod);
+  --page-width: 60em;
+  --font-color: var(--black);
+  --invert-font-color: var(--white);
+  --primary-color: var(--dark-red);
+  --secondary-color: var(--old-rose);
+  --tertiary-color: var(--old-rose);
+  --error-color: var(--sea-blue);
+  --progress-bar-background: var(--light-grey);
+  --progress-bar-fill: var(--dark-grey);
+  --code-bg-color: var(--white);
+  --input-style: solid;
+  --display-h1-decoration: none;
+}

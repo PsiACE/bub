@@ -1,0 +1,23 @@
+{% macro index_item( nav_item, class ) -%}
+    {% if nav_item.active %}
+        <span {% if class %}class="{{ class }}"{% endif %}>{{ nav_item.parent.title }}</span>
+    {% else %}
+        <a {% if class %}class="{{ class }}"{% endif %} href="{{ nav_item.url|url }}">{{ nav_item.parent.title }}</a>
+    {% endif %}
+{%- endmacro -%}
+
+
+
+{% macro non_index_item( nav_item, class ) -%}
+    {% if nav_item.active %}
+        <span {% if class %}class="{{ class }}"{% endif %}>{{ nav_item.title }}</span>
+    {% else %}
+        {% if nav_item.is_section %}
+            {# nav_item.is_section covers MkDocs Section objects #}
+            {# MkDocs Section objects do not have a URL to use as a link #}
+            <span {% if class %}class="{{ class }}"{% endif %}>{{ nav_item.title }}</span>
+        {% else %}
+            <a {% if class %}class="{{ class }}"{% endif %} href="{{ nav_item.url|url }}">{{ nav_item.title }}</a>
+        {% endif %}
+    {% endif %}
+{%- endmacro -%}

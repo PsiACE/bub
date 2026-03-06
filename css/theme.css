@@ -1,0 +1,92 @@
+/*! Terminal for MkDocs | MIT License | github.com/ntno/mkdocs-terminal */
+
+
+/*! terminal.css 0.7.5  | MIT License | github.com/Gioni06/terminal.css */
+
+body {
+    padding-top: 50px;
+    padding-bottom: 50px;
+}
+
+
+/* underline links in main content (except header anchor links) */
+
+#terminal-mkdocs-main-content a:not(.headerlink) {
+    text-decoration: underline;
+}
+
+
+/* do not underline button links */
+
+a.btn {
+    text-decoration: none !important;
+}
+
+.terminal-mkdocs-side-nav-item--active {
+    font-style: italic;
+}
+
+.terminal-mkdocs-side-nav-section-no-index {
+    color: var(--secondary-color);
+}
+
+.terminal-mkdocs-pad-to-match-side-nav {
+    padding-top: calc(var(--global-space) * 2);
+}
+
+.terminal-mkdocs-thin-border {
+    border: solid !important;
+    border-color: var(--secondary-color) !important;
+    border-width: thin !important;
+}
+
+.terminal-mkdocs-macro-error-banner {
+    border-style: solid;
+    border-width: 1px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: .65em 2em;
+    border-color: var(--error-color);
+}
+
+p.terminal-mkdocs-macro-error-banner {
+    color: var(--font-color);
+}
+
+p.terminal-mkdocs-macro-error-banner>code {
+    color: var(--code-font-color);
+}
+
+
+/* set figcaption paragraph text to the secondary color.  this occurs when using markdown inside the figcaption */
+
+figure>figcaption>p {
+    color: var(--secondary-color);
+}
+
+
+/* ***************************************************************** */
+
+
+/* Terminal.css Overrides */
+
+
+/* ***************************************************************** */
+
+
+/* don't display backticks on `code` items, just highlight */
+
+code::after,
+code::before {
+    content: "" !important;
+    display: inline;
+}
+
+
+/* use the `code-bg-color` and `code-font-color` for `<code>` blocks */
+
+pre code {
+    background-color: var(--code-bg-color);
+    color: var(--code-font-color);
+}
