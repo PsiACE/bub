@@ -74,7 +74,9 @@ def fs_edit(path: str, old: str, new: str, start: int = 0, *, context: ToolConte
     if old not in to_replace:
         raise ValueError(f"'{old}' not found in {resolved_path} from line {start}")
     replaced = to_replace.replace(old, new)
-    resolved_path.write_text(prev + "\n" + replaced, encoding="utf-8")
+    if prev:
+        replaced = prev + "\n" + replaced
+    resolved_path.write_text(replaced, encoding="utf-8")
     return f"edited: {resolved_path}"
 
 
