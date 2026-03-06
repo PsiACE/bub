@@ -1,6 +1,6 @@
 [project]
 name = "bub"
-version = "0.3.0"
+version = "0.3.0a1"
 description = "Bub it. Build it. Batteries-included, hook-first AI framework."
 authors = [
     { name = "Chojan Shang", email = "psiace@apache.org" },
