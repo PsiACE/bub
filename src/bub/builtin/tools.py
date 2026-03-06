@@ -28,9 +28,7 @@ async def bash(
 ) -> str:
     """Run a shell command and return its output within a time limit. Raises if the command fails or times out."""
     workspace = context.state.get("_runtime_workspace")
-    completed = await asyncio.create_subprocess_exec(
-        "bash",
-        "-lc",
+    completed = await asyncio.create_subprocess_shell(
         cmd,
         cwd=cwd or workspace,
         stdout=asyncio.subprocess.PIPE,
