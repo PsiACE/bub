@@ -98,9 +98,12 @@ class FileTapeStore(InMemoryQueryMixin):
     def __init__(self, directory: Path) -> None:
         self._directory = directory
         self._directory.mkdir(parents=True, exist_ok=True)
+        self._tape_files: dict[str, TapeFile] = {}
 
     def _tape_file(self, tape: str) -> TapeFile:
-        return TapeFile(self._directory / f"{tape}.jsonl")
+        if tape not in self._tape_files:
+            self._tape_files[tape] = TapeFile(self._directory / f"{tape}.jsonl")
+        return self._tape_files[tape]
 
     def list_tapes(self) -> list[str]:
         result: list[str] = []
