@@ -14,6 +14,8 @@ if TYPE_CHECKING:
     from bub.builtin.agent import Agent
 
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 30
+DEFAULT_HEADERS = {"accept": "text/markdown"}
+DEFAULT_REQUEST_TIMEOUT_SECONDS = 10
 
 
 def _get_agent(context: ToolContext) -> Agent:
@@ -142,6 +144,22 @@ async def tape_anchors(*, context: ToolContext) -> str:
     if not anchors:
         return "(no anchors)"
     return "\n".join(f"- {anchor.name}" for anchor in anchors)
+
+
+@tool(name="web.fetch")
+async def web_fetch(url: str, headers: dict | None = None, timeout: int | None = None) -> str:
+    """Fetch(GET) the content of a web page, returning markdown if possible."""
+    import aiohttp
+
+    headers = {**DEFAULT_HEADERS, **(headers or {})}
+    timeout = timeout or DEFAULT_REQUEST_TIMEOUT_SECONDS
+
+    async with (
+        aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=timeout)) as session,
+        session.get(url) as response,
+    ):
+        response.raise_for_status()
+        return await response.text()
 
 
 @tool(name="help")

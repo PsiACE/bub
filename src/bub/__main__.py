@@ -16,7 +16,7 @@ def create_cli_app() -> typer.Typer:
 
         @app.command("help")
         def _help() -> None:
-            typer.echo("No CLI command skills loaded. Install a command skill in .agent/skills.")
+            typer.echo("No CLI command loaded.")
 
     return app
 

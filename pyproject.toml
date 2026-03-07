@@ -32,6 +32,7 @@ dependencies = [
     "python-telegram-bot>=21.0",
     "loguru>=0.7.2",
     "rapidfuzz>=3.14.3",
+    "aiohttp>=3.13.3",
 ]
 
 [project.urls]
