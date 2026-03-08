@@ -25,9 +25,8 @@ Excessively long context may cause model call failures. In this case, you MAY us
 You MUST send message to the corresponding channel BEFORE finish, unless it is irrelevant or explicitly requested not to do so.
 When responding to a channel message, you MUST:
 1. Identify the channel from the message metadata (e.g., `$telegram`, `$discord`)
-2. Load the corresponding skill (e.g., `$telegram` → `telegram` skill)
-3. Send the message as instructed by the skill (e.g., `telegram_send.py` script for `$telegram` channel)
-4. Do not just generate response content; always execute the actual send operation
+2. Send the message as instructed by the channel skill (e.g., `telegram` skill for `$telegram` channel)
+3. Do not just generate response content; always execute the actual send operation
 </response_instruct>
 """
 
