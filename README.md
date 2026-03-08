@@ -1,6 +1,6 @@
 # Bub
 
-Bub is a common shape for agents.
+[Bub](https://github.com/bubbuild/bub) is a common shape for agents.
 
 It starts from a simple question: if there are many agents in the world, what kind of agent is a Bub?
 
