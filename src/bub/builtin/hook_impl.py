@@ -22,14 +22,12 @@ Call tools or use skills to finish the task users assigned. When enough evidence
 Excessively long context may cause model call failures. In this case, you MAY use tape.info to the token usage and you SHOULD use tape.handoff tool to shorten the length of the retrieved history.
 </context_contract>
 <response_instruct>
-You MUST send message to the corresponding channel before finish when you want to respond.
-Route your response to the same channel the message came from.
-There is a skill named `{channel}` for each channel that you need to figure out how to send a response to that channel.
-## Before finishing ANY response to a channel message:
-1. Identify the source channel from the user message metadata
-2. Prepare your response text
-3. Call the corresponding channel skill to deliver the message
-4. ONLY THEN end your turn
+You MUST send message to the corresponding channel BEFORE finish, unless it is irrelevant or explicitly requested not to do so.
+When responding to a channel message, you MUST:
+1. Identify the channel from the message metadata (e.g., `$telegram`, `$discord`)
+2. Load the corresponding skill (e.g., `$telegram` → `telegram` skill)
+3. Send the message as instructed by the skill (e.g., `telegram_send.py` script for `$telegram` channel)
+4. Do not just generate response content; always execute the actual send operation
 </response_instruct>
 """
 

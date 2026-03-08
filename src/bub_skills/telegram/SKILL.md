@@ -21,13 +21,13 @@ Assumption: `BUB_TELEGRAM_TOKEN` is already available.
 Collect these before execution:
 
 - `chat_id` (required)
+- `message_id` (required for edit or reply when source is not a bot)
 - message content (required for send/edit)
 - `reply_to_message_id` (required for threaded reply behavior)
-- `message_id` (required for edit)
 
 ## Execution Policy
 
-1. If handling a direct user message in Telegram and `message_id` is known, prefer reply mode (`--reply-to`).
+1. If handling a direct user message in Telegram and `message_id` is known, send a reply message (`--reply-to`).
 2. If source metadata says sender is a bot (`sender_is_bot=true`), do not use reply mode, but send a normal message and prefix content with `@<sender_username>` (or the provided source username).
 3. For long-running tasks, optionally send one progress message, then edit that same message for final status.
 4. For multi-line text, pass the content via heredoc command substitution instead of embedding raw line breaks in quoted strings.
