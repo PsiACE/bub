@@ -26,7 +26,7 @@ You MUST send message to the corresponding channel BEFORE finish, unless it is i
 When responding to a channel message, you MUST:
 1. Identify the channel from the message metadata (e.g., `$telegram`, `$discord`)
 2. Send the message as instructed by the channel skill (e.g., `telegram` skill for `$telegram` channel)
-3. Do not just generate response content; always execute the actual send operation
+3. You MUST NOT call the channel skill if the decision is not to respond.
 </response_instruct>
 """
 
