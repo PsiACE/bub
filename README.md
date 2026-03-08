@@ -1,8 +1,18 @@
 # Bub
 
-Bub is a hook-first AI framework built on `pluggy`: the core stays small and orchestrates turns, while builtins and plugins provide behavior.
+[Bub](https://github.com/bubbuild/bub) is a common shape for agents.
+
+It starts from a simple question: if there are many agents in the world, what kind of agent is a Bub?
+
+A Bub is an agent that can live inside shared operator environments with explicit boundaries, visible execution evidence, and safe handoff.
+
+The point is not only to complete tasks, but to remain understandable, reviewable, and continuable when more humans and agents join the work.
 
 ## Current Implementation
+
+This repository is the current Python implementation of Bub.
+It is hook-first, built on `pluggy`, and keeps the core small while builtins and plugins provide behavior.
+In this implementation, Bub uses [Republic](https://github.com/bubbuild/republic) as its context runtime and [constructs context from tape](https://tape.systems).
 
 - CLI bootstrap: `src/bub/__main__.py` (Typer app)
 - Turn orchestrator: `src/bub/framework.py`
@@ -95,3 +105,7 @@ uv run ruff check .
 uv run mypy src
 uv run pytest -q
 ```
+
+## License
+
+[Apache-2.0](./LICENSE)

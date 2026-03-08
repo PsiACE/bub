@@ -1,6 +1,12 @@
 # Bub
 
-Bub is a hook-first AI framework for running agent workflows through CLI and message channels.
+[Bub](https://github.com/bubbuild/bub) is a common shape for agents.
+
+It exists to answer a harder question than "can an agent finish a task?":
+when many humans and agents work in the same environment, what kind of agent remains understandable, reviewable, and safe to continue?
+
+Bub's answer is an agent form with explicit boundaries, visible evidence, and safe handoff.
+The current repository is one implementation of that idea, using hook-based composition, [Republic](https://github.com/bubbuild/republic) as the context runtime, and [constructing context from tape](https://tape.systems) as the current context model.
 
 ## Quick Start
 

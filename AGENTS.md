@@ -1,50 +1,61 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-Core code lives under `src/bub/`:
-- `app/`: runtime bootstrap and session wiring
-- `core/`: input router, command detection, model runner, agent loop
-- `tape/`: append-only tape store, anchor/handoff services
-- `tools/`: unified tool registry and progressive tool-view rendering
-- `skills/`: skill discovery and loading (`SKILL.md`-based)
-- `cli/`: interactive CLI (`bub chat`)
-- `channels/`: channel bus/manager and Telegram adapter
-- `integrations/`: Republic client setup
 
-Tests are in `tests/`. Documentation is in `docs/`. Legacy implementation is archived in `backup/src_bub_legacy/` (read-only reference).
+Core code lives under `src/`:
+
+- `src/bub/__main__.py`: Typer CLI entrypoint.
+- `src/bub/framework.py`: turn orchestration and outbound routing.
+- `src/bub/hookspecs.py` / `src/bub/hook_runtime.py`: hook contracts and execution helpers.
+- `src/bub/builtin/`: builtin runtime, CLI wiring, settings, tools, and tape services.
+- `src/bub/channels/`: channel abstractions plus CLI and Telegram adapters.
+- `src/bub/skills.py` / `src/bub/tools.py`: skill discovery and tool registry.
+- `src/bub_skills/`: bundled skills shipped with Bub.
+
+Tests live in `tests/`. Documentation lives in `docs/`.
 
 ## Build, Test, and Development Commands
-- `uv sync`: install/update dependencies
-- `just install`: setup env + hooks
-- `uv run bub chat`: run interactive CLI
-- `uv run bub message`: run message channels (Telegram/Discord)
-- `uv run pytest -q` or `just test`: run tests
-- `uv run ruff check .`: lint checks
-- `uv run mypy`: static typing checks
-- `just check`: lock validation + lint + typing
-- `just docs` / `just docs-test`: serve/build docs
+
+- `uv sync`: install or update dependencies.
+- `just install`: sync dependencies and install `prek` hooks.
+- `uv run bub chat`: run the interactive CLI.
+- `uv run bub gateway`: start channel listener mode.
+- `uv run bub run "hello"`: run one inbound message through the full framework pipeline.
+- `uv run bub hooks`: inspect discovered hook bindings.
+- `uv run ruff check .`: lint checks.
+- `uv run mypy src`: static type checks.
+- `uv run pytest -q`: run the main test suite.
+- `just test`: run pytest with doctests enabled.
+- `just check`: lock validation, lint, and typing.
+- `just docs` / `just docs-test`: serve or build docs.
 
 ## Coding Style & Naming Conventions
-- Python 3.12+, 4-space indentation, type hints required for new/modified logic.
-- Naming: `snake_case` (functions/variables/modules), `PascalCase` (classes), `UPPER_CASE` (constants).
+
+- Python 3.12+, 4-space indentation, and type hints for new or modified logic.
+- Use `snake_case` for modules/functions/variables, `PascalCase` for classes, and `UPPER_CASE` for constants.
 - Keep functions focused and composable; avoid hidden side effects.
-- Format/lint with Ruff (line length: 120). Type-check with mypy.
+- Format and lint with Ruff. Keep line length within 120 unless an existing file clearly follows a different local convention.
 
 ## Testing Guidelines
 - Framework: `pytest`.
-- Name files `tests/test_<feature>.py`; name tests by behavior (e.g., `test_user_shell_failure_falls_back_to_model`).
-- Cover router semantics, loop stop conditions, tape/anchor behavior, and channel dispatch.
-- For behavior changes, update/add tests in the same PR.
+- Name test files `tests/test_<feature>.py`.
+- Prefer behavior-oriented test names such as `test_gateway_uses_enabled_channels_only`.
+- Cover hook precedence, turn lifecycle, CLI/channel behavior, and tape persistence when changing runtime behavior.
+- Update or add tests in the same change when behavior moves.
 
 ## Commit & Pull Request Guidelines
-- Follow Conventional Commit style seen in history: `feat:`, `fix:`, `chore:`.
-- Keep commits focused; avoid mixing refactor and behavior change without explanation.
-- PRs should include:
+
+- Follow the Conventional Commit style used in history, for example `feat:`, `fix:`, `docs:`, `chore:`.
+- Keep commits focused; avoid mixing unrelated refactors with behavior changes.
+- For PRs, include:
   - what changed and why
-  - impacted paths/modules
-  - verification output (`ruff`, `mypy`, `pytest`)
-  - docs updates when CLI behavior, commands, or architecture changes
+  - impacted modules or commands
+  - verification performed (`ruff`, `mypy`, `pytest`, docs build if relevant)
+  - docs updates when CLI behavior, commands, or architecture changed
 
 ## Security & Configuration Tips
-- Use `.env` for secrets (`OPENROUTER_API_KEY`, `BUB_TELEGRAM_TOKEN`); never commit keys.
-- Validate Telegram allowlist (`BUB_TELEGRAM_ALLOW_FROM`) before enabling production bots.
+
+- Use `.env` for local secrets; never commit credentials.
+- Bub runtime settings are driven by `BUB_*` variables such as `BUB_MODEL`, `BUB_API_KEY`, and `BUB_API_BASE`.
+- Provider-specific keys such as `OPENROUTER_API_KEY` may still be consumed by downstream SDKs.
+- Telegram deployments usually require `BUB_TELEGRAM_TOKEN`, and allowlists are controlled with `BUB_TELEGRAM_ALLOW_USERS` and `BUB_TELEGRAM_ALLOW_CHATS`.
