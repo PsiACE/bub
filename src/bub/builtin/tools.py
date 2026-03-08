@@ -82,9 +82,9 @@ def fs_edit(path: str, old: str, new: str, start: int = 0, *, context: ToolConte
     return f"edited: {resolved_path}"
 
 
-@tool(context=True, name="skill.load")
-def skill_load(name: str, *, context: ToolContext) -> str:
-    """Load the skill content by name. The skill must be located in predefined locations and have a valid frontmatter."""
+@tool(context=True, name="skill")
+def skill_describe(name: str, *, context: ToolContext) -> str:
+    """Load the skill content by name. Return the location and skill content."""
     from bub.utils import workspace_from_state
 
     workspace = workspace_from_state(context.state)
@@ -92,7 +92,7 @@ def skill_load(name: str, *, context: ToolContext) -> str:
     if name.casefold() not in skill_index:
         return "(no such skill)"
     skill = skill_index[name.casefold()]
-    return skill.body() or "(skill has no body)"
+    return f"Location: {skill.location}\n---\n{skill.body() or '(no content)'}"
 
 
 @tool(context=True, name="tape.info")
@@ -169,7 +169,7 @@ def show_help() -> str:
         "Commands use ',' at line start.\n"
         "Known internal commands:\n"
         "  ,help\n"
-        "  ,skill.load name=foo\n"
+        "  ,skill name=foo\n"
         "  ,tape.info\n"
         "  ,tape.search query=error\n"
         "  ,tape.handoff name=phase-1 summary='done'\n"
