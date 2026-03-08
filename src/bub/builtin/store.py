@@ -4,6 +4,7 @@ import contextlib
 import contextvars
 import itertools
 import json
+import re
 import threading
 from collections.abc import AsyncGenerator, Iterable
 from dataclasses import asdict
@@ -117,7 +118,14 @@ class FileTapeStore(InMemoryQueryMixin):
     def reset(self, tape: str) -> None:
         self._tape_file(tape).reset()
 
+    @staticmethod
+    def _redact_payload(payload: dict) -> None:
+        if "content" not in payload:
+            return
+        payload["content"] = re.sub(r'data:[^;]+;base64,[^"]+', "[media]", payload["content"])
+
     def append(self, tape: str, entry: TapeEntry) -> None:
+        self._redact_payload(entry.payload)
         self._tape_file(tape).append(entry)
 
     def read(self, tape: str) -> list[TapeEntry] | None:
