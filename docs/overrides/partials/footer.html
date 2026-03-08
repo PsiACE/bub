@@ -1,0 +1,16 @@
+{% import 'macros/prev-next.j2' as prev_next_helper with context %}
+{%- set features = config.theme.features or [] -%}
+<footer>
+    <div class="terminal-mkdocs-footer-grid">
+        <div id="terminal-mkdocs-footer-copyright-info">
+            {% if config.copyright %}
+            <p class="text-center text-muted">{{ config.copyright | safe }}</p>
+            {% endif %} Site built with <a href="http://www.mkdocs.org">MkDocs</a> and <a href="https://github.com/ntno/mkdocs-terminal">Terminal for MkDocs</a>.
+        </div>
+        {%- if "footer.prev_next" in features and page and (page.next_page or page.previous_page) %}
+        <div id="terminal-mkdocs-footer-prev-next">
+            {{ prev_next_helper.make_prev_next() }}
+        </div>
+        {%- endif %}
+    </div>
+</footer>

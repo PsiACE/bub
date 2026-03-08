@@ -1,0 +1,29 @@
+{% set top_nav_ns = namespace(item_count=0) %}
+        <nav class="terminal-menu">
+            {% if nav|length > 1 %}
+            <ul vocab="https://schema.org/" typeof="BreadcrumbList">
+                {% for nav_item in nav %}
+                {% if not nav_item.is_section %}
+                <li property="itemListElement" typeof="ListItem">
+                    <a href="{{ nav_item.url|url }}" class="menu-item {% if nav_item.active %}active{% endif %}" property="item" typeof="WebPage">
+                        <span property="name">{{ nav_item.title }}</span>
+                    </a>
+                    <meta property="position" content="{{ top_nav_ns.item_count }}">
+                </li>
+                {%- set top_nav_ns.item_count = top_nav_ns.item_count + 1 -%}
+                {% endif %}
+                {% endfor %}
+                {%- if config.repo_url and config.repo_name -%}
+                <li>
+                    <a href="{{ config.repo_url }}" class="menu-item">GitHub</a>
+                </li>
+                {%- set top_nav_ns.item_count = top_nav_ns.item_count + 1 -%}
+                {%- endif -%}
+                {%- block search_button %}
+                    {% with button_idx=top_nav_ns.item_count %}
+                    {% include "partials/top-nav/search-button.html" %}
+                    {% endwith %}
+                {%- endblock search_button %}
+            </ul>
+            {% endif %}
+        </nav>

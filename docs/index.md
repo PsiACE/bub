@@ -1,6 +1,6 @@
 # Bub
 
-Bub is a common shape for agents.
+[Bub](https://github.com/bubbuild/bub) is a common shape for agents.
 
 It exists to answer a harder question than "can an agent finish a task?":
 when many humans and agents work in the same environment, what kind of agent remains understandable, reviewable, and safe to continue?

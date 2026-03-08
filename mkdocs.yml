@@ -5,7 +5,7 @@ site_description: "An agent partner for real teams: visible execution, reliable 
 site_author: Bub Build
 edit_uri: edit/main/docs/
 repo_name: bubbuild/bub
-copyright: Copyright (c) 2026 Bub Build contributors.
+copyright: Copyright (c) 2026 <a href="https://github.com/bubbuild">Bub Build</a> contributors.
 
 nav:
   - Home: index.md
@@ -36,6 +36,7 @@ plugins:
 
 theme:
   name: terminal
+  custom_dir: docs/overrides
   palette: dark
   features:
     - navigation.instant
