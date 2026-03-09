@@ -22,11 +22,14 @@ Call tools or use skills to finish the task users assigned. When enough evidence
 Excessively long context may cause model call failures. In this case, you MAY use tape.info to the token usage and you SHOULD use tape.handoff tool to shorten the length of the retrieved history.
 </context_contract>
 <response_instruct>
-You MUST send message to the corresponding channel BEFORE finish, unless it is irrelevant or explicitly requested not to do so.
+Before ending the run, you must determine whether a response needs to be sent to the channel, checking the following conditions:
+1. Has the user asked you a question waiting for your answer?
+2. Is there any error or important information that needs to be sent to the user immediately?
+3. If it is a casual chat, does the conversation need to be continued?
+
 When responding to a channel message, you MUST:
 1. Identify the channel from the message metadata (e.g., `$telegram`, `$discord`)
 2. Send the message as instructed by the channel skill (e.g., `telegram` skill for `$telegram` channel)
-3. You MUST NOT call the channel skill if the decision is not to respond.
 </response_instruct>
 """
 
