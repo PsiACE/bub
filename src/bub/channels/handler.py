@@ -6,6 +6,8 @@ from loguru import logger
 from bub.channels.message import ChannelMessage
 from bub.types import MessageHandler
 
+MEDIA_DATA_URL_RE = re.compile(r"data:[^;\s]+;base64,[^\"'\s]+", re.IGNORECASE)
+
 
 class BufferedMessageHandler:
     """A message handler that buffers incoming messages and processes them in batch with debounce and active time window."""
@@ -40,7 +42,7 @@ class BufferedMessageHandler:
 
     @staticmethod
     def prettify(content: str) -> str:
-        return re.sub(r'data:[^;]+;base64,[^"]+', "[media]", content)
+        return MEDIA_DATA_URL_RE.sub("[media]", content)
 
     async def __call__(self, message: ChannelMessage) -> None:
         now = self._loop.time()
