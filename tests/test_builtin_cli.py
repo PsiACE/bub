@@ -44,7 +44,7 @@ def test_login_openai_runs_oauth_flow_and_prints_usage_hint(
     assert result.exit_code == 0
     assert captured["codex_home"] == tmp_path
     assert captured["open_browser"] is False
-    assert captured["redirect_uri"] == "http://localhost:1455/auth/callback"
+    assert captured["redirect_uri"] == cli.DEFAULT_CODEX_REDIRECT_URI
     assert captured["timeout_seconds"] == 300.0
     assert "login: ok" in result.stdout
     assert "account_id: acct_123" in result.stdout

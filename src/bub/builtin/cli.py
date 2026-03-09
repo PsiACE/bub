@@ -14,6 +14,8 @@ from bub.channels.message import ChannelMessage
 from bub.envelope import field_of
 from bub.framework import BubFramework
 
+DEFAULT_CODEX_REDIRECT_URI = "http://localhost:1455/auth/callback"
+
 
 def run(
     ctx: typer.Context,
@@ -114,11 +116,6 @@ def login(
         "--manual",
         help="Paste the callback URL or code instead of waiting for a local callback server",
     ),
-    redirect_uri: str = typer.Option(
-        "http://localhost:1455/auth/callback",
-        "--redirect-uri",
-        help="OAuth redirect URI",
-    ),
     timeout_seconds: float = typer.Option(300.0, "--timeout", help="OAuth wait timeout in seconds"),
 ) -> None:
     """Authenticate with a provider and persist the resulting credentials."""
@@ -135,7 +132,7 @@ def login(
             codex_home=resolved_codex_home,
             prompt_for_redirect=prompt_for_redirect,
             open_browser=open_browser,
-            redirect_uri=redirect_uri,
+            redirect_uri=DEFAULT_CODEX_REDIRECT_URI,
             timeout_seconds=timeout_seconds,
         )
     except CodexOAuthLoginError as exc:
