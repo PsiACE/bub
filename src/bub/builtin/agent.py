@@ -226,6 +226,7 @@ def _build_llm(settings: AgentSettings, tape_store: AsyncTapeStore) -> LLM:
         settings.model,
         api_key=settings.api_key,
         api_base=settings.api_base,
+        api_format=settings.api_format,
         api_key_resolver=api_key_resolver,
         tape_store=tape_store,
         context=default_tape_context(),
