@@ -14,7 +14,7 @@ def _create_app() -> object:
     return framework.create_cli_app()
 
 
-def test_auth_login_openai_runs_oauth_flow_and_prints_usage_hint(
+def test_login_openai_runs_oauth_flow_and_prints_usage_hint(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -38,7 +38,7 @@ def test_auth_login_openai_runs_oauth_flow_and_prints_usage_hint(
 
     result = CliRunner().invoke(
         _create_app(),
-        ["auth", "login", "openai", "--manual", "--no-browser", "--codex-home", str(tmp_path)],
+        ["login", "openai", "--manual", "--no-browser", "--codex-home", str(tmp_path)],
     )
 
     assert result.exit_code == 0
@@ -52,20 +52,20 @@ def test_auth_login_openai_runs_oauth_flow_and_prints_usage_hint(
     assert "BUB_MODEL=openai:gpt-5-codex" in result.stdout
 
 
-def test_auth_login_openai_surfaces_oauth_errors(monkeypatch) -> None:
+def test_login_openai_surfaces_oauth_errors(monkeypatch) -> None:
     def fake_login_openai_codex_oauth(**kwargs: object) -> cli.OpenAICodexOAuthTokens:
         raise cli.CodexOAuthLoginError("bad redirect")
 
     monkeypatch.setattr(cli, "login_openai_codex_oauth", fake_login_openai_codex_oauth)
 
-    result = CliRunner().invoke(_create_app(), ["auth", "login", "openai", "--manual"])
+    result = CliRunner().invoke(_create_app(), ["login", "openai", "--manual"])
 
     assert result.exit_code == 1
     assert "Codex login failed: bad redirect" in result.stderr
 
 
-def test_auth_login_rejects_unsupported_provider() -> None:
-    result = CliRunner().invoke(_create_app(), ["auth", "login", "anthropic"])
+def test_login_rejects_unsupported_provider() -> None:
+    result = CliRunner().invoke(_create_app(), ["login", "anthropic"])
 
     assert result.exit_code == 1
     assert "Unsupported auth provider: anthropic" in result.stderr

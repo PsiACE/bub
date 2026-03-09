@@ -46,14 +46,14 @@ BUB_API_KEY=your_key uv run bub run "Summarize this repository"
 
 ```bash
 # OpenAI Codex OAuth (no provider API key required)
-uv run bub auth login openai
+uv run bub login openai
 BUB_MODEL=openai:gpt-5-codex uv run bub chat
 ```
 
 ## CLI Commands
 
 - `bub run MESSAGE`: execute one inbound turn and print outbound messages
-- `bub auth login openai`: persist OpenAI Codex OAuth credentials for later runs
+- `bub login openai`: persist OpenAI Codex OAuth credentials for later runs
 - `bub hooks`: print hook-to-plugin bindings
 - `bub install PLUGIN_SPEC`: install plugin from PyPI or `owner/repo` (GitHub shorthand)
 
@@ -91,7 +91,7 @@ Implement hooks with `@hookimpl` following `BubHookSpecs`.
 
 - `BUB_RUNTIME_ENABLED`: `auto` (default), `1`, `0`
 - `BUB_MODEL`: default `openrouter:qwen/qwen3-coder-next`
-- `BUB_API_KEY`: runtime provider key; optional when using `openai:*` models with `bub auth login openai`
+- `BUB_API_KEY`: runtime provider key; optional when using `openai:*` models with `bub login openai`
 - `BUB_API_BASE`: optional provider base URL
 - `BUB_RUNTIME_MAX_STEPS`: default `8`
 - `BUB_RUNTIME_MAX_TOKENS`: default `1024`

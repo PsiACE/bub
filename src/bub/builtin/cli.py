@@ -14,9 +14,6 @@ from bub.channels.message import ChannelMessage
 from bub.envelope import field_of
 from bub.framework import BubFramework
 
-app = typer.Typer()
-auth_app = typer.Typer(help="Manage authentication credentials.")
-
 
 def run(
     ctx: typer.Context,
@@ -108,8 +105,7 @@ def _render_codex_login_result(tokens: OpenAICodexOAuthTokens, auth_path: Path) 
     typer.echo("usage: set BUB_MODEL=openai:gpt-5-codex and omit BUB_API_KEY")
 
 
-@auth_app.command("login")
-def auth_login(
+def login(
     provider: str = typer.Argument(..., help="Authentication provider"),
     codex_home: Path | None = typer.Option(None, "--codex-home", help="Directory to store Codex OAuth credentials"),
     open_browser: bool = typer.Option(True, "--browser/--no-browser", help="Open the OAuth URL in a browser"),
