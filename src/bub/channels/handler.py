@@ -6,7 +6,6 @@ from loguru import logger
 from bub.channels.message import ChannelMessage
 from bub.types import MessageHandler
 
-
 MEDIA_DATA_URL_RE = re.compile(r"data:[^;\s]+;base64,[^\"'\s]+", re.IGNORECASE)
 
 
