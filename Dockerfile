@@ -41,6 +41,8 @@ RUN uv sync --no-dev && uv pip install "any-llm-sdk[gemini]" && \
 
 WORKDIR /workspace
 
+VOLUME /root/.bub
+
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
 CMD ["/app/entrypoint.sh"]
