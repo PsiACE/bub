@@ -122,11 +122,15 @@ class TapeService:
             return []
         results: list[TapeEntry] = []
         tapes = [self._llm.tape(tape_name)]
+        seen: set[str] = set()
 
         for tape in tapes:
             count = 0
             for entry in reversed(list(await tape.query_async.kinds("message").all())):
                 payload_text = json.dumps(entry.payload, ensure_ascii=False)
+                if payload_text.lower() in seen:
+                    continue
+                seen.add(payload_text.lower())
                 entry_meta = getattr(entry, "meta", {})
                 meta_text = json.dumps(entry_meta, ensure_ascii=False)
 
