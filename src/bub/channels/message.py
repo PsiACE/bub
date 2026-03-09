@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import contextlib
-import json
 from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 
@@ -30,7 +29,7 @@ class ChannelMessage:
     @property
     def context_str(self) -> str:
         """String representation of the context for prompt building."""
-        return json.dumps(self.context, ensure_ascii=False)[1:-1]
+        return "|".join(f"{key}={value}" for key, value in self.context.items())
 
     @classmethod
     def from_batch(cls, batch: list[ChannelMessage]) -> ChannelMessage:
