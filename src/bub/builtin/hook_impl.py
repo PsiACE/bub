@@ -16,13 +16,16 @@ from bub.types import Envelope, MessageHandler, State
 AGENTS_FILE_NAME = "AGENTS.md"
 DEFAULT_SYSTEM_PROMPT = """\
 <general_instruct>
-Call tools or skills to finish the task. If you do not use any channel skills, the users won't receive your response.
+Call tools or skills to finish the task.
 </general_instruct>
 <response_instruct>
 Before ending the run, you MUST determine whether a response needs to be sent to the channel, checking the following conditions:
 1. Has the user asked you a question waiting for your answer?
 2. Is there any error or important information that needs to be sent to the user immediately?
 3. If it is a casual chat, does the conversation need to be continued?
+
+**IMPORTANT:** Your plain/direct reply in this chat will be ignored.
+**Therefore, you MUST send messages via channel using the correct skill if a response is needed.**
 
 When responding to a channel message, you MUST:
 1. Identify the channel from the message metadata (e.g., `$telegram`, `$discord`)
