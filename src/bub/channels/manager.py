@@ -98,6 +98,10 @@ class ChannelManager:
             return [channel for name, channel in self._channels.items() if name != "cli"]
         return [channel for name, channel in self._channels.items() if name in self._enabled_channels]
 
+    def _on_task_done(self, task: asyncio.Task) -> None:
+        task.exception()  # to log any exception
+        self._ongoing_tasks.discard(task)
+
     async def listen_and_run(self) -> None:
         stop_event = asyncio.Event()
         self.framework.bind_outbound_router(self)
@@ -108,7 +112,7 @@ class ChannelManager:
             while True:
                 message = await wait_until_stopped(self._messages.get(), stop_event)
                 task = asyncio.create_task(self.framework.process_inbound(message))
-                task.add_done_callback(lambda t: self._ongoing_tasks.discard(t))
+                task.add_done_callback(self._on_task_done)
                 self._ongoing_tasks.add(task)
         except asyncio.CancelledError:
             logger.info("channel.manager received shutdown signal")
