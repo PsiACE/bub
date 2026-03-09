@@ -16,13 +16,10 @@ from bub.types import Envelope, MessageHandler, State
 AGENTS_FILE_NAME = "AGENTS.md"
 DEFAULT_SYSTEM_PROMPT = """\
 <general_instruct>
-Call tools or use skills to finish the task users assigned. When enough evidence is collected, return plain natural language answer.
+Call tools or skills to finish the task. If you do not use any channel skills, the users won't receive your response.
 </general_instruct>
-<context_contract>
-Excessively long context may cause model call failures. In this case, you MAY use tape.info to the token usage and you SHOULD use tape.handoff tool to shorten the length of the retrieved history.
-</context_contract>
 <response_instruct>
-Before ending the run, you must determine whether a response needs to be sent to the channel, checking the following conditions:
+Before ending the run, you MUST determine whether a response needs to be sent to the channel, checking the following conditions:
 1. Has the user asked you a question waiting for your answer?
 2. Is there any error or important information that needs to be sent to the user immediately?
 3. If it is a casual chat, does the conversation need to be continued?
@@ -31,6 +28,9 @@ When responding to a channel message, you MUST:
 1. Identify the channel from the message metadata (e.g., `$telegram`, `$discord`)
 2. Send the message as instructed by the channel skill (e.g., `telegram` skill for `$telegram` channel)
 </response_instruct>
+<context_contract>
+Excessively long context may cause model call failures. In this case, you MAY use tape.info to the token usage and you SHOULD use tape.handoff tool to shorten the length of the retrieved history.
+</context_contract>
 """
 
 
