@@ -215,10 +215,18 @@ def _resolve_tool_auto_result(output: ToolAutoResult) -> _ToolAutoOutcome:
 
 
 def _build_llm(settings: AgentSettings, tape_store: AsyncTapeStore) -> LLM:
+    provider = settings.model.split(":", 1)[0]
+    if provider == "openai" and settings.api_base is None:
+        from republic.auth.openai_codex import openai_codex_oauth_resolver
+
+        api_key_resolver = openai_codex_oauth_resolver()
+    else:
+        api_key_resolver = None
     return LLM(
         settings.model,
         api_key=settings.api_key,
         api_base=settings.api_base,
+        api_key_resolver=api_key_resolver,
         tape_store=tape_store,
         context=default_tape_context(),
     )
