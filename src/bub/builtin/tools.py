@@ -3,15 +3,18 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
 
-from republic import ToolContext
+from pydantic import BaseModel, Field
+from republic import AsyncTapeStore, TapeQuery, ToolContext
 
 from bub.skills import discover_skills
 from bub.tools import tool
 
 if TYPE_CHECKING:
     from bub.builtin.agent import Agent
+
+type EntryKind = Literal["event", "anchor", "system", "message", "tool_call", "tool_result"]
 
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 30
 DEFAULT_HEADERS = {"accept": "text/markdown"}
@@ -22,6 +25,19 @@ def _get_agent(context: ToolContext) -> Agent:
     if "_runtime_agent" not in context.state:
         raise RuntimeError("no runtime agent found in tool context")
     return cast("Agent", context.state["_runtime_agent"])
+
+
+class SearchInput(BaseModel):
+    query: str = Field(..., description="The search query string.")
+    limit: int = Field(20, description="Maximum number of search results to return.")
+    between_date: tuple[str, str] | None = Field(
+        None,
+        description="Optional date range to filter search results, as a tuple of (start_date, end_date) in ISO format.",
+    )
+    kinds: list[EntryKind] = Field(
+        default=["message"],
+        description="Optional list of entry kinds to filter search results. By default, only search 'message' entries.",
+    )
 
 
 @tool(context=True)
@@ -110,11 +126,19 @@ async def tape_info(context: ToolContext) -> str:
     )
 
 
-@tool(context=True, name="tape.search")
-async def tape_search(query: str, limit: int = 20, *, context: ToolContext) -> str:
+@tool(context=True, name="tape.search", model=SearchInput)
+async def tape_search(param: SearchInput, *, context: ToolContext) -> str:
     """Search for entries in the current tape that match the query. Returns a list of matching entries."""
     agent = _get_agent(context)
-    entries = await agent.tapes.search(context.tape or "", query=query, limit=limit)
+    query = (
+        TapeQuery[AsyncTapeStore](tape=context.tape or "", store=agent.tapes._store)
+        .query(param.query)
+        .kinds(*param.kinds)
+        .limit(param.limit)
+    )
+    if param.between_date is not None:
+        query = query.between_dates(*param.between_date)
+    entries = await agent.tapes.search(query)
     if not entries:
         return "(no matches)"
     return "\n".join(f"- {json.dumps(entry.payload)}" for entry in entries)
