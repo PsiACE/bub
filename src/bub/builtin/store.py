@@ -17,6 +17,8 @@ from republic import AsyncTapeStore, TapeEntry, TapeQuery
 from republic.tape import AsyncTapeStoreAdapter, InMemoryQueryMixin, InMemoryTapeStore, TapeStore
 from republic.tape.store import is_async_tape_store
 
+from bub.utils import get_entry_text
+
 current_store: contextvars.ContextVar[TapeStore] = contextvars.ContextVar("current_store")
 WORD_PATTERN = re.compile(r"[a-z0-9_/-]+")
 MIN_FUZZY_QUERY_LENGTH = 3
@@ -140,16 +142,12 @@ class FileTapeStore(InMemoryQueryMixin):
 
         count = 0
         for entry in reversed(entries):
-            payload_text = json.dumps(entry.payload, ensure_ascii=False)
-            if payload_text.lower() in seen:
+            payload_text = get_entry_text(entry).lower()
+            if payload_text in seen:
                 continue
-            seen.add(payload_text.lower())
-            entry_meta = getattr(entry, "meta", {})
-            meta_text = json.dumps(entry_meta, ensure_ascii=False)
+            seen.add(payload_text)
 
-            if (
-                normalized_query in payload_text.lower() or normalized_query in meta_text.lower()
-            ) or self._is_fuzzy_match(normalized_query, payload_text, meta_text):
+            if normalized_query in payload_text or self._is_fuzzy_match(normalized_query, payload_text):
                 results.append(entry)
                 count += 1
                 if count >= limit:
@@ -157,7 +155,7 @@ class FileTapeStore(InMemoryQueryMixin):
         return results
 
     @staticmethod
-    def _is_fuzzy_match(normalized_query: str, payload_text: str, meta_text: str) -> bool:
+    def _is_fuzzy_match(normalized_query: str, payload_text: str) -> bool:
         from rapidfuzz import fuzz, process
 
         if len(normalized_query) < MIN_FUZZY_QUERY_LENGTH:
@@ -169,7 +167,7 @@ class FileTapeStore(InMemoryQueryMixin):
         query_phrase = " ".join(query_tokens)
         window_size = len(query_tokens)
 
-        source_tokens = WORD_PATTERN.findall(payload_text.lower()) + WORD_PATTERN.findall(meta_text.lower())
+        source_tokens = WORD_PATTERN.findall(payload_text)
         if not source_tokens:
             return False
 

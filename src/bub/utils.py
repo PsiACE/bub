@@ -3,6 +3,8 @@ from collections.abc import Coroutine
 from pathlib import Path
 from typing import Any
 
+from republic import TapeEntry
+
 from bub.types import State
 
 
@@ -30,3 +32,9 @@ def workspace_from_state(state: State) -> Path:
     if isinstance(raw, str) and raw.strip():
         return Path(raw).expanduser().resolve()
     return Path.cwd().resolve()
+
+
+def get_entry_text(entry: TapeEntry) -> str:
+    import yaml
+
+    return yaml.safe_dump(entry.payload)
