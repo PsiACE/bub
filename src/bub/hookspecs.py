@@ -32,12 +32,16 @@ class BubHookSpecs:
         raise NotImplementedError
 
     @hookspec(firstresult=True)
-    def build_prompt(self, message: Envelope, session_id: str, state: State) -> str:
-        """Build model prompt for this turn."""
+    def build_prompt(self, message: Envelope, session_id: str, state: State) -> str | list[dict]:
+        """Build model prompt for this turn.
+
+        Returns either a plain text string or a list of content parts
+        (OpenAI multimodal format) when media attachments are present.
+        """
         raise NotImplementedError
 
     @hookspec(firstresult=True)
-    def run_model(self, prompt: str, session_id: str, state: State) -> str:
+    def run_model(self, prompt: str | list[dict], session_id: str, state: State) -> str:
         """Run model for one turn and return plain text output."""
         raise NotImplementedError
 
@@ -76,7 +80,7 @@ class BubHookSpecs:
         """Observe framework errors from any stage."""
 
     @hookspec
-    def system_prompt(self, prompt: str, state: State) -> str:
+    def system_prompt(self, prompt: str | list[dict], state: State) -> str:
         """Provide a system prompt to be prepended to all model prompts."""
         raise NotImplementedError
 

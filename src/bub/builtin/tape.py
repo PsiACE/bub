@@ -114,7 +114,7 @@ class TapeService:
 
     async def append_event(self, tape_name: str, name: str, payload: dict[str, Any], **meta: Any) -> None:
         tape = self._llm.tape(tape_name)
-        await tape.append_async(TapeEntry.event(name=name, payload=payload, **meta))
+        await tape.append_async(TapeEntry.event(name=name, data=payload, **meta))
 
     def session_tape(self, session_id: str, workspace: Path) -> Tape:
         workspace_hash = hashlib.md5(str(workspace.resolve()).encode("utf-8"), usedforsecurity=False).hexdigest()[:16]

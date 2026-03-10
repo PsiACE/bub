@@ -10,7 +10,7 @@ from collections.abc import AsyncGenerator, Iterable
 from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from loguru import logger
 from republic import AsyncTapeStore, TapeEntry, TapeQuery
@@ -58,6 +58,23 @@ class ForkTapeStore:
                         parent_entries = []
                 this_entries.append(entry)
         return itertools.chain(parent_entries, this_entries)
+
+    @staticmethod
+    def _redact_prompt(prompt: list[dict]) -> Any:
+        if not isinstance(prompt, list):
+            return prompt
+        new_prompt = []
+        for part in prompt:
+            if part.get("type") == "text":
+                new_prompt.append(part)
+        return new_prompt
+
+    @staticmethod
+    def _redact_payload(payload: dict) -> None:
+        if "content" in payload:
+            payload["content"] = ForkTapeStore._redact_prompt(payload["content"])
+        elif "prompt" in payload:
+            payload["prompt"] = ForkTapeStore._redact_prompt(payload["prompt"])
 
     async def append(self, tape: str, entry: TapeEntry) -> None:
         self._current.append(tape, entry)
@@ -193,14 +210,7 @@ class FileTapeStore(InMemoryQueryMixin):
     def reset(self, tape: str) -> None:
         self._tape_file(tape).reset()
 
-    @staticmethod
-    def _redact_payload(payload: dict) -> None:
-        if "content" not in payload:
-            return
-        payload["content"] = re.sub(r'data:[^;]+;base64,[^"]+', "[media]", payload["content"])
-
     def append(self, tape: str, entry: TapeEntry) -> None:
-        self._redact_payload(entry.payload)
         self._tape_file(tape).append(entry)
 
     def read(self, tape: str) -> list[TapeEntry] | None:

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import contextlib
 import json
 from collections.abc import AsyncGenerator, Callable
@@ -15,7 +14,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, filters
 from telegram.ext import MessageHandler as TelegramMessageHandler
 
 from bub.channels.base import Channel
-from bub.channels.message import ChannelMessage
+from bub.channels.message import ChannelMessage, MediaItem, MediaType
 from bub.types import MessageHandler
 from bub.utils import exclude_none
 
@@ -114,6 +113,30 @@ class BubMessageFilter(filters.MessageFilter):
 
 
 MESSAGE_FILTER = BubMessageFilter()
+
+_MSG_TYPE_TO_MEDIA_TYPE: dict[str, MediaType] = {
+    "photo": "image",
+    "sticker": "image",
+    "audio": "audio",
+    "voice": "audio",
+    "video": "video",
+    "video_note": "video",
+    "document": "document",
+}
+
+
+def _extract_media_items(metadata: dict[str, Any]) -> list[MediaItem]:
+    """Extract MediaItem from parsed metadata, removing data_url from it."""
+    media_dict = metadata.get("media")
+    if not isinstance(media_dict, dict):
+        return []
+    data = media_dict.pop("data", None)
+    if not data:
+        return []
+    msg_type = metadata.get("type", "")
+    media_type = _MSG_TYPE_TO_MEDIA_TYPE.get(msg_type, "document")
+    mime_type = media_dict.get("mime_type", "")
+    return [MediaItem(type=media_type, data=data, mime_type=mime_type, filename=media_dict.get("file_name"))]
 
 
 class TelegramChannel(Channel):
@@ -215,16 +238,20 @@ class TelegramChannel(Channel):
         if content.strip().startswith(","):
             return ChannelMessage(session_id=session_id, content=content.strip(), channel=self.name, chat_id=chat_id)
 
+        media_items = _extract_media_items(metadata)
         reply_meta = await self._parser.get_reply(message)
         if reply_meta:
             metadata["reply_to_message"] = reply_meta
-        content = json.dumps({"message": content, "chat_id": chat_id, **metadata}, ensure_ascii=False)
+            reply_media = _extract_media_items(reply_meta)
+            media_items.extend(reply_media)
+        content = json.dumps({"message": content, **metadata}, ensure_ascii=False)
         is_active = MESSAGE_FILTER.filter(message) is not False
         return ChannelMessage(
             session_id=session_id,
             channel=self.name,
             chat_id=chat_id,
             content=content,
+            media=media_items,
             is_active=is_active,
             lifespan=self.start_typing(chat_id),
             output_channel="null",  # disable outbound for telegram messages
@@ -300,7 +327,8 @@ class TelegramMessageParser:
             "file_size": largest.file_size,
             "width": largest.width,
             "height": largest.height,
-            "data_url": await self._download_media(mime_type, largest.file_id, largest.file_size),
+            "mime_type": mime_type,
+            "data": await self._download_media(largest.file_id, largest.file_size),
         })
         return formatted, media
 
@@ -318,15 +346,13 @@ class TelegramMessageParser:
             "duration": audio.duration,
             "title": audio.title,
             "performer": audio.performer,
-            "data_url": await self._download_media(
-                audio.mime_type or "application/octet-stream", audio.file_id, audio.file_size
-            ),
+            "data": await self._download_media(audio.file_id, audio.file_size),
         })
         if performer:
             return f"[Audio: {performer} - {title} ({duration}s)]", metadata
         return f"[Audio: {title} ({duration}s)]", metadata
 
-    async def _download_media(self, mime_type: str, file_id: str, file_size: int) -> str | None:
+    async def _download_media(self, file_id: str, file_size: int) -> bytes | None:
         if not file_id:
             raise ValueError("file_id must not be empty")
         if self._bot_getter is None:
@@ -341,8 +367,7 @@ class TelegramMessageParser:
         if telegram_file is None:
             raise RuntimeError(f"Telegram file lookup returned no result for file_id={file_id}.")
         data = await telegram_file.download_as_bytearray()
-        print("File size:", len(data))
-        return f"data:{mime_type};base64,{base64.b64encode(data).decode('utf-8')}"
+        return bytes(data)
 
     async def _parse_sticker(self, message: Message) -> tuple[str, dict[str, Any] | None]:
         sticker = getattr(message, "sticker", None)
@@ -359,7 +384,7 @@ class TelegramMessageParser:
             "emoji": sticker.emoji,
             "set_name": sticker.set_name,
             "is_animated": sticker.is_animated,
-            "data_url": await self._download_media(mime_type, sticker.file_id, sticker.file_size),
+            "data": await self._download_media(sticker.file_id, sticker.file_size),
         })
         if emoji:
             return f"[Sticker: {emoji} from {set_name}]", metadata
@@ -380,7 +405,7 @@ class TelegramMessageParser:
             "height": video.height,
             "duration": video.duration,
             "mime_type": video.mime_type,
-            "data_url": await self._download_media(video.mime_type or "video/mp4", video.file_id, video.file_size),
+            "data": await self._download_media(video.file_id, video.file_size),
         })
         return formatted, metadata
 
@@ -392,8 +417,8 @@ class TelegramMessageParser:
         metadata = exclude_none({
             "file_id": voice.file_id,
             "duration": voice.duration,
-            "mime_type": voice.mime_type,
-            "data_url": await self._download_media(voice.mime_type or "audio/ogg", voice.file_id, voice.file_size),
+            "mime_type": voice.mime_type or "audio/ogg",
+            "data": await self._download_media(voice.file_id, voice.file_size),
         })
         return f"[Voice message: {duration}s]", metadata
 
@@ -402,7 +427,7 @@ class TelegramMessageParser:
         if document is None:
             return "[Document]", None
         file_name = document.file_name or "unknown"
-        mime_type = document.mime_type or "unknown"
+        mime_type = document.mime_type or "application/octet-stream"
         caption = getattr(message, "caption", None) or ""
         formatted = f"[Document: {file_name} ({mime_type})]"
         formatted = f"{formatted} Caption: {caption}" if caption else formatted
@@ -410,10 +435,8 @@ class TelegramMessageParser:
             "file_id": document.file_id,
             "file_name": document.file_name,
             "file_size": document.file_size,
-            "mime_type": document.mime_type,
-            "data_url": await self._download_media(
-                document.mime_type or "application/octet-stream", document.file_id, document.file_size
-            ),
+            "mime_type": mime_type,
+            "data": await self._download_media(document.file_id, document.file_size),
         })
         return formatted, metadata
 
@@ -425,9 +448,7 @@ class TelegramMessageParser:
         metadata = exclude_none({
             "file_id": video_note.file_id,
             "duration": video_note.duration,
-            "mime_type": video_note.mime_type,
-            "data_url": await self._download_media(
-                video_note.mime_type or "video/mp4", video_note.file_id, video_note.file_size
-            ),
+            "mime_type": video_note.mime_type or "video/mp4",
+            "data": await self._download_media(video_note.file_id, video_note.file_size),
         })
         return f"[Video note: {duration}s]", metadata

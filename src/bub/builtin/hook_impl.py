@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from typing import cast
 
 import typer
 from loguru import logger
@@ -7,7 +8,7 @@ from republic.tape import TapeStore
 
 from bub.builtin.agent import Agent
 from bub.channels.base import Channel
-from bub.channels.message import ChannelMessage
+from bub.channels.message import ChannelMessage, MediaItem
 from bub.envelope import content_of, field_of
 from bub.framework import BubFramework
 from bub.hookspecs import hookimpl
@@ -73,17 +74,32 @@ class BuiltinImpl:
             await lifespan.__aexit__(tp, value, traceback)
 
     @hookimpl
-    def build_prompt(self, message: ChannelMessage, session_id: str, state: State) -> str:
+    def build_prompt(self, message: ChannelMessage, session_id: str, state: State) -> str | list[dict]:
         content = content_of(message)
         if content.startswith(","):
             message.kind = "command"
             return content
         context = field_of(message, "context_str")
         context_prefix = f"{context}\n---\n" if context else ""
-        return f"{context_prefix}{content}"
+        text = f"{context_prefix}{content}"
+
+        media = field_of(message, "media") or []
+        if not media:
+            return text
+
+        media_parts: list[dict] = []
+        for item in cast("list[MediaItem]", media):
+            match item.type:
+                case "image":
+                    media_parts.append({"type": "image_url", "image_url": {"url": item.data_url}})
+                case _:
+                    pass  # TODO: Not supported for now
+        if media_parts:
+            return [{"type": "text", "text": text}, *media_parts]
+        return text
 
     @hookimpl
-    async def run_model(self, prompt: str, session_id: str, state: State) -> str:
+    async def run_model(self, prompt: str | list[dict], session_id: str, state: State) -> str:
         return await self.agent.run(session_id=session_id, prompt=prompt, state=state)
 
     @hookimpl
@@ -107,7 +123,7 @@ class BuiltinImpl:
             return ""
 
     @hookimpl
-    def system_prompt(self, prompt: str, state: State) -> str:
+    def system_prompt(self, prompt: str | list[dict], state: State) -> str:
         # Read the content of AGENTS.md under workspace
         return DEFAULT_SYSTEM_PROMPT + "\n\n" + self._read_agents_file(state)
 

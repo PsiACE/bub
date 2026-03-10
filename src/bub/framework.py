@@ -113,7 +113,7 @@ class BubFramework:
                         error=RuntimeError("no model skill returned output"),
                         message=inbound,
                     )
-                    model_output = prompt
+                    model_output = prompt if isinstance(prompt, str) else content_of(inbound)
                 else:
                     model_output = str(model_output)
             finally:
@@ -198,7 +198,7 @@ class BubFramework:
     def get_tape_store(self) -> TapeStore | AsyncTapeStore | None:
         return self._hook_runtime.call_first_sync("provide_tape_store")
 
-    def get_system_prompt(self, prompt: str, state: dict[str, Any]) -> str:
+    def get_system_prompt(self, prompt: str | list[dict], state: dict[str, Any]) -> str:
         return "\n\n".join(
             result
             for result in reversed(self._hook_runtime.call_many_sync("system_prompt", prompt=prompt, state=state))

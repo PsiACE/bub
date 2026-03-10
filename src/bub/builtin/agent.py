@@ -47,17 +47,16 @@ class Agent:
         llm = _build_llm(self.settings, tape_store)
         return TapeService(llm, self.settings.home / "tapes", tape_store)
 
-    async def run(self, *, session_id: str, prompt: str, state: State) -> str:
-        stripped = prompt.strip()
-        if not stripped:
+    async def run(self, *, session_id: str, prompt: str | list[dict], state: State) -> str:
+        if not prompt:
             return "error: empty prompt"
         tape = self.tapes.session_tape(session_id, workspace_from_state(state))
         tape.context.state.update(state)
         async with self.tapes.fork_tape(tape.name):
             await self.tapes.ensure_bootstrap_anchor(tape.name)
-            if stripped.startswith(","):
-                return await self._run_command(tape=tape, line=stripped)
-            return await self._agent_loop(tape=tape, prompt=stripped)
+            if isinstance(prompt, str) and prompt.strip().startswith(","):
+                return await self._run_command(tape=tape, line=prompt.strip())
+            return await self._agent_loop(tape=tape, prompt=prompt)
 
     async def _run_command(self, tape: Tape, *, line: str) -> str:
         line = line[1:].strip()
@@ -99,8 +98,8 @@ class Agent:
             }
             await self.tapes.append_event(tape.name, "command", event_payload)
 
-    async def _agent_loop(self, *, tape: Tape, prompt: str) -> str:
-        next_prompt = prompt
+    async def _agent_loop(self, *, tape: Tape, prompt: str | list[dict]) -> str:
+        next_prompt: str | list[dict] = prompt
 
         for step in range(1, self.settings.max_steps + 1):
             start = time.monotonic()
@@ -172,12 +171,13 @@ class Agent:
         expanded_skills = set(HINT_RE.findall(prompt)) & set(skill_index.keys())
         return render_skills_prompt(list(skill_index.values()), expanded_skills=expanded_skills)
 
-    async def _run_tools_once(self, *, tape: Tape, prompt: str) -> ToolAutoResult:
+    async def _run_tools_once(self, *, tape: Tape, prompt: str | list[dict]) -> ToolAutoResult:
         extra_options = {"extra_headers": DEFAULT_BUB_HEADERS} if self.settings.model.startswith("openrouter:") else {}
+        prompt_text = prompt if isinstance(prompt, str) else _extract_text_from_parts(prompt)
         async with asyncio.timeout(self.settings.model_timeout_seconds):
             return await tape.run_tools_async(
-                prompt=prompt,
-                system_prompt=self._system_prompt(prompt, state=tape.context.state),
+                prompt=prompt,  # republic accepts list content parts at runtime
+                system_prompt=self._system_prompt(prompt_text, state=tape.context.state),
                 max_tokens=self.settings.max_tokens,
                 tools=model_tools(REGISTRY.values()),
                 **extra_options,
@@ -264,3 +264,8 @@ def _parse_args(args_tokens: list[str]) -> Args:
         else:
             positional.append(token)
     return Args(positional=positional, kwargs=kwargs)
+
+
+def _extract_text_from_parts(parts: list[dict]) -> str:
+    """Extract text content from multimodal content parts."""
+    return "\n".join(p.get("text", "") for p in parts if p.get("type") == "text")

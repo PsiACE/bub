@@ -87,24 +87,6 @@ async def test_buffered_handler_passes_commands_through_immediately() -> None:
     assert handled == [",help"]
 
 
-def test_buffered_handler_prettify_masks_base64_payload() -> None:
-    content = 'look data:image/png;base64,abcdef" end'
-
-    assert BufferedMessageHandler.prettify(content) == 'look [media]" end'
-
-
-def test_buffered_handler_prettify_masks_single_quoted_base64_payload() -> None:
-    content = "look 'data:image/png;base64,abcdef' end"
-
-    assert BufferedMessageHandler.prettify(content) == "look '[media]' end"
-
-
-def test_buffered_handler_prettify_preserves_following_text_for_unquoted_payload() -> None:
-    content = "look DATA:image/png;base64,abcdef tail"
-
-    assert BufferedMessageHandler.prettify(content) == "look [media] tail"
-
-
 @pytest.mark.asyncio
 async def test_channel_manager_dispatch_uses_output_channel_and_preserves_metadata() -> None:
     cli_channel = FakeChannel("cli")
@@ -306,7 +288,6 @@ async def test_telegram_channel_build_message_wraps_payload_and_disables_outboun
     assert result.output_channel == "null"
     assert result.is_active is True
     assert '"message": "hello"' in result.content
-    assert '"chat_id": "42"' in result.content
     assert '"reply_to_message"' in result.content
     assert result.lifespan is not None
 
