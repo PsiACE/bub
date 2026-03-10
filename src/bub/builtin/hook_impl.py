@@ -92,6 +92,7 @@ class BuiltinImpl:
 
         app.command("run")(cli.run)
         app.command("chat")(cli.chat)
+        app.command("login")(cli.login)
         app.command("hooks", hidden=True)(cli.list_hooks)
         app.command("message", hidden=True)(app.command("gateway")(cli.gateway))
 

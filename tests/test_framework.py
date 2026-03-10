@@ -94,7 +94,7 @@ def test_get_system_prompt_uses_priority_order_and_skips_empty_results() -> None
     assert prompt == "low\n\nhigh"
 
 
-def test_builtin_cli_exposes_gateway_and_keeps_message_hidden_alias() -> None:
+def test_builtin_cli_exposes_login_and_keeps_message_hidden_alias() -> None:
     framework = BubFramework()
     framework.load_hooks()
     app = framework.create_cli_app()
@@ -104,6 +104,7 @@ def test_builtin_cli_exposes_gateway_and_keeps_message_hidden_alias() -> None:
     alias_result = runner.invoke(app, ["message", "--help"])
 
     assert help_result.exit_code == 0
+    assert "login" in help_result.stdout
     assert "gateway" in help_result.stdout
     assert "│ message" not in help_result.stdout
     assert alias_result.exit_code == 0

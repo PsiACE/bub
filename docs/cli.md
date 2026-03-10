@@ -1,6 +1,6 @@
 # CLI
 
-`bub` currently exposes four builtin commands: `run`, `gateway`, `chat`, and the hidden compatibility command `message`.
+`bub` currently exposes five builtin commands: `run`, `gateway`, `chat`, `login`, and the hidden compatibility command `message`.
 
 ## `bub run`
 
@@ -65,6 +65,26 @@ Start an interactive REPL session via the `cli` channel.
 ```bash
 uv run bub chat
 uv run bub chat --chat-id local --session-id cli:local
+```
+
+## `bub login`
+
+Authenticate with OpenAI Codex OAuth and persist the resulting credentials under `CODEX_HOME` (default `~/.codex`).
+
+```bash
+uv run bub login openai
+```
+
+Manual callback mode is useful when the local redirect server is unavailable:
+
+```bash
+uv run bub login openai --manual --no-browser
+```
+
+After login, you can use an OpenAI model without setting `BUB_API_KEY`:
+
+```bash
+BUB_MODEL=openai:gpt-5-codex uv run bub chat
 ```
 
 ## Notes
