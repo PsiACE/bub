@@ -31,10 +31,8 @@ def _get_agent(context: ToolContext) -> Agent:
 class SearchInput(BaseModel):
     query: str = Field(..., description="The search query string.")
     limit: int = Field(20, description="Maximum number of search results to return.")
-    between_date: tuple[str, str] | None = Field(
-        None,
-        description="Optional date range to filter search results, as a tuple of (start_date, end_date) in ISO format.",
-    )
+    start: str | None = Field(None, description="Optional start date to filter entries (ISO format).")
+    end: str | None = Field(None, description="Optional end date to filter entries (ISO format).")
     kinds: list[EntryKind] = Field(
         default=["message"],
         description="Optional list of entry kinds to filter search results. By default, only search 'message' entries.",
@@ -156,8 +154,9 @@ async def tape_search(param: SearchInput, *, context: ToolContext) -> str:
         .kinds(*param.kinds)
         .limit(param.limit)
     )
-    if param.between_date is not None:
-        query = query.between_dates(*param.between_date)
+    if param.start or param.end:
+        query = query.between_dates(param.start or "", param.end or "")
+
     entries = await agent.tapes.search(query)
     if not entries:
         return "(no matches)"
