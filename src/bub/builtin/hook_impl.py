@@ -87,19 +87,16 @@ class BuiltinImpl:
         if not media:
             return text
 
-        parts: list[dict] = [{"type": "text", "text": text}]
+        media_parts: list[dict] = []
         for item in cast("list[MediaItem]", media):
             match item.type:
                 case "image":
-                    parts.append({"type": "image_url", "image_url": {"url": item.data_url}})
-                case "audio" | "video":
-                    pass  # TODO: Not supported for now
+                    media_parts.append({"type": "image_url", "image_url": {"url": item.data_url}})
                 case _:
-                    parts.append({
-                        "type": "file",
-                        "file": {"file_data": item.encoded_data, "filename": item.filename},
-                    })
-        return parts
+                    pass  # TODO: Not supported for now
+        if media_parts:
+            return [{"type": "text", "text": text}, *media_parts]
+        return text
 
     @hookimpl
     async def run_model(self, prompt: str | list[dict], session_id: str, state: State) -> str:

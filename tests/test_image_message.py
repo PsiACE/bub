@@ -301,12 +301,9 @@ def test_build_prompt_with_non_image_media_only_includes_text(tmp_path: Path) ->
 
     result = impl.build_prompt(message, session_id="s", state={})
 
-    # Non-image media: still returns a list but only with text part
-    assert isinstance(result, list)
-    text_parts = [p for p in result if p["type"] == "text"]
-    image_parts = [p for p in result if p["type"] == "image_url"]
-    assert len(text_parts) == 1
-    assert len(image_parts) == 0
+    # Non-image media: only returns a text
+    assert isinstance(result, str)
+    assert "listen to this" in result
 
 
 def test_build_prompt_command_ignores_media(tmp_path: Path) -> None:

@@ -136,7 +136,7 @@ def _extract_media_items(metadata: dict[str, Any]) -> list[MediaItem]:
     msg_type = metadata.get("type", "")
     media_type = _MSG_TYPE_TO_MEDIA_TYPE.get(msg_type, "document")
     mime_type = media_dict.get("mime_type", "")
-    return [MediaItem(type=media_type, data=data, mime_type=mime_type)]
+    return [MediaItem(type=media_type, data=data, mime_type=mime_type, filename=media_dict.get("file_name"))]
 
 
 class TelegramChannel(Channel):
