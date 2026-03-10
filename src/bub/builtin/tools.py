@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast
 
@@ -37,6 +38,17 @@ class SearchInput(BaseModel):
     kinds: list[EntryKind] = Field(
         default=["message"],
         description="Optional list of entry kinds to filter search results. By default, only search 'message' entries.",
+    )
+
+
+class SubAgentInput(BaseModel):
+    model: str | None = Field(None, description="The model to use for the sub-agent.")
+    session: str = Field(
+        "temp",
+        description="The session handling strategy for the sub-agent. 'inherit' to use the same session, 'temp' to create a temporary session.",
+    )
+    prompt: str | list[dict] = Field(
+        ..., description="The initial prompt for the sub-agent, either as a string or a list of message parts."
     )
 
 
@@ -184,6 +196,21 @@ async def web_fetch(url: str, headers: dict | None = None, timeout: int | None =
     ):
         response.raise_for_status()
         return await response.text()
+
+
+@tool(name="subagent", context=True, model=SubAgentInput)
+async def run_subagent(param: SubAgentInput, *, context: ToolContext) -> str:
+    """Run a task with sub-agent using specific model and session."""
+    agent = _get_agent(context)
+    session_id = context.state.get("session_id", "temp/unknown")
+    if param.session == "inherit":
+        subagent_session = session_id
+    elif param.session == "temp":
+        subagent_session = f"temp/{uuid.uuid4().hex[:8]}"
+    else:
+        subagent_session = param.session
+    state = {**context.state, "session_id": subagent_session}
+    return await agent.run(session_id=subagent_session, prompt=param.prompt, state=state, model=param.model)
 
 
 @tool(name="help")

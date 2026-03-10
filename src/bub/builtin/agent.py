@@ -47,16 +47,17 @@ class Agent:
         llm = _build_llm(self.settings, tape_store)
         return TapeService(llm, self.settings.home / "tapes", tape_store)
 
-    async def run(self, *, session_id: str, prompt: str | list[dict], state: State) -> str:
+    async def run(self, *, session_id: str, prompt: str | list[dict], state: State, model: str | None = None) -> str:
         if not prompt:
             return "error: empty prompt"
         tape = self.tapes.session_tape(session_id, workspace_from_state(state))
         tape.context.state.update(state)
-        async with self.tapes.fork_tape(tape.name):
+        merge_back = not session_id.startswith("temp/")
+        async with self.tapes.fork_tape(tape.name, merge_back=merge_back):
             await self.tapes.ensure_bootstrap_anchor(tape.name)
             if isinstance(prompt, str) and prompt.strip().startswith(","):
                 return await self._run_command(tape=tape, line=prompt.strip())
-            return await self._agent_loop(tape=tape, prompt=prompt)
+            return await self._agent_loop(tape=tape, prompt=prompt, model=model)
 
     async def _run_command(self, tape: Tape, *, line: str) -> str:
         line = line[1:].strip()
@@ -98,14 +99,14 @@ class Agent:
             }
             await self.tapes.append_event(tape.name, "command", event_payload)
 
-    async def _agent_loop(self, *, tape: Tape, prompt: str | list[dict]) -> str:
+    async def _agent_loop(self, *, tape: Tape, prompt: str | list[dict], model: str | None = None) -> str:
         next_prompt: str | list[dict] = prompt
 
         for step in range(1, self.settings.max_steps + 1):
             start = time.monotonic()
             await self.tapes.append_event(tape.name, "loop.step.start", {"step": step, "prompt": next_prompt})
             try:
-                output = await self._run_tools_once(tape=tape, prompt=next_prompt)
+                output = await self._run_tools_once(tape=tape, prompt=next_prompt, model=model)
             except Exception as exc:
                 elapsed_ms = int((time.monotonic() - start) * 1000)
                 await self.tapes.append_event(
@@ -171,7 +172,9 @@ class Agent:
         expanded_skills = set(HINT_RE.findall(prompt)) & set(skill_index.keys())
         return render_skills_prompt(list(skill_index.values()), expanded_skills=expanded_skills)
 
-    async def _run_tools_once(self, *, tape: Tape, prompt: str | list[dict]) -> ToolAutoResult:
+    async def _run_tools_once(
+        self, *, tape: Tape, prompt: str | list[dict], model: str | None = None
+    ) -> ToolAutoResult:
         extra_options = {"extra_headers": DEFAULT_BUB_HEADERS} if self.settings.model.startswith("openrouter:") else {}
         prompt_text = prompt if isinstance(prompt, str) else _extract_text_from_parts(prompt)
         async with asyncio.timeout(self.settings.model_timeout_seconds):
@@ -180,6 +183,7 @@ class Agent:
                 system_prompt=self._system_prompt(prompt_text, state=tape.context.state),
                 max_tokens=self.settings.max_tokens,
                 tools=model_tools(REGISTRY.values()),
+                model=model,
                 **extra_options,
             )
 
@@ -215,25 +219,20 @@ def _resolve_tool_auto_result(output: ToolAutoResult) -> _ToolAutoOutcome:
 
 
 def _build_llm(settings: AgentSettings, tape_store: AsyncTapeStore) -> LLM:
-    provider = settings.model.split(":", 1)[0]
-    if provider == "openai" and settings.api_base is None:
-        from republic.auth.openai_codex import openai_codex_oauth_resolver
+    from republic.auth.openai_codex import openai_codex_oauth_resolver
 
-        api_key_resolver = openai_codex_oauth_resolver()
-    else:
-        api_key_resolver = None
     return LLM(
         settings.model,
         api_key=settings.api_key,
         api_base=settings.api_base,
-        api_key_resolver=api_key_resolver,
+        api_key_resolver=openai_codex_oauth_resolver(),
         tape_store=tape_store,
         context=default_tape_context(),
     )
 
 
 def _load_runtime_settings() -> AgentSettings:
-    return AgentSettings()
+    return AgentSettings.from_env()
 
 
 @dataclass(frozen=True)
