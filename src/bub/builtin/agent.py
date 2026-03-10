@@ -14,6 +14,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any
 
+from loguru import logger
 from republic import LLM, AsyncTapeStore, ToolAutoResult, ToolContext
 from republic.tape import InMemoryTapeStore, Tape
 
@@ -121,9 +122,10 @@ class Agent:
         allowed_tools: Collection[str] | None = None,
     ) -> str:
         next_prompt: str | list[dict] = prompt
-
+        display_model = model or self.settings.model
         for step in range(1, self.settings.max_steps + 1):
             start = time.monotonic()
+            logger.info("loop.step step={} tape={} model={}", step, tape.name, display_model)
             await self.tapes.append_event(tape.name, "loop.step.start", {"step": step, "prompt": next_prompt})
             try:
                 output = await self._run_tools_once(
