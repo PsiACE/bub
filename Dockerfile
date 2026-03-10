@@ -28,8 +28,8 @@ RUN apt-get install -y --no-install-recommends \
     protobuf-compiler \
     zip fd-find gh
 
-# Install pnpm
-RUN npm install -g pnpm
+# Install pnpm and OpenAI Codex CLI
+RUN npm install -g pnpm && npm install -g @openai/codex
 
 WORKDIR /app
 # Install Python dependencies first (cached layer)
