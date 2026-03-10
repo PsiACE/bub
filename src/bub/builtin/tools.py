@@ -42,13 +42,21 @@ class SearchInput(BaseModel):
 
 
 class SubAgentInput(BaseModel):
+    prompt: str | list[dict] = Field(
+        ..., description="The initial prompt for the sub-agent, either as a string or a list of message parts."
+    )
     model: str | None = Field(None, description="The model to use for the sub-agent.")
     session: str = Field(
         "temp",
         description="The session handling strategy for the sub-agent. 'inherit' to use the same session, 'temp' to create a temporary session.",
     )
-    prompt: str | list[dict] = Field(
-        ..., description="The initial prompt for the sub-agent, either as a string or a list of message parts."
+    allowed_tools: list[str] | None = Field(
+        None,
+        description="Optional list of allowed tool names for the sub-agent. If not specified, the sub-agent can use any tool available to the main agent.",
+    )
+    allowed_skills: list[str] | None = Field(
+        None,
+        description="Optional list of allowed skill names for the sub-agent. If not specified, the sub-agent can use any skill available to the main agent.",
     )
 
 
@@ -210,7 +218,14 @@ async def run_subagent(param: SubAgentInput, *, context: ToolContext) -> str:
     else:
         subagent_session = param.session
     state = {**context.state, "session_id": subagent_session}
-    return await agent.run(session_id=subagent_session, prompt=param.prompt, state=state, model=param.model)
+    return await agent.run(
+        session_id=subagent_session,
+        prompt=param.prompt,
+        state=state,
+        model=param.model,
+        allowed_tools=param.allowed_tools,
+        allowed_skills=param.allowed_skills,
+    )
 
 
 @tool(name="help")
