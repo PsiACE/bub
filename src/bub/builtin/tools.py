@@ -33,8 +33,8 @@ class SearchInput(BaseModel):
     start: str | None = Field(None, description="Optional start date to filter entries (ISO format).")
     end: str | None = Field(None, description="Optional end date to filter entries (ISO format).")
     kinds: list[EntryKind] = Field(
-        default=["message"],
-        description="Optional list of entry kinds to filter search results. By default, only search 'message' entries.",
+        default=["message", "tool_result"],
+        description="Optional list of entry kinds to filter search results.",
     )
 
 
