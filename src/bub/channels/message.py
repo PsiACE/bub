@@ -5,6 +5,27 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 
 type MessageKind = Literal["error", "normal", "command"]
+type MediaType = Literal["image", "audio", "video", "document"]
+
+
+@dataclass(frozen=True)
+class MediaItem:
+    """A media attachment on a channel message."""
+
+    type: MediaType
+    data: bytes
+    mime_type: str
+    filename: str | None = None
+
+    @property
+    def data_url(self) -> str:
+        return f"data:{self.mime_type};base64,{self.encoded_data}"
+
+    @property
+    def encoded_data(self) -> str:
+        import base64
+
+        return base64.b64encode(self.data).decode("utf-8")
 
 
 @dataclass
@@ -18,6 +39,7 @@ class ChannelMessage:
     is_active: bool = False
     kind: MessageKind = "normal"
     context: dict[str, Any] = field(default_factory=dict)
+    media: list[MediaItem] = field(default_factory=list)
     lifespan: contextlib.AbstractAsyncContextManager | None = None
     output_channel: str = ""
 
@@ -38,4 +60,5 @@ class ChannelMessage:
             raise ValueError("Batch cannot be empty")
         template = batch[-1]
         content = "\n".join(message.content for message in batch)
-        return replace(template, content=content)
+        media = [item for message in batch for item in message.media]
+        return replace(template, content=content, media=media)

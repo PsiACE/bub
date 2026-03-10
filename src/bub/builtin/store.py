@@ -194,10 +194,23 @@ class FileTapeStore(InMemoryQueryMixin):
         self._tape_file(tape).reset()
 
     @staticmethod
-    def _redact_payload(payload: dict) -> None:
-        if "content" not in payload:
-            return
-        payload["content"] = re.sub(r'data:[^;]+;base64,[^"]+', "[media]", payload["content"])
+    def _redact_content(content: str) -> str:
+        return re.sub(r'data:[^;]+;base64,[^"]+', "[media]", content)
+
+    @staticmethod
+    def _redact_payload(payload: dict | list) -> None:
+        if isinstance(payload, dict):
+            for key, value in payload.items():
+                if isinstance(value, str):
+                    payload[key] = FileTapeStore._redact_content(value)
+                else:
+                    FileTapeStore._redact_payload(value)
+        elif isinstance(payload, list):
+            for idx, item in enumerate(payload):
+                if isinstance(item, str):
+                    payload[idx] = FileTapeStore._redact_content(item)
+                else:
+                    FileTapeStore._redact_payload(item)
 
     def append(self, tape: str, entry: TapeEntry) -> None:
         self._redact_payload(entry.payload)
