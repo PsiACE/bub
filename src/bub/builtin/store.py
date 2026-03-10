@@ -80,19 +80,20 @@ class ForkTapeStore:
         self._current.append(tape, entry)
 
     @contextlib.asynccontextmanager
-    async def fork(self, tape: str) -> AsyncGenerator[None, None]:
+    async def fork(self, tape: str, merge_back: bool = True) -> AsyncGenerator[None, None]:
         store = InMemoryTapeStore()
         token = current_store.set(store)
         try:
             yield
         finally:
             current_store.reset(token)
-            entries = store.read(tape)
-            if entries:
-                count = len(entries)
-                for entry in entries:
-                    await self._parent.append(tape, entry)
-                logger.info(f'Merged {count} entries into tape "{tape}"')
+            if merge_back:
+                entries = store.read(tape)
+                if entries:
+                    count = len(entries)
+                    for entry in entries:
+                        await self._parent.append(tape, entry)
+                    logger.info(f'Merged {count} entries into tape "{tape}"')
 
 
 class EmptyTapeStore:

@@ -7,6 +7,7 @@ import inspect
 import re
 import shlex
 import time
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import cached_property
@@ -47,16 +48,28 @@ class Agent:
         llm = _build_llm(self.settings, tape_store)
         return TapeService(llm, self.settings.home / "tapes", tape_store)
 
-    async def run(self, *, session_id: str, prompt: str | list[dict], state: State) -> str:
+    async def run(
+        self,
+        *,
+        session_id: str,
+        prompt: str | list[dict],
+        state: State,
+        model: str | None = None,
+        allowed_skills: Collection[str] | None = None,
+        allowed_tools: Collection[str] | None = None,
+    ) -> str:
         if not prompt:
             return "error: empty prompt"
         tape = self.tapes.session_tape(session_id, workspace_from_state(state))
         tape.context.state.update(state)
-        async with self.tapes.fork_tape(tape.name):
+        merge_back = not session_id.startswith("temp/")
+        async with self.tapes.fork_tape(tape.name, merge_back=merge_back):
             await self.tapes.ensure_bootstrap_anchor(tape.name)
             if isinstance(prompt, str) and prompt.strip().startswith(","):
                 return await self._run_command(tape=tape, line=prompt.strip())
-            return await self._agent_loop(tape=tape, prompt=prompt)
+            return await self._agent_loop(
+                tape=tape, prompt=prompt, model=model, allowed_skills=allowed_skills, allowed_tools=allowed_tools
+            )
 
     async def _run_command(self, tape: Tape, *, line: str) -> str:
         line = line[1:].strip()
@@ -98,14 +111,28 @@ class Agent:
             }
             await self.tapes.append_event(tape.name, "command", event_payload)
 
-    async def _agent_loop(self, *, tape: Tape, prompt: str | list[dict]) -> str:
+    async def _agent_loop(
+        self,
+        *,
+        tape: Tape,
+        prompt: str | list[dict],
+        model: str | None = None,
+        allowed_skills: Collection[str] | None = None,
+        allowed_tools: Collection[str] | None = None,
+    ) -> str:
         next_prompt: str | list[dict] = prompt
 
         for step in range(1, self.settings.max_steps + 1):
             start = time.monotonic()
             await self.tapes.append_event(tape.name, "loop.step.start", {"step": step, "prompt": next_prompt})
             try:
-                output = await self._run_tools_once(tape=tape, prompt=next_prompt)
+                output = await self._run_tools_once(
+                    tape=tape,
+                    prompt=next_prompt,
+                    model=model,
+                    allowed_skills=allowed_skills,
+                    allowed_tools=allowed_tools,
+                )
             except Exception as exc:
                 elapsed_ms = int((time.monotonic() - start) * 1000)
                 await self.tapes.append_event(
@@ -166,24 +193,45 @@ class Agent:
 
         raise RuntimeError(f"max_steps_reached={self.settings.max_steps}")
 
-    def _load_skills_prompt(self, prompt: str, workspace: Path) -> str:
-        skill_index = {skill.name: skill for skill in discover_skills(workspace)}
+    def _load_skills_prompt(self, prompt: str, workspace: Path, allowed_skills: set[str] | None = None) -> str:
+        skill_index = {
+            skill.name.casefold(): skill
+            for skill in discover_skills(workspace)
+            if allowed_skills is None or skill.name.casefold() in allowed_skills
+        }
         expanded_skills = set(HINT_RE.findall(prompt)) & set(skill_index.keys())
         return render_skills_prompt(list(skill_index.values()), expanded_skills=expanded_skills)
 
-    async def _run_tools_once(self, *, tape: Tape, prompt: str | list[dict]) -> ToolAutoResult:
+    async def _run_tools_once(
+        self,
+        *,
+        tape: Tape,
+        prompt: str | list[dict],
+        model: str | None = None,
+        allowed_tools: Collection[str] | None = None,
+        allowed_skills: Collection[str] | None = None,
+    ) -> ToolAutoResult:
         extra_options = {"extra_headers": DEFAULT_BUB_HEADERS} if self.settings.model.startswith("openrouter:") else {}
         prompt_text = prompt if isinstance(prompt, str) else _extract_text_from_parts(prompt)
+        if allowed_tools is not None:
+            allowed_tools = {name.casefold() for name in allowed_tools}
+        if allowed_skills is not None:
+            allowed_skills = {name.casefold() for name in allowed_skills}
+        if allowed_tools is not None:
+            tools = [tool for tool in REGISTRY.values() if tool.name.casefold() in allowed_tools]
+        else:
+            tools = list(REGISTRY.values())
         async with asyncio.timeout(self.settings.model_timeout_seconds):
             return await tape.run_tools_async(
                 prompt=prompt,  # republic accepts list content parts at runtime
-                system_prompt=self._system_prompt(prompt_text, state=tape.context.state),
+                system_prompt=self._system_prompt(prompt_text, state=tape.context.state, allowed_skills=allowed_skills),
                 max_tokens=self.settings.max_tokens,
-                tools=model_tools(REGISTRY.values()),
+                tools=model_tools(tools),
+                model=model,
                 **extra_options,
             )
 
-    def _system_prompt(self, prompt: str, state: State) -> str:
+    def _system_prompt(self, prompt: str, state: State, allowed_skills: set[str] | None = None) -> str:
         blocks: list[str] = []
         if result := self.framework.get_system_prompt(prompt=prompt, state=state):
             blocks.append(result)
@@ -191,7 +239,7 @@ class Agent:
         if tools_prompt:
             blocks.append(tools_prompt)
         workspace = workspace_from_state(state)
-        if skills_prompt := self._load_skills_prompt(prompt, workspace):
+        if skills_prompt := self._load_skills_prompt(prompt, workspace, allowed_skills):
             blocks.append(skills_prompt)
         return "\n\n".join(blocks)
 
@@ -215,25 +263,20 @@ def _resolve_tool_auto_result(output: ToolAutoResult) -> _ToolAutoOutcome:
 
 
 def _build_llm(settings: AgentSettings, tape_store: AsyncTapeStore) -> LLM:
-    provider = settings.model.split(":", 1)[0]
-    if provider == "openai" and settings.api_base is None:
-        from republic.auth.openai_codex import openai_codex_oauth_resolver
+    from republic.auth.openai_codex import openai_codex_oauth_resolver
 
-        api_key_resolver = openai_codex_oauth_resolver()
-    else:
-        api_key_resolver = None
     return LLM(
         settings.model,
         api_key=settings.api_key,
         api_base=settings.api_base,
-        api_key_resolver=api_key_resolver,
+        api_key_resolver=openai_codex_oauth_resolver(),
         tape_store=tape_store,
         context=default_tape_context(),
     )
 
 
 def _load_runtime_settings() -> AgentSettings:
-    return AgentSettings()
+    return AgentSettings.from_env()
 
 
 @dataclass(frozen=True)

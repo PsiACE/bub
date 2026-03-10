@@ -124,6 +124,6 @@ class TapeService:
         return self._llm.tape(tape_name)
 
     @contextlib.asynccontextmanager
-    async def fork_tape(self, tape_name: str) -> AsyncGenerator[None, None]:
-        async with self._store.fork(tape_name):
+    async def fork_tape(self, tape_name: str, merge_back: bool = True) -> AsyncGenerator[None, None]:
+        async with self._store.fork(tape_name, merge_back=merge_back):
             yield
