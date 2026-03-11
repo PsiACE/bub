@@ -219,6 +219,7 @@ class Agent:
             allowed_tools = {name.casefold() for name in allowed_tools}
         if allowed_skills is not None:
             allowed_skills = {name.casefold() for name in allowed_skills}
+            tape.context.state["allowed_skills"] = list(allowed_skills)
         if allowed_tools is not None:
             tools = [tool for tool in REGISTRY.values() if tool.name.casefold() in allowed_tools]
         else:

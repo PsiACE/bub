@@ -149,6 +149,10 @@ def skill_describe(name: str, *, context: ToolContext) -> str:
     """Load the skill content by name. Return the location and skill content."""
     from bub.utils import workspace_from_state
 
+    allowed_skills = context.state.get("allowed_skills")
+    if allowed_skills is not None and name.casefold() not in allowed_skills:
+        return f"(skill '{name}' is not allowed in this context)"
+
     workspace = workspace_from_state(context.state)
     skill_index = {skill.name: skill for skill in discover_skills(workspace)}
     if name.casefold() not in skill_index:
@@ -238,6 +242,8 @@ async def web_fetch(url: str, headers: dict | None = None, timeout: int | None =
 @tool(name="subagent", context=True, model=SubAgentInput)
 async def run_subagent(param: SubAgentInput, *, context: ToolContext) -> str:
     """Run a task with sub-agent using specific model and session."""
+    if context.state.get("subagent"):
+        raise RuntimeError("nested sub-agents are not allowed")
     agent = _get_agent(context)
     session_id = context.state.get("session_id", "temp/unknown")
     if param.session == "inherit":
@@ -246,7 +252,7 @@ async def run_subagent(param: SubAgentInput, *, context: ToolContext) -> str:
         subagent_session = f"temp/{uuid.uuid4().hex[:8]}"
     else:
         subagent_session = param.session
-    state = {**context.state, "session_id": subagent_session}
+    state = {**context.state, "session_id": subagent_session, "subagent": True}
     return await agent.run(
         session_id=subagent_session,
         prompt=param.prompt,

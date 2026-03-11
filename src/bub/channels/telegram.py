@@ -303,6 +303,7 @@ class TelegramMessageParser:
             "sender_id": str(message.from_user.id) if message.from_user else "",
             "sender_is_bot": message.from_user.is_bot if message.from_user else None,
             "date": message.date.timestamp() if message.date else None,
+            "links": self._extract_links(message),
             "media": media,
         })
         return content, metadata
@@ -313,6 +314,31 @@ class TelegramMessageParser:
             return None
         content, metadata = await self.parse(reply_to)
         return {"message": content, **metadata}
+
+    @staticmethod
+    def _extract_links(message: Message) -> list[str] | None:
+        entities = getattr(message, "entities", None)
+        source_text = getattr(message, "text", None) or ""
+        if not entities:
+            entities = getattr(message, "caption_entities", None)
+            source_text = getattr(message, "caption", None) or ""
+        if not entities:
+            return None
+
+        links: list[str] = []
+        for entity in entities:
+            url: str | None = None
+            if entity.type == "text_link":
+                url = getattr(entity, "url", None)
+            elif entity.type == "url":
+                offset = getattr(entity, "offset", 0)
+                length = getattr(entity, "length", 0)
+                candidate = source_text[offset : offset + length].strip()
+                url = candidate or None
+
+            if url and url not in links:
+                links.append(url)
+        return links or None
 
     async def _parse_photo(self, message: Message) -> tuple[str, dict[str, Any] | None]:
         caption = getattr(message, "caption", None) or ""
