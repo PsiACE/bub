@@ -10,7 +10,7 @@ from republic import AsyncTapeStore, TapeQuery, ToolContext
 
 from bub.builtin.shell_manager import shell_manager
 from bub.skills import discover_skills
-from bub.tools import tool
+from bub.tools import REGISTRY, tool
 
 if TYPE_CHECKING:
     from bub.builtin.agent import Agent
@@ -242,8 +242,6 @@ async def web_fetch(url: str, headers: dict | None = None, timeout: int | None =
 @tool(name="subagent", context=True, model=SubAgentInput)
 async def run_subagent(param: SubAgentInput, *, context: ToolContext) -> str:
     """Run a task with sub-agent using specific model and session."""
-    if context.state.get("subagent"):
-        raise RuntimeError("nested sub-agents are not allowed")
     agent = _get_agent(context)
     session_id = context.state.get("session_id", "temp/unknown")
     if param.session == "inherit":
@@ -252,13 +250,17 @@ async def run_subagent(param: SubAgentInput, *, context: ToolContext) -> str:
         subagent_session = f"temp/{uuid.uuid4().hex[:8]}"
     else:
         subagent_session = param.session
-    state = {**context.state, "session_id": subagent_session, "subagent": True}
+    state = {**context.state, "session_id": subagent_session}
+    if param.allowed_tools:
+        allowed_tools = set(param.allowed_tools) - {"subagent"}
+    else:
+        allowed_tools = set(REGISTRY.keys()) - {"subagent"}
     return await agent.run(
         session_id=subagent_session,
         prompt=param.prompt,
         state=state,
         model=param.model,
-        allowed_tools=param.allowed_tools,
+        allowed_tools=allowed_tools,
         allowed_skills=param.allowed_skills,
     )
 
