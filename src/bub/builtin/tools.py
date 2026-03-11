@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Literal, cast
 from pydantic import BaseModel, Field
 from republic import AsyncTapeStore, TapeQuery, ToolContext
 
+from bub.builtin.shell_manager import shell_manager
 from bub.skills import discover_skills
 from bub.tools import tool
 
@@ -59,24 +60,52 @@ class SubAgentInput(BaseModel):
 
 @tool(context=True)
 async def bash(
-    cmd: str, cwd: str | None = None, timeout_seconds: int = DEFAULT_COMMAND_TIMEOUT_SECONDS, *, context: ToolContext
+    cmd: str,
+    cwd: str | None = None,
+    timeout_seconds: int = DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    background: bool = False,
+    *,
+    context: ToolContext,
 ) -> str:
-    """Run a shell command and return its output within a time limit. Raises if the command fails or times out."""
+    """Run a shell command. Use background=true to keep it running and fetch output later via bash_output."""
     workspace = context.state.get("_runtime_workspace")
-    completed = await asyncio.create_subprocess_shell(
-        cmd,
-        cwd=cwd or workspace,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    async with asyncio.timeout(timeout_seconds):
-        stdout_bytes, stderr_bytes = await completed.communicate()
-    stdout_text = (stdout_bytes or b"").decode("utf-8", errors="replace").strip()
-    stderr_text = (stderr_bytes or b"").decode("utf-8", errors="replace").strip()
-    if completed.returncode != 0:
-        message = stderr_text or stdout_text or f"exit={completed.returncode}"
-        raise RuntimeError(f"exit={completed.returncode}: {message}")
-    return stdout_text or "(no output)"
+    target_cwd = cwd or workspace
+    shell = await shell_manager.start(cmd=cmd, cwd=target_cwd)
+    if background:
+        return f"started: {shell.shell_id}"
+    try:
+        async with asyncio.timeout(timeout_seconds):
+            await shell_manager.wait_closed(shell.shell_id)
+    except TimeoutError:
+        await shell_manager.terminate(shell.shell_id)
+        return f"command timed out after {timeout_seconds} seconds and was terminated"
+    return shell.output.strip() or "(no output)"
+
+
+@tool(name="bash.output")
+async def bash_output(shell_id: str, offset: int = 0, limit: int | None = None) -> str:
+    """Read buffered output from a background shell, with optional offset/limit for incremental polling."""
+    shell = shell_manager.get(shell_id)
+    if shell.returncode is not None:
+        await shell_manager.wait_closed(shell_id)
+    output = shell.output
+    start = max(0, min(offset, len(output)))
+    end = len(output) if limit is None else min(len(output), start + max(0, limit))
+    chunk = output[start:end].rstrip()
+    exit_code = "null" if shell.returncode is None else str(shell.returncode)
+    body = chunk or "(no output)"
+    return f"id: {shell.shell_id}\nstatus: {shell.status}\nexit_code: {exit_code}\nnext_offset: {end}\noutput:\n{body}"
+
+
+@tool(name="bash.kill")
+async def kill_bash(shell_id: str) -> str:
+    """Terminate a background shell process."""
+    shell = shell_manager.get(shell_id)
+    if shell.returncode is None:
+        shell = await shell_manager.terminate(shell_id)
+    else:
+        await shell_manager.wait_closed(shell_id)
+    return f"id: {shell.shell_id}\nstatus: {shell.status}\nexit_code: {shell.returncode}"
 
 
 @tool(context=True, name="fs.read")
@@ -243,6 +272,9 @@ def show_help() -> str:
         "  ,fs.read path=README.md\n"
         "  ,fs.write path=tmp.txt content='hello'\n"
         "  ,fs.edit path=tmp.txt old=hello new=world\n"
+        "  ,bash cmd='sleep 5' background=true\n"
+        "  ,bash_output shell_id=bsh-12345678\n"
+        "  ,kill_bash shell_id=bsh-12345678\n"
         "Any unknown command after ',' is executed as shell via bash."
     )
 
