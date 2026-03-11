@@ -93,9 +93,18 @@ Implement hooks with `@hookimpl` following `BubHookSpecs`.
 - `BUB_MODEL`: default `openrouter:qwen/qwen3-coder-next`
 - `BUB_API_KEY`: runtime provider key; optional when using `openai:*` models with `bub login openai`
 - `BUB_API_BASE`: optional provider base URL
+- `BUB_API_FORMAT`: upstream API shape; default `completion`
+  Use `responses` for OpenAI Responses-compatible providers and `messages` for chat-completions-style providers.
 - `BUB_RUNTIME_MAX_STEPS`: default `8`
 - `BUB_RUNTIME_MAX_TOKENS`: default `1024`
 - `BUB_RUNTIME_MODEL_TIMEOUT_SECONDS`: default `90`
+
+```bash
+# Use a Responses-compatible upstream API.
+BUB_MODEL=openai:gpt-5-codex \
+BUB_API_FORMAT=responses \
+uv run bub chat
+```
 
 ## Documentation
 

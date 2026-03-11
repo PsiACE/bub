@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import pathlib
 import re
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -22,6 +23,7 @@ class AgentSettings(BaseSettings):
     model: str = DEFAULT_MODEL
     api_key: str | dict[str, str] | None = None
     api_base: str | dict[str, str] | None = None
+    api_format: Literal["completion", "responses", "messages"] = "completion"
     max_steps: int = 50
     max_tokens: int = DEFAULT_MAX_TOKENS
     model_timeout_seconds: int | None = None

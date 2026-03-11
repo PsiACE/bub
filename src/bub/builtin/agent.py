@@ -274,6 +274,7 @@ def _build_llm(settings: AgentSettings, tape_store: AsyncTapeStore) -> LLM:
         api_base=settings.api_base,
         api_key_resolver=openai_codex_oauth_resolver(),
         tape_store=tape_store,
+        api_format=settings.api_format,
         context=default_tape_context(),
     )
 
