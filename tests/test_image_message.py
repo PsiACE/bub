@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -17,16 +18,16 @@ from bub.framework import BubFramework
 # ---------------------------------------------------------------------------
 
 
-def test_media_item_is_frozen() -> None:
-    item = MediaItem(type="image", data=b"abc", mime_type="image/jpeg")
-    with pytest.raises(AttributeError):
-        item.type = "video"  # type: ignore[misc]
+def test_media_item_keeps_fetcher_and_filename() -> None:
+    async def fetch_bytes() -> bytes:
+        return b"abc"
 
+    item = MediaItem(type="image", mime_type="image/jpeg", filename="a.jpg", data_fetcher=fetch_bytes)
 
-def test_media_item_data_url_property() -> None:
-    item = MediaItem(type="image", data=b"\x89PNG", mime_type="image/png")
-    assert item.data_url.startswith("data:image/png;base64,")
-    assert item.encoded_data in item.data_url
+    assert item.type == "image"
+    assert item.mime_type == "image/jpeg"
+    assert item.filename == "a.jpg"
+    assert item.data_fetcher is fetch_bytes
 
 
 def test_channel_message_from_batch_merges_media() -> None:
@@ -34,20 +35,20 @@ def test_channel_message_from_batch_merges_media() -> None:
         session_id="s",
         channel="tg",
         content="a",
-        media=[MediaItem(type="image", data=b"AAA", mime_type="image/jpeg")],
+        media=[MediaItem(type="image", mime_type="image/jpeg", data_fetcher=_async_return(b"AAA"))],
     )
     m2 = ChannelMessage(
         session_id="s",
         channel="tg",
         content="b",
-        media=[MediaItem(type="image", data=b"BBB", mime_type="image/jpeg")],
+        media=[MediaItem(type="image", mime_type="image/jpeg", data_fetcher=_async_return(b"BBB"))],
     )
     merged = ChannelMessage.from_batch([m1, m2])
 
     assert merged.content == "a\nb"
     assert len(merged.media) == 2
-    assert merged.media[0].data == b"AAA"
-    assert merged.media[1].data == b"BBB"
+    assert merged.media[0] is m1.media[0]
+    assert merged.media[1] is m2.media[0]
 
 
 def test_channel_message_from_batch_no_media() -> None:
@@ -68,20 +69,19 @@ def test_extract_media_items_from_photo_metadata() -> None:
         "type": "photo",
         "media": {
             "file_id": "abc",
-            "data": b"\xff\xd8\xff\xe0",
             "mime_type": "image/jpeg",
             "width": 800,
             "height": 600,
+            "data_fetcher": _async_return(b"\xff\xd8\xff\xe0"),
         },
     }
     items = _extract_media_items(metadata)
 
     assert len(items) == 1
     assert items[0].type == "image"
-    assert items[0].data == b"\xff\xd8\xff\xe0"
     assert items[0].mime_type == "image/jpeg"
-    # data should be removed from the original dict
-    assert "data" not in metadata["media"]
+    assert callable(items[0].data_fetcher)
+    assert "data_fetcher" not in metadata["media"]
 
 
 def test_extract_media_items_from_sticker_metadata() -> None:
@@ -89,8 +89,8 @@ def test_extract_media_items_from_sticker_metadata() -> None:
         "type": "sticker",
         "media": {
             "file_id": "stk",
-            "data": b"RIFF",
             "mime_type": "image/webp",
+            "data_fetcher": _async_return(b"RIFF"),
         },
     }
     items = _extract_media_items(metadata)
@@ -104,8 +104,8 @@ def test_extract_media_items_from_audio_metadata() -> None:
         "type": "audio",
         "media": {
             "file_id": "aud",
-            "data": b"\xff\xfb",
             "mime_type": "audio/mpeg",
+            "data_fetcher": _async_return(b"\xff\xfb"),
         },
     }
     items = _extract_media_items(metadata)
@@ -119,8 +119,8 @@ def test_extract_media_items_from_video_metadata() -> None:
         "type": "video",
         "media": {
             "file_id": "vid",
-            "data": b"\x00\x00\x00",
             "mime_type": "video/mp4",
+            "data_fetcher": _async_return(b"\x00\x00\x00"),
         },
     }
     items = _extract_media_items(metadata)
@@ -134,8 +134,8 @@ def test_extract_media_items_from_document_metadata() -> None:
         "type": "document",
         "media": {
             "file_id": "doc",
-            "data": b"%PDF",
             "mime_type": "application/pdf",
+            "data_fetcher": _async_return(b"%PDF"),
         },
     }
     items = _extract_media_items(metadata)
@@ -160,7 +160,7 @@ def test_extract_media_items_returns_empty_when_no_data() -> None:
 def test_extract_media_items_unknown_type_defaults_to_document() -> None:
     metadata = {
         "type": "unknown_new_thing",
-        "media": {"data": b"\x00", "mime_type": "foo/bar"},
+        "media": {"mime_type": "foo/bar", "data_fetcher": _async_return(b"\x00")},
     }
     items = _extract_media_items(metadata)
 
@@ -187,8 +187,8 @@ async def test_telegram_build_message_extracts_media_items(monkeypatch: pytest.M
         "sender_id": "7",
         "media": {
             "file_id": "f1",
-            "data": b"\xff\xd8\xff\xe0",
             "mime_type": "image/jpeg",
+            "data_fetcher": _async_return(b"\xff\xd8\xff\xe0"),
         },
     }
     channel._parser = SimpleNamespace(  # type: ignore[assignment]
@@ -202,7 +202,7 @@ async def test_telegram_build_message_extracts_media_items(monkeypatch: pytest.M
 
     assert len(result.media) == 1
     assert result.media[0].type == "image"
-    assert result.media[0].data == b"\xff\xd8\xff\xe0"
+    assert callable(result.media[0].data_fetcher)
 
 
 @pytest.mark.asyncio
@@ -237,26 +237,28 @@ def _build_impl(tmp_path: Path) -> tuple[BubFramework, BuiltinImpl]:
     return framework, impl
 
 
-def test_build_prompt_returns_string_without_media(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_build_prompt_returns_string_without_media(tmp_path: Path) -> None:
     _, impl = _build_impl(tmp_path)
     message = ChannelMessage(session_id="s", channel="tg", content="hello")
 
-    result = impl.build_prompt(message, session_id="s", state={})
+    result = await impl.build_prompt(message, session_id="s", state={})
 
     assert isinstance(result, str)
     assert "hello" in result
 
 
-def test_build_prompt_returns_multimodal_parts_with_image_media(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_build_prompt_returns_multimodal_parts_with_image_media(tmp_path: Path) -> None:
     _, impl = _build_impl(tmp_path)
     message = ChannelMessage(
         session_id="s",
         channel="tg",
         content="describe this",
-        media=[MediaItem(type="image", data=b"\xff\xd8", mime_type="image/jpeg")],
+        media=[MediaItem(type="image", mime_type="image/jpeg", data_fetcher=_async_return(b"\xff\xd8"))],
     )
 
-    result = impl.build_prompt(message, session_id="s", state={})
+    result = await impl.build_prompt(message, session_id="s", state={})
 
     assert isinstance(result, list)
     assert len(result) == 2
@@ -267,22 +269,24 @@ def test_build_prompt_returns_multimodal_parts_with_image_media(tmp_path: Path) 
 
     image_part = result[1]
     assert image_part["type"] == "image_url"
-    assert image_part["image_url"]["url"].startswith("data:image/jpeg;base64,")
+    expected = base64.b64encode(b"\xff\xd8").decode("utf-8")
+    assert image_part["image_url"]["url"] == f"data:image/jpeg;base64,{expected}"
 
 
-def test_build_prompt_with_multiple_images(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_build_prompt_with_multiple_images(tmp_path: Path) -> None:
     _, impl = _build_impl(tmp_path)
     message = ChannelMessage(
         session_id="s",
         channel="tg",
         content="compare these",
         media=[
-            MediaItem(type="image", data=b"A", mime_type="image/jpeg"),
-            MediaItem(type="image", data=b"B", mime_type="image/jpeg"),
+            MediaItem(type="image", mime_type="image/jpeg", data_fetcher=_async_return(b"A")),
+            MediaItem(type="image", mime_type="image/jpeg", data_fetcher=_async_return(b"B")),
         ],
     )
 
-    result = impl.build_prompt(message, session_id="s", state={})
+    result = await impl.build_prompt(message, session_id="s", state={})
 
     assert isinstance(result, list)
     assert len(result) == 3
@@ -290,32 +294,34 @@ def test_build_prompt_with_multiple_images(tmp_path: Path) -> None:
     assert result[2]["type"] == "image_url"
 
 
-def test_build_prompt_with_non_image_media_only_includes_text(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_build_prompt_with_non_image_media_only_includes_text(tmp_path: Path) -> None:
     _, impl = _build_impl(tmp_path)
     message = ChannelMessage(
         session_id="s",
         channel="tg",
         content="listen to this",
-        media=[MediaItem(type="audio", data=b"\xff\xfb", mime_type="audio/ogg")],
+        media=[MediaItem(type="audio", mime_type="audio/ogg", data_fetcher=_async_return(b"\xff\xfb"))],
     )
 
-    result = impl.build_prompt(message, session_id="s", state={})
+    result = await impl.build_prompt(message, session_id="s", state={})
 
     # Non-image media: only returns a text
     assert isinstance(result, str)
     assert "listen to this" in result
 
 
-def test_build_prompt_command_ignores_media(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_build_prompt_command_ignores_media(tmp_path: Path) -> None:
     _, impl = _build_impl(tmp_path)
     message = ChannelMessage(
         session_id="s",
         channel="tg",
         content=",help",
-        media=[MediaItem(type="image", data=b"X", mime_type="image/jpeg")],
+        media=[MediaItem(type="image", mime_type="image/jpeg", data_fetcher=_async_return(b"X"))],
     )
 
-    result = impl.build_prompt(message, session_id="s", state={})
+    result = await impl.build_prompt(message, session_id="s", state={})
 
     assert isinstance(result, str)
     assert result == ",help"

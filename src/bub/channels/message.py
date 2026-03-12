@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 
@@ -8,24 +9,14 @@ type MessageKind = Literal["error", "normal", "command"]
 type MediaType = Literal["image", "audio", "video", "document"]
 
 
-@dataclass(frozen=True)
+@dataclass
 class MediaItem:
     """A media attachment on a channel message."""
 
     type: MediaType
-    data: bytes
     mime_type: str
     filename: str | None = None
-
-    @property
-    def data_url(self) -> str:
-        return f"data:{self.mime_type};base64,{self.encoded_data}"
-
-    @property
-    def encoded_data(self) -> str:
-        import base64
-
-        return base64.b64encode(self.data).decode("utf-8")
+    data_fetcher: Callable[[], Awaitable[bytes]] | None = None
 
 
 @dataclass

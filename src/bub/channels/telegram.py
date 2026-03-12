@@ -130,13 +130,15 @@ def _extract_media_items(metadata: dict[str, Any]) -> list[MediaItem]:
     media_dict = metadata.get("media")
     if not isinstance(media_dict, dict):
         return []
-    data = media_dict.pop("data", None)
-    if not data:
+    data_fetcher = media_dict.pop("data_fetcher", None)
+    if not data_fetcher or not callable(data_fetcher):
         return []
     msg_type = metadata.get("type", "")
     media_type = _MSG_TYPE_TO_MEDIA_TYPE.get(msg_type, "document")
     mime_type = media_dict.get("mime_type", "")
-    return [MediaItem(type=media_type, data=data, mime_type=mime_type, filename=media_dict.get("file_name"))]
+    return [
+        MediaItem(type=media_type, data_fetcher=data_fetcher, mime_type=mime_type, filename=media_dict.get("file_name"))
+    ]
 
 
 class TelegramChannel(Channel):
@@ -354,7 +356,7 @@ class TelegramMessageParser:
             "width": largest.width,
             "height": largest.height,
             "mime_type": mime_type,
-            "data": await self._download_media(largest.file_id, largest.file_size),
+            "data_fetcher": lambda: self._download_media(largest.file_id, largest.file_size),
         })
         return formatted, media
 
@@ -372,7 +374,7 @@ class TelegramMessageParser:
             "duration": audio.duration,
             "title": audio.title,
             "performer": audio.performer,
-            "data": await self._download_media(audio.file_id, audio.file_size),
+            "data_fetcher": lambda: self._download_media(audio.file_id, audio.file_size),
         })
         if performer:
             return f"[Audio: {performer} - {title} ({duration}s)]", metadata
@@ -410,7 +412,7 @@ class TelegramMessageParser:
             "emoji": sticker.emoji,
             "set_name": sticker.set_name,
             "is_animated": sticker.is_animated,
-            "data": await self._download_media(sticker.file_id, sticker.file_size),
+            "data_fetcher": lambda: self._download_media(sticker.file_id, sticker.file_size),
         })
         if emoji:
             return f"[Sticker: {emoji} from {set_name}]", metadata
@@ -431,7 +433,7 @@ class TelegramMessageParser:
             "height": video.height,
             "duration": video.duration,
             "mime_type": video.mime_type,
-            "data": await self._download_media(video.file_id, video.file_size),
+            "data_fetcher": lambda: self._download_media(video.file_id, video.file_size),
         })
         return formatted, metadata
 
@@ -444,7 +446,7 @@ class TelegramMessageParser:
             "file_id": voice.file_id,
             "duration": voice.duration,
             "mime_type": voice.mime_type or "audio/ogg",
-            "data": await self._download_media(voice.file_id, voice.file_size),
+            "data_fetcher": lambda: self._download_media(voice.file_id, voice.file_size),
         })
         return f"[Voice message: {duration}s]", metadata
 
@@ -462,7 +464,7 @@ class TelegramMessageParser:
             "file_name": document.file_name,
             "file_size": document.file_size,
             "mime_type": mime_type,
-            "data": await self._download_media(document.file_id, document.file_size),
+            "data_fetcher": lambda: self._download_media(document.file_id, document.file_size),
         })
         return formatted, metadata
 
@@ -475,6 +477,6 @@ class TelegramMessageParser:
             "file_id": video_note.file_id,
             "duration": video_note.duration,
             "mime_type": video_note.mime_type or "video/mp4",
-            "data": await self._download_media(video_note.file_id, video_note.file_size),
+            "data_fetcher": lambda: self._download_media(video_note.file_id, video_note.file_size),
         })
         return f"[Video note: {duration}s]", metadata

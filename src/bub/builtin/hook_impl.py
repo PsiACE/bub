@@ -1,3 +1,4 @@
+import base64
 import sys
 from pathlib import Path
 from typing import cast
@@ -74,7 +75,7 @@ class BuiltinImpl:
             await lifespan.__aexit__(tp, value, traceback)
 
     @hookimpl
-    def build_prompt(self, message: ChannelMessage, session_id: str, state: State) -> str | list[dict]:
+    async def build_prompt(self, message: ChannelMessage, session_id: str, state: State) -> str | list[dict]:
         content = content_of(message)
         if content.startswith(","):
             message.kind = "command"
@@ -91,7 +92,11 @@ class BuiltinImpl:
         for item in cast("list[MediaItem]", media):
             match item.type:
                 case "image":
-                    media_parts.append({"type": "image_url", "image_url": {"url": item.data_url}})
+                    if item.data_fetcher is None:
+                        continue
+                    data = await item.data_fetcher()
+                    data_url = f"data:{item.mime_type};base64,{base64.b64encode(data).decode('utf-8')}"
+                    media_parts.append({"type": "image_url", "image_url": {"url": data_url}})
                 case _:
                     pass  # TODO: Not supported for now
         if media_parts:

@@ -96,13 +96,14 @@ async def test_load_state_and_save_state_manage_lifespan_and_context(tmp_path: P
     assert isinstance(lifespan.exit_args[1], ValueError)
 
 
-def test_build_prompt_marks_commands_and_prefixes_context(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_build_prompt_marks_commands_and_prefixes_context(tmp_path: Path) -> None:
     _, impl, _ = _build_impl(tmp_path)
     command = ChannelMessage(session_id="s", channel="cli", chat_id="room", content=",help")
     normal = ChannelMessage(session_id="s", channel="cli", chat_id="room", content="hello")
 
-    command_prompt = impl.build_prompt(command, session_id="s", state={})
-    normal_prompt = impl.build_prompt(normal, session_id="s", state={})
+    command_prompt = await impl.build_prompt(command, session_id="s", state={})
+    normal_prompt = await impl.build_prompt(normal, session_id="s", state={})
 
     assert command_prompt == ",help"
     assert command.kind == "command"
