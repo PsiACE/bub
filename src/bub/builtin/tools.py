@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast
@@ -179,8 +180,6 @@ async def tape_info(context: ToolContext) -> str:
 @tool(context=True, name="tape.search", model=SearchInput)
 async def tape_search(param: SearchInput, *, context: ToolContext) -> str:
     """Search for entries in the current tape that match the query. Returns a list of matching entries."""
-    import yaml
-
     agent = _get_agent(context)
     query = (
         TapeQuery[AsyncTapeStore](tape=context.tape or "", store=agent.tapes._store)
@@ -192,9 +191,13 @@ async def tape_search(param: SearchInput, *, context: ToolContext) -> str:
         query = query.between_dates(param.start or "", param.end or "")
 
     entries = await agent.tapes.search(query)
-    if not entries:
-        return "(no matches)"
-    return yaml.safe_dump([{"date": entry.date, "data": entry.payload} for entry in entries], sort_keys=False)
+    lines: list[str] = []
+    for entry in entries:
+        entry_str = json.dumps({"date": entry.date, "content": entry.payload})
+        if "[tape.search]" in entry_str:
+            continue
+        lines.append(entry_str)
+    return f"[tape.search]: {len(entries)} matches" + "".join(f"\n{line}" for line in lines)
 
 
 @tool(context=True, name="tape.reset")
