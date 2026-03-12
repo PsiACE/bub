@@ -79,6 +79,7 @@ class ForkTapeStore:
             payload["prompt"] = ForkTapeStore._redact_prompt(payload["prompt"])
 
     async def append(self, tape: str, entry: TapeEntry) -> None:
+        self._redact_payload(entry.payload)
         self._current.append(tape, entry)
 
     @contextlib.asynccontextmanager
