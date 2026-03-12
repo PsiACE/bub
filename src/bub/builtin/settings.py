@@ -21,6 +21,7 @@ class AgentSettings(BaseSettings):
     home: pathlib.Path = Field(default=DEFAULT_HOME)
 
     model: str = DEFAULT_MODEL
+    fallback_model: str | None = None
     api_key: str | dict[str, str] | None = None
     api_base: str | dict[str, str] | None = None
     api_format: Literal["completion", "responses", "messages"] = "completion"
