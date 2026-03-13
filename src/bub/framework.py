@@ -130,6 +130,7 @@ class BubFramework:
                 await self._hook_runtime.call_many("dispatch_outbound", message=outbound)
             return TurnResult(session_id=session_id, prompt=prompt, model_output=model_output, outbounds=outbounds)
         except Exception as exc:
+            logger.exception("Error processing inbound message")
             await self._hook_runtime.notify_error(stage="turn", error=exc, message=inbound)
             raise
 
