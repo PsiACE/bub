@@ -118,6 +118,14 @@ def send_message(
     return response.json()
 
 
+def escape_markdown_v2(text: str) -> str:
+    """
+    Escape special characters for Telegram MarkdownV2 format.
+    """
+    escape_chars = r'_*[]()~`>#+-=|{}.!'
+    return ''.join('\\' + char if char in escape_chars else char for char in text)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Send messages via Telegram Bot API (auto-converts to MarkdownV2)")
     parser.add_argument("--chat-id", "-c", required=True, help="Target chat ID")
@@ -138,6 +146,14 @@ def main():
         "--source-username",
         help="Source username for @username prefix when --source-is-bot is enabled",
     )
+    parser.add_argument(
+        "--source-user-id",
+        help="Source user ID for mention when username is not available (uses tg://user?id= link)",
+    )
+    parser.add_argument(
+        "--source-display-name",
+        help="Display name for user ID mention (defaults to 'User')",
+    )
 
     args = parser.parse_args()
 
@@ -150,10 +166,25 @@ def main():
     # Parse chat IDs
     chat_id = args.chat_id.strip()
     reply_to = args.reply_to
+    message = args.message
+
+    # Handle source-is-bot mode: prefix message with mention
+    if args.source_is_bot:
+        if args.source_user_id:
+            # Use tg://user?id= link for mention (works without username)
+            display_name = args.source_display_name or "User"
+            # Escape the display name for MarkdownV2
+            escaped_name = escape_markdown_v2(display_name)
+            mention = f"[{escaped_name}](tg://user?id={args.source_user_id})"
+            message = f"{mention}\n\n{message}"
+        elif args.source_username:
+            # Fall back to @username mention
+            message = f"@{args.source_username}\n\n{message}"
+        # If neither is provided, just send without mention prefix
 
     # Send messages
     try:
-        send_message(bot_token, chat_id, args.message, reply_to)
+        send_message(bot_token, chat_id, message, reply_to)
         print(f"✅ Message sent successfully to {chat_id} (MarkdownV2)")
     except requests.HTTPError as e:
         print(f"❌ HTTP Error: {e}")
