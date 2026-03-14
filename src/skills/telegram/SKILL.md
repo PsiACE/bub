@@ -28,7 +28,7 @@ Collect these before execution:
 ## Execution Policy
 
 1. If handling a direct user message in Telegram and `message_id` is known, send a reply message (`--reply-to`).
-2. If source metadata says sender is a bot (`sender_is_bot=true`), do not use reply mode, but send a normal message and prefix content with `@<sender_username>` (or the provided source username).
+2. If source metadata says sender is a bot (`sender_is_bot=true`), do not use reply mode, but send a normal message and prefix content with `@<sender_username>` (or the provided source username). If the user doesn't have a username, use `--source-user-id` to mention via `tg://user?id=` link.
 3. For long-running tasks, optionally send one progress message, then edit that same message for final status.
 4. For multi-line text, pass the content via heredoc command substitution instead of embedding raw line breaks in quoted strings.
 5. Avoid emitting HTML tags in message content; use Markdown for formatting instead.
@@ -91,12 +91,20 @@ uv run ./scripts/telegram_send.py \
   --message "<TEXT>" \
   --reply-to <MESSAGE_ID>
 
-# Source message sender is bot: no direct reply, use @user_id style
+# Source message sender is bot: no direct reply, use @username style
 uv run ./scripts/telegram_send.py \
   --chat-id <CHAT_ID> \
   --message "<TEXT>" \
   --source-is-bot \
   --source-username <USERNAME>
+
+# Source message sender is bot without username: use tg://user?id= link
+uv run ./scripts/telegram_send.py \
+  --chat-id <CHAT_ID> \
+  --message "<TEXT>" \
+  --source-is-bot \
+  --source-user-id <USER_ID> \
+  --source-display-name "Display Name"
 
 # Edit existing message
 uv run ./scripts/telegram_edit.py \
@@ -115,8 +123,10 @@ For other actions that not covered by these scripts, use `curl` to call Telegram
 - `--message`, `-m`: required
 - `--reply-to`, `-r`: optional
 - `--token`, `-t`: optional (normally not needed)
-- `--source-is-bot`: optional flag, disables reply mode and switches to `@user_id` style
-- `--source-user-id`: optional, required when `--source-is-bot` is set
+- `--source-is-bot`: optional flag, disables reply mode and adds mention prefix
+- `--source-username`: optional, uses `@username` style mention when set
+- `--source-user-id`: optional, uses `tg://user?id=` link mention when username is not available
+- `--source-display-name`: optional, display name for user ID mention (defaults to "User")
 
 ### `telegram_edit.py`
 
