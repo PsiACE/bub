@@ -70,7 +70,7 @@ BUB_MODEL=openai:gpt-5-codex uv run bub chat
 - Discovery roots with deterministic override:
   1. `<workspace>/.agent/skills`
   2. `~/.agent/skills`
-  3. `src/bub_skills`
+  3. `src/skills`
 - Each skill directory must include `SKILL.md`
 - Supported frontmatter fields:
   - required: `name`, `description`

@@ -63,7 +63,7 @@ requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
 [tool.pdm.build]
-includes = ["src/bub", "src/bub_skills"]
+includes = ["src/bub", "src/skills"]
 
 [tool.vulture]
 ignore_names = ["test_*", "Test*"]
@@ -80,7 +80,7 @@ warn_unused_ignores = true
 show_error_codes = true
 ignore_missing_imports = true
 exclude = [
-    "src/bub_skills/.*/scripts/.*",
+    "src/skills/.*/scripts/.*",
 ]
 
 [tool.pytest.ini_options]
@@ -91,7 +91,7 @@ target-version = "py312"
 line-length = 120
 fix = true
 extend-exclude = [
-    "src/bub_skills/**/scripts/*"
+    "src/skills/**/scripts/*"
 ]
 
 [tool.ruff.lint]

@@ -62,7 +62,7 @@ If that import is missing, the tool module never runs, nothing is inserted into 
 
 ## 4) Ship Skills In Extension Packages
 
-Extension packages can also ship skills by including a top-level `bub_skills/` directory in the distribution.
+Extension packages can also ship skills by including a top-level `skills/` directory in the distribution.
 
 Example layout:
 
@@ -71,20 +71,20 @@ my-extension/
 ├─ src/
 │  ├─ my_extension/
 │  │  └─ plugin.py
-│  └─ bub_skills/
+│  └─ skills/
 │     └─ my-skill/
 │        └─ SKILL.md
 └─ pyproject.toml
 ```
 
-Configure your build backend to include the `bub_skills/` directory in the package data. For example, with `pdm-backend`:
+Configure your build backend to include the `skills/` directory in the package data. For example, with `pdm-backend`:
 
 ```toml
 [tool.pdm.build]
 includes = ["src/"]
 ```
 
-At runtime, Bub discovers builtin skills from `<site-packages>/bub_skills`, so packaged skills in that location are loaded automatically.
+At runtime, Bub discovers builtin skills from `<site-packages>/skills`, so packaged skills in that location are loaded automatically.
 These skills use normal precedence rules and can still be overridden by workspace (`.agents/skills`) or user (`~/.agents/skills`) skills.
 
 ## 5) Hook Execution Semantics

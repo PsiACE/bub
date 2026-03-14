@@ -10,7 +10,7 @@ Core code lives under `src/`:
 - `src/bub/builtin/`: builtin runtime, CLI wiring, settings, tools, and tape services.
 - `src/bub/channels/`: channel abstractions plus CLI and Telegram adapters.
 - `src/bub/skills.py` / `src/bub/tools.py`: skill discovery and tool registry.
-- `src/bub_skills/`: bundled skills shipped with Bub.
+- `src/skills/`: bundled skills shipped with Bub.
 
 Tests live in `tests/`. Documentation lives in `docs/`.
 

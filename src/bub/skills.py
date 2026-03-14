@@ -138,7 +138,7 @@ def _is_valid_metadata_field(metadata_field: object) -> bool:
 def _builtin_skills_root() -> list[Path]:
     import importlib
 
-    return [Path(p) for p in importlib.import_module("bub_skills").__path__]
+    return [Path(p) for p in importlib.import_module("skills").__path__]
 
 
 def _iter_skill_roots(workspace_path: Path) -> list[tuple[Path, str]]:

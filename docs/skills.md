@@ -34,7 +34,7 @@ Skills are discovered from three roots in this precedence order:
 
 1. project: `.agents/skills`
 2. user: `~/.agents/skills`
-3. builtin: `src/bub_skills`
+3. builtin: `src/skills`
 
 If names collide, earlier roots in this list win.
 
