@@ -58,6 +58,7 @@ class ForkTapeStore:
                     if query._after_last or (query._after_anchor and entry.payload.get("name") == query._after_anchor):
                         this_entries.clear()
                         parent_entries = []
+                        continue
                 this_entries.append(entry)
         return itertools.chain(parent_entries, this_entries)
 
