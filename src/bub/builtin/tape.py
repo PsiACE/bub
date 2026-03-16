@@ -1,6 +1,8 @@
 import contextlib
 import hashlib
+import json
 from collections.abc import AsyncGenerator
+from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -8,7 +10,7 @@ from typing import Any, cast
 from pydantic.dataclasses import dataclass
 from republic import LLM, AsyncTapeStore, Tape, TapeEntry, TapeQuery
 
-from bub.builtin.store import ForkTapeStore, dump_entry
+from bub.builtin.store import ForkTapeStore
 
 
 @dataclass(frozen=True)
@@ -87,7 +89,7 @@ class TapeService:
         archive_path = self._archive_path / f"{tape.name}.jsonl.{stamp}.bak"
         with archive_path.open("w", encoding="utf-8") as f:
             for entry in await tape.query_async.all():
-                f.write(dump_entry(entry) + "\n")
+                f.write(json.dumps(asdict(entry), ensure_ascii=False) + "\n")
         return archive_path
 
     async def reset(self, tape_name: str, *, archive: bool = False) -> str:
