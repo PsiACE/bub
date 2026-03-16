@@ -20,19 +20,23 @@ def _select_messages(entries: Iterable[TapeEntry], _context: TapeContext) -> lis
     pending_calls: list[dict[str, Any]] = []
 
     for entry in entries:
-        if entry.kind == "message":
-            _append_message_entry(messages, entry)
-            continue
-
-        if entry.kind == "tool_call":
-            pending_calls = _append_tool_call_entry(messages, entry)
-            continue
-
-        if entry.kind == "tool_result":
-            _append_tool_result_entry(messages, pending_calls, entry)
-            pending_calls = []
-
+        match entry.kind:
+            case "anchor":
+                _append_anchor_entry(messages, entry)
+            case "message":
+                _append_message_entry(messages, entry)
+            case "tool_call":
+                pending_calls = _append_tool_call_entry(messages, entry)
+            case "tool_result":
+                _append_tool_result_entry(messages, pending_calls, entry)
+                pending_calls = []
     return messages
+
+
+def _append_anchor_entry(messages: list[dict[str, Any]], entry: TapeEntry) -> None:
+    payload = entry.payload
+    content = f"[Anchor created: {payload.get('name')}]: {json.dumps(payload.get('state'), ensure_ascii=False)}"
+    messages.append({"role": "assistant", "content": content})
 
 
 def _append_message_entry(messages: list[dict[str, Any]], entry: TapeEntry) -> None:
