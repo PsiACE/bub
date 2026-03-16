@@ -72,7 +72,7 @@ Paths are relative to this skill directory.
 # Send message
 uv run ./scripts/telegram_send.py \
   --chat-id <CHAT_ID> \
-  --message "<TEXT>"
+  --message '<TEXT>'  # use SINGLE quotes for simple text, or heredoc for multi-line
 
 # Send multi-line message (heredoc)
 uv run ./scripts/telegram_send.py \
@@ -88,20 +88,20 @@ EOF
 # Send reply to a specific message
 uv run ./scripts/telegram_send.py \
   --chat-id <CHAT_ID> \
-  --message "<TEXT>" \
+  --message '<TEXT>' \
   --reply-to <MESSAGE_ID>
 
 # Source message sender is bot: no direct reply, use @username style
 uv run ./scripts/telegram_send.py \
   --chat-id <CHAT_ID> \
-  --message "<TEXT>" \
+  --message '<TEXT>' \
   --source-is-bot \
   --source-username <USERNAME>
 
 # Source message sender is bot without username: use tg://user?id= link
 uv run ./scripts/telegram_send.py \
   --chat-id <CHAT_ID> \
-  --message "<TEXT>" \
+  --message '<TEXT>' \
   --source-is-bot \
   --source-user-id <USER_ID> \
   --source-display-name "Display Name"
@@ -110,7 +110,7 @@ uv run ./scripts/telegram_send.py \
 uv run ./scripts/telegram_edit.py \
   --chat-id <CHAT_ID> \
   --message-id <MESSAGE_ID> \
-  --text "<TEXT>"
+  --text '<TEXT>'
 ```
 
 For other actions that not covered by these scripts, use `curl` to call Telegram Bot API directly with the provided token.
