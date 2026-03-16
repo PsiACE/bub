@@ -28,7 +28,7 @@ from bub.tools import REGISTRY, model_tools, render_tools_prompt
 from bub.types import State
 from bub.utils import workspace_from_state
 
-CONTINUE_PROMPT = "Continue the task or respond to the channel."
+CONTINUE_PROMPT = "Continue the task."
 DEFAULT_BUB_HEADERS = {"HTTP-Referer": "https://bub.build/", "X-Title": "Bub"}
 HINT_RE = re.compile(r"\$([A-Za-z0-9_.-]+)")
 
