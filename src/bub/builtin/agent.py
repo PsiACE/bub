@@ -272,7 +272,7 @@ def _build_llm(settings: AgentSettings, tape_store: AsyncTapeStore) -> LLM:
         settings.model,
         api_key=settings.api_key,
         api_base=settings.api_base,
-        fallback_models=[settings.fallback_model] if settings.fallback_model else None,
+        fallback_models=settings.fallback_models,
         api_key_resolver=openai_codex_oauth_resolver(),
         tape_store=tape_store,
         api_format=settings.api_format,
