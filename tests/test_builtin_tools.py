@@ -6,6 +6,8 @@ import sys
 
 import pytest
 from republic import ToolContext
+from republic.core.errors import ErrorKind
+from republic.tools.executor import ToolExecutor
 
 from bub.builtin.tools import bash, bash_output, kill_bash
 
@@ -23,6 +25,31 @@ async def test_bash_returns_stdout_for_foreground_command(tmp_path) -> None:
     result = await bash.run(cmd=_python_shell("print('hello')"), context=_tool_context(tmp_path))
 
     assert result == "hello"
+
+
+@pytest.mark.asyncio
+async def test_bash_non_zero_exit_is_returned_as_tool_error(tmp_path) -> None:
+    command = _python_shell("import sys; print('boom'); sys.exit(7)")
+    executor = ToolExecutor()
+    tool_call = {
+        "type": "function",
+        "function": {
+            "name": bash.name,
+            "arguments": {"cmd": command},
+        },
+    }
+
+    result = await executor.execute_async([tool_call], tools=[bash], context=_tool_context(tmp_path))
+
+    assert result.error is not None
+    assert result.error.kind is ErrorKind.TOOL
+    assert len(result.tool_results) == 1
+    tool_result = result.tool_results[0]
+    assert tool_result["kind"] == "tool"
+    assert tool_result["message"] == "Tool 'bash' execution failed."
+    error_detail = tool_result["details"]["error"]
+    assert "command exited with code 7" in error_detail
+    assert "boom" in error_detail
 
 
 @pytest.mark.asyncio
