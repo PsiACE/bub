@@ -293,8 +293,8 @@ def show_help() -> str:
         "  ,fs.write path=tmp.txt content='hello'\n"
         "  ,fs.edit path=tmp.txt old=hello new=world\n"
         "  ,bash cmd='sleep 5' background=true\n"
-        "  ,bash_output shell_id=bsh-12345678\n"
-        "  ,kill_bash shell_id=bsh-12345678\n"
+        "  ,bash.output shell_id=bsh-12345678\n"
+        "  ,bash.kill shell_id=bsh-12345678\n"
         "Any unknown command after ',' is executed as shell via bash."
     )
 
