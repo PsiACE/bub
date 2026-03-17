@@ -42,14 +42,15 @@ class TapeService:
     async def info(self, tape_name: str) -> TapeInfo:
         tape = self._llm.tape(tape_name)
         entries = list(await tape.query_async.all())
-        anchors = [entry for entry in entries if entry.kind == "anchor"]
-        last_anchor = anchors[-1].payload.get("name") if anchors else None
-        if last_anchor is not None:
-            entries_since_last_anchor = [entry for entry in entries if entry.id > anchors[-1].id]
+        anchors = [(i, entry) for i, entry in enumerate(entries) if entry.kind == "anchor"]
+        if anchors:
+            last_anchor = anchors[-1][1].payload.get("name")
+            entries_since_last_anchor = len(entries) - anchors[-1][0] - 1
         else:
-            entries_since_last_anchor = entries
+            last_anchor = None
+            entries_since_last_anchor = len(entries)
         last_token_usage: int | None = None
-        for entry in reversed(entries_since_last_anchor):
+        for entry in reversed(entries):
             if entry.kind == "event" and entry.payload.get("name") == "run":
                 with contextlib.suppress(AttributeError):
                     token_usage = entry.payload.get("data", {}).get("usage", {}).get("total_tokens")
@@ -61,7 +62,7 @@ class TapeService:
             entries=len(entries),
             anchors=len(anchors),
             last_anchor=str(last_anchor) if last_anchor else None,
-            entries_since_last_anchor=len(entries_since_last_anchor),
+            entries_since_last_anchor=entries_since_last_anchor,
             last_token_usage=last_token_usage,
         )
 
