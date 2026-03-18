@@ -17,8 +17,8 @@ nav:
       - CLI: channels/cli.md
       - Telegram: channels/telegram.md
   - Skills: skills.md
-  - Deployment: deployment.md
   - Extension Guide: extension-guide.md
+  - Deployment: deployment.md
   - Posts:
       - Overview: posts/index.md
       - 2025-07-16 Bootstrap Milestone: posts/2025-07-16-baby-bub-bootstrap-milestone.md

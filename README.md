@@ -112,13 +112,13 @@ Read more: [Context from Tape](https://tape.systems) · [Socialized Evaluation a
 
 ## Docs
 
-- [Architecture](https://bub.build/architecture/) — lifecycle, hook precedence, error handling
-- [Features](https://bub.build/features/) — what ships today and current boundaries
-- [CLI](https://bub.build/cli/) — commands and comma mode
-- [Skills](https://bub.build/skills/) — discovery and authoring
-- [Extension Guide](https://bub.build/extension-guide/) — hooks, tools, plugin packaging
-- [Channels](https://bub.build/channels/) — adapters and sessions
-- [Deployment](https://bub.build/deployment/) — Docker, Telegram, operations
+- [Architecture](architecture.md) — lifecycle, hook precedence, error handling
+- [Features](features.md) — what ships today and current boundaries
+- [Channels](channels/index.md) — CLI, Telegram, and custom adapters
+- [Skills](skills.md) — discovery and authoring
+- [Extension Guide](extension-guide.md) — hooks, tools, plugin packaging
+- [Deployment](deployment.md) — Docker, environment, upgrades
+- [Posts](posts/index.md) — design notes
 
 ## Development
 

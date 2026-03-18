@@ -9,6 +9,12 @@ It is hook-first, built on [pluggy](https://pluggy.readthedocs.io/), with a smal
 ## Quick Start
 
 ```bash
+pip install bub
+```
+
+Or from source:
+
+```bash
 git clone https://github.com/bubbuild/bub.git
 cd bub
 uv sync
