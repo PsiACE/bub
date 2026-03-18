@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+import string
+import sys
 import warnings
 from collections.abc import Collection
 from dataclasses import dataclass, field
@@ -31,9 +33,10 @@ class SkillMetadata:
     def body(self) -> str:
         front_matter_pattern = re.compile(r"^---\s*\n.*?\n---\s*\n", re.DOTALL)
         try:
-            content = self.location.read_text(encoding="utf-8").strip()
+            template = string.Template(self.location.read_text(encoding="utf-8").strip())
         except OSError:
             return ""
+        content = template.safe_substitute({"SKILL_DIR": str(self.location.parent), "PYTHON": sys.executable})
         return front_matter_pattern.sub("", content, count=1).strip()
 
 

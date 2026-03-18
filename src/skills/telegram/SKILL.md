@@ -70,12 +70,12 @@ Paths are relative to this skill directory.
 
 ```bash
 # Send message
-uv run ./scripts/telegram_send.py \
+uv run ${SKILL_DIR}/scripts/telegram_send.py \
   --chat-id <CHAT_ID> \
   --message '<TEXT>'  # use SINGLE quotes for simple text, or heredoc for multi-line
 
 # Send multi-line message (heredoc)
-uv run ./scripts/telegram_send.py \
+uv run ${SKILL_DIR}/scripts/telegram_send.py \
   --chat-id <CHAT_ID> \
   --message "$(cat <<'EOF'
 Build finished successfully.
@@ -86,20 +86,20 @@ EOF
 )"
 
 # Send reply to a specific message
-uv run ./scripts/telegram_send.py \
+uv run ${SKILL_DIR}/scripts/telegram_send.py \
   --chat-id <CHAT_ID> \
   --message '<TEXT>' \
   --reply-to <MESSAGE_ID>
 
 # Source message sender is bot: no direct reply, use @username style
-uv run ./scripts/telegram_send.py \
+uv run ${SKILL_DIR}/scripts/telegram_send.py \
   --chat-id <CHAT_ID> \
   --message '<TEXT>' \
   --source-is-bot \
   --source-username <USERNAME>
 
 # Source message sender is bot without username: use tg://user?id= link
-uv run ./scripts/telegram_send.py \
+uv run ${SKILL_DIR}/scripts/telegram_send.py \
   --chat-id <CHAT_ID> \
   --message '<TEXT>' \
   --source-is-bot \
@@ -107,7 +107,7 @@ uv run ./scripts/telegram_send.py \
   --source-display-name "Display Name"
 
 # Edit existing message
-uv run ./scripts/telegram_edit.py \
+uv run ${SKILL_DIR}/scripts/telegram_edit.py \
   --chat-id <CHAT_ID> \
   --message-id <MESSAGE_ID> \
   --text '<TEXT>'
