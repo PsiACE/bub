@@ -36,7 +36,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock README.md LICENSE entrypoint.sh ./
 # Copy the full source and install
 COPY src ./src
-RUN uv sync --no-dev && uv pip install "any-llm-sdk[gemini,xai]" && \
+RUN uv sync --no-dev --no-editable && uv pip install "any-llm-sdk[gemini,xai]" && \
     chmod +x /app/entrypoint.sh
 
 WORKDIR /workspace
