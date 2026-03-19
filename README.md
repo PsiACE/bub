@@ -90,7 +90,7 @@ See the [Extension Guide](https://bub.build/extension-guide/) for hook semantics
 | `bub login openai` | OpenAI Codex OAuth |
 | `bub hooks` | Print hook-to-plugin bindings |
 
-Lines starting with `,` enter internal command mode (`,help`, `,tools`, `,fs.read path=README.md`).
+Lines starting with `,` enter internal command mode (`,help`, `,skill name=my-skill`, `,fs.read path=README.md`).
 
 ## Configuration
 
@@ -100,9 +100,9 @@ Lines starting with `,` enter internal command mode (`,help`, `,tools`, `,fs.rea
 | `BUB_API_KEY` | — | Provider key (optional with `bub login openai`) |
 | `BUB_API_BASE` | — | Custom provider endpoint |
 | `BUB_API_FORMAT` | `completion` | `completion`, `responses`, or `messages` |
-| `BUB_RUNTIME_MAX_STEPS` | `50` | Max tool-use loop iterations |
-| `BUB_RUNTIME_MAX_TOKENS` | `1024` | Max tokens per model call |
-| `BUB_RUNTIME_MODEL_TIMEOUT_SECONDS` | — | Model call timeout (seconds) |
+| `BUB_MAX_STEPS` | `50` | Max tool-use loop iterations |
+| `BUB_MAX_TOKENS` | `1024` | Max tokens per model call |
+| `BUB_MODEL_TIMEOUT_SECONDS` | — | Model call timeout (seconds) |
 
 ## Background
 
@@ -112,13 +112,13 @@ Read more: [Context from Tape](https://tape.systems) · [Socialized Evaluation a
 
 ## Docs
 
-- [Architecture](architecture.md) — lifecycle, hook precedence, error handling
-- [Features](features.md) — what ships today and current boundaries
-- [Channels](channels/index.md) — CLI, Telegram, and custom adapters
-- [Skills](skills.md) — discovery and authoring
-- [Extension Guide](extension-guide.md) — hooks, tools, plugin packaging
-- [Deployment](deployment.md) — Docker, environment, upgrades
-- [Posts](posts/index.md) — design notes
+- [Architecture](docs/architecture.md) — lifecycle, hook precedence, error handling
+- [Features](docs/features.md) — what ships today and current boundaries
+- [Channels](docs/channels/index.md) — CLI, Telegram, and custom adapters
+- [Skills](docs/skills.md) — discovery and authoring
+- [Extension Guide](docs/extension-guide.md) — hooks, tools, plugin packaging
+- [Deployment](docs/deployment.md) — Docker, environment, upgrades
+- [Posts](docs/posts/index.md) — design notes
 
 ## Development
 

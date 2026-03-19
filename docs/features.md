@@ -17,7 +17,7 @@ Context is reconstructed from tape records, not accumulated in session state.
 
 - **CLI**: `run`, `chat`, `gateway`, `login`, `hooks` via Typer.
 - **Model runtime**: agent loop with tool use, backed by [Republic](https://github.com/bubbuild/republic).
-- **Comma commands**: `,help`, `,tools`, `,fs.read`, etc. Unknown commands fall back to shell.
+- **Comma commands**: `,help`, `,skill`, `,fs.read`, etc. Unknown commands fall back to shell.
 - **Channels**: `cli` and `telegram` ship as defaults.
 
 All of these are hook implementations. Replace what you need.
