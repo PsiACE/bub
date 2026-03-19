@@ -17,6 +17,8 @@ Validation rules from `src/bub/skills.py`:
 - frontmatter must include non-empty `name` and `description`
 - directory name must exactly match frontmatter `name`
 - `name` must match regex `^[a-z0-9]+(?:-[a-z0-9]+)*$`
+- `name` length must be `<= 64`
+- `description` length must be `<= 1024`
 - if provided, `metadata` must be a map of `string -> string`
 
 ## Frontmatter Fields
@@ -38,16 +40,17 @@ Skills are discovered from three roots in this precedence order:
 
 If names collide, earlier roots in this list win.
 
+Legacy path note: `.agent/skills` is still scanned for compatibility, but Bub emits a deprecation warning and prefers `.agents/skills`.
+
 ## Runtime Access
 
 Builtin command mode can inspect discovered skills:
 
 ```bash
-uv run bub run ",skills.list"
-uv run bub run ",skills.describe name=my-skill"
+uv run bub run ",skill name=my-skill"
 ```
 
-If no valid skills are discovered, `,skills.list` returns `(no skills)`.
+If a skill is not found, `,skill name=<name>` returns `(no such skill)`.
 
 ## Authoring Guidance
 

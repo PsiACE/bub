@@ -22,7 +22,7 @@ Comma-prefixed input enters internal command mode:
 
 ```bash
 uv run bub run ",help"
-uv run bub run ",tools"
+uv run bub run ",skill name=my-skill"
 uv run bub run ",fs.read path=README.md"
 ```
 

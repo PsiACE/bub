@@ -68,14 +68,21 @@ Default mounts in `docker-compose.yml`:
 
 - `${BUB_WORKSPACE_PATH:-.}:/workspace`
 - `${BUB_HOME:-${HOME}/.bub}:/data`
-- `${BUB_AGENT_HOME:-${HOME}/.agent}:/root/.agent`
+- `${BUB_AGENT_HOME:-${HOME}/.agents}:/root/.agents`
+
+Notes:
+
+- Bub runtime data is written under `BUB_HOME` (container default: `/root/.bub`).
+- In this compose file, `BUB_HOME` is used as the host bind source for `/data`.
+- Do not set `BUB_HOME=/data` directly in `.env` with this compose file, or the host bind source will also become `/data`.
+- If you want Bub runtime home to be `/data` in container, split variables first (for example `BUB_HOME_HOST` for host path) and then set `BUB_HOME=/data`.
 
 ## 5) Operational Checks
 
 1. Verify process:
    `ps aux | rg "bub (chat|gateway|run)"`
 2. Verify model config:
-   `rg -n "BUB_MODEL|OPENROUTER_API_KEY|LLM_API_KEY" .env`
+   `rg -n "BUB_MODEL|BUB_API_KEY|BUB_API_BASE|BUB_.*_API_KEY|BUB_.*_API_BASE|OPENROUTER_API_KEY" .env`
 3. Verify Telegram settings:
    `rg -n "BUB_TELEGRAM_TOKEN|BUB_TELEGRAM_ALLOW_USERS|BUB_TELEGRAM_ALLOW_CHATS" .env`
 4. Verify startup logs:
