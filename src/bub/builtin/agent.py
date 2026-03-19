@@ -277,6 +277,7 @@ def _build_llm(settings: AgentSettings, tape_store: AsyncTapeStore) -> LLM:
         tape_store=tape_store,
         api_format=settings.api_format,
         context=default_tape_context(),
+        verbose=settings.verbose,
     )
 
 

@@ -28,6 +28,7 @@ class AgentSettings(BaseSettings):
     max_steps: int = 50
     max_tokens: int = DEFAULT_MAX_TOKENS
     model_timeout_seconds: int | None = None
+    verbose: int = Field(default=0, description="Verbosity level for logging. Higher means more verbose.", ge=0, le=2)
 
     @classmethod
     def from_env(cls) -> AgentSettings:
