@@ -82,7 +82,7 @@ class BuiltinImpl:
             message.kind = "command"
             return content
         context = field_of(message, "context_str")
-        now = datetime.now(UTC).isoformat()
+        now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         context_prefix = f"{context}\n---Date: {now}---\n" if context else ""
         text = f"{context_prefix}{content}"
 
