@@ -1,5 +1,6 @@
 import base64
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
@@ -81,7 +82,8 @@ class BuiltinImpl:
             message.kind = "command"
             return content
         context = field_of(message, "context_str")
-        context_prefix = f"{context}\n---\n" if context else ""
+        now = datetime.now(UTC).isoformat()
+        context_prefix = f"{context}\n---Date: {now}---\n" if context else ""
         text = f"{context_prefix}{content}"
 
         media = field_of(message, "media") or []
