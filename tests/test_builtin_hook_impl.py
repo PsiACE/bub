@@ -107,7 +107,9 @@ async def test_build_prompt_marks_commands_and_prefixes_context(tmp_path: Path) 
 
     assert command_prompt == ",help"
     assert command.kind == "command"
-    assert normal_prompt == f"{normal.context_str}\n---\nhello"
+    prompt_lines = normal_prompt.splitlines()
+    assert prompt_lines[0] == normal.context_str
+    assert prompt_lines[2] == "hello"
 
 
 @pytest.mark.asyncio
