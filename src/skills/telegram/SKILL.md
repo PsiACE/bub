@@ -69,12 +69,12 @@ But when any explanation or details are needed, use a normal reply instead.
 Paths are relative to this skill directory.
 
 ```bash
-# Send message
+# Send simple text with SINGLE quotes
 uv run ${SKILL_DIR}/scripts/telegram_send.py \
   --chat-id <CHAT_ID> \
-  --message '<TEXT>'  # use SINGLE quotes for simple text, or heredoc for multi-line
+  --message '<TEXT>'
 
-# Send multi-line message (heredoc)
+# Or, send multi-line message using heredoc and double quotes
 uv run ${SKILL_DIR}/scripts/telegram_send.py \
   --chat-id <CHAT_ID> \
   --message "$(cat <<'EOF'
