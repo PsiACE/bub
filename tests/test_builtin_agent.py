@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import republic.auth.openai_codex as openai_codex
-from republic import ToolAutoResult
+from republic import TapeContext, ToolAutoResult
 
 import bub.builtin.agent as agent_module
 from bub.builtin.agent import Agent
@@ -25,12 +25,11 @@ def test_build_llm_passes_codex_resolver_to_republic(monkeypatch) -> None:
 
     monkeypatch.setattr(agent_module, "LLM", FakeLLM)
     monkeypatch.setattr(openai_codex, "openai_codex_oauth_resolver", lambda: resolver)
-    monkeypatch.setattr(agent_module, "default_tape_context", lambda: "ctx")
 
     settings = AgentSettings(model="openai:gpt-5-codex", api_key=None, api_base=None)
     tape_store = object()
 
-    agent_module._build_llm(settings, tape_store)
+    agent_module._build_llm(settings, tape_store, "ctx")
 
     assert captured["args"] == ("openai:gpt-5-codex",)
     assert captured["kwargs"]["api_key"] is None
@@ -81,7 +80,7 @@ class _FakeTapeService:
     def session_tape(self, session_id: str, workspace: Any) -> MagicMock:
         tape = MagicMock()
         tape.name = "test-tape"
-        tape.context.state = {}
+        tape.context = TapeContext(state={})
 
         async def fake_run_tools_async(**kwargs: Any) -> ToolAutoResult:
             self.run_tools_model = kwargs.get("model")
