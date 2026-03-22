@@ -1,4 +1,3 @@
-import base64
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -96,10 +95,9 @@ class BuiltinImpl:
         for item in cast("list[MediaItem]", media):
             match item.type:
                 case "image":
-                    if item.data_fetcher is None:
+                    data_url = await item.get_url()
+                    if not data_url:
                         continue
-                    data = await item.data_fetcher()
-                    data_url = f"data:{item.mime_type};base64,{base64.b64encode(data).decode('utf-8')}"
                     media_parts.append({"type": "image_url", "image_url": {"url": data_url}})
                 case _:
                     pass  # TODO: Not supported for now
