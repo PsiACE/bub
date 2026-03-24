@@ -109,7 +109,7 @@ Other hook consumers:
 
 - `register_cli_commands`: called by `call_many_sync`
 - `provide_channels`: called by `call_many_sync` in `BubFramework.get_channels()`
-- `system_prompt`, `provide_tape_store`: consumed by `BubFramework` and the builtin `Agent`
+- `system_prompt`, `provide_tape_store`, `build_tape_context`: consumed by `BubFramework` and the builtin `Agent`
 
 ## 6) Priority And Override Rules
 
@@ -126,6 +126,7 @@ Other hook consumers:
   - `register_cli_commands`
   - `provide_channels`
   - `provide_tape_store`
+  - `build_tape_context`
 
 ## 8) Signature Matching
 
