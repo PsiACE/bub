@@ -172,7 +172,7 @@ def render_skills_prompt(skills: list[SkillMetadata], expanded_skills: Collectio
     for skill in skills:
         line = f"- {skill.name}: {skill.description}"
         if skill.name in expanded_skills:
-            line += f"  Location: {skill.location}"
+            line += f"\n  Location: {skill.location}"
             body = skill.body()
             if body:
                 line += f"\n{body}"
