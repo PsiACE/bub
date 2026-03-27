@@ -53,6 +53,9 @@ class ShellManager:
         except KeyError as exc:
             raise KeyError(f"unknown shell id: {shell_id}") from exc
 
+    def release(self, shell_id: str) -> ManagedShell | None:
+        return self._shells.pop(shell_id, None)
+
     async def terminate(self, shell_id: str) -> ManagedShell:
         shell = self.get(shell_id)
         if shell.returncode is not None:
@@ -80,6 +83,7 @@ class ShellManager:
         for task in shell.read_tasks:
             with contextlib.suppress(asyncio.CancelledError):
                 await task
+        self._shells.pop(shell.shell_id, None)
 
     async def _drain_stream(
         self,
