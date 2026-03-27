@@ -1,6 +1,15 @@
 # Bub
 
-**A common shape for agents that live alongside people.**
+<div align="center">
+
+<picture>
+  <source srcset="https://bub.build/dark.png" media="(prefers-color-scheme: dark)">
+  <img alt="Bub logo" src="https://bub.build/light.png">
+</picture>
+
+<p><strong>A common shape for agents that live alongside people.</strong></p>
+
+</div>
 
 Bub started in group chats. Not as a demo or a personal assistant, but as a teammate that had to coexist with real humans and other agents in the same messy conversations — concurrent tasks, incomplete context, and nobody waiting.
 
@@ -82,27 +91,27 @@ See the [Extension Guide](https://bub.build/extension-guide/) for hook semantics
 
 ## CLI
 
-| Command | Description |
-|---------|-------------|
-| `bub chat` | Interactive REPL |
-| `bub run MESSAGE` | One-shot turn |
-| `bub gateway` | Channel listener (Telegram, etc.) |
-| `bub login openai` | OpenAI Codex OAuth |
-| `bub hooks` | Print hook-to-plugin bindings |
+| Command            | Description                       |
+| ------------------ | --------------------------------- |
+| `bub chat`         | Interactive REPL                  |
+| `bub run MESSAGE`  | One-shot turn                     |
+| `bub gateway`      | Channel listener (Telegram, etc.) |
+| `bub login openai` | OpenAI Codex OAuth                |
+| `bub hooks`        | Print hook-to-plugin bindings     |
 
 Lines starting with `,` enter internal command mode (`,help`, `,skill name=my-skill`, `,fs.read path=README.md`).
 
 ## Configuration
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `BUB_MODEL` | `openrouter:qwen/qwen3-coder-next` | Model identifier |
-| `BUB_API_KEY` | — | Provider key (optional with `bub login openai`) |
-| `BUB_API_BASE` | — | Custom provider endpoint |
-| `BUB_API_FORMAT` | `completion` | `completion`, `responses`, or `messages` |
-| `BUB_MAX_STEPS` | `50` | Max tool-use loop iterations |
-| `BUB_MAX_TOKENS` | `1024` | Max tokens per model call |
-| `BUB_MODEL_TIMEOUT_SECONDS` | — | Model call timeout (seconds) |
+| Variable                    | Default                            | Description                                     |
+| --------------------------- | ---------------------------------- | ----------------------------------------------- |
+| `BUB_MODEL`                 | `openrouter:qwen/qwen3-coder-next` | Model identifier                                |
+| `BUB_API_KEY`               | —                                  | Provider key (optional with `bub login openai`) |
+| `BUB_API_BASE`              | —                                  | Custom provider endpoint                        |
+| `BUB_API_FORMAT`            | `completion`                       | `completion`, `responses`, or `messages`        |
+| `BUB_MAX_STEPS`             | `50`                               | Max tool-use loop iterations                    |
+| `BUB_MAX_TOKENS`            | `1024`                             | Max tokens per model call                       |
+| `BUB_MODEL_TIMEOUT_SECONDS` | —                                  | Model call timeout (seconds)                    |
 
 ## Background
 
