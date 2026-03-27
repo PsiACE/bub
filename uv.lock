@@ -208,7 +208,7 @@ wheels = [
 
 [[package]]
 name = "bub"
-version = "0.3.1"
+version = "0.3.2"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -563,6 +563,7 @@ wheels = [
 name = "griffelib"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ad/06/eccbd311c9e2b3ca45dbc063b93134c57a1ccc7607c5e545264ad092c4a9/griffelib-2.0.0.tar.gz", hash = "sha256:e504d637a089f5cab9b5daf18f7645970509bf4f53eda8d79ed71cce8bd97934", size = 166312, upload-time = "2026-03-23T21:06:55.954Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4d/51/c936033e16d12b627ea334aaaaf42229c37620d0f15593456ab69ab48161/griffelib-2.0.0-py3-none-any.whl", hash = "sha256:01284878c966508b6d6f1dbff9b6fa607bc062d8261c5c7253cb285b06422a7f", size = 142004, upload-time = "2026-02-09T19:09:40.561Z" },
 ]
@@ -1651,7 +1652,7 @@ wheels = [
 
 [[package]]
 name = "republic"
-version = "0.5.6"
+version = "0.5.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "any-llm-sdk" },
@@ -1659,9 +1660,9 @@ dependencies = [
     { name = "httpx" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/51/bf/af1bbec4eed4ce52283cc915f534ef0563925e25552f0a1b79fd93223745/republic-0.5.6.tar.gz", hash = "sha256:1ab2ef1346d1b8115cb8a05456a9ef458533b0da20334c214247d3ee34989b9b", size = 141206, upload-time = "2026-03-16T10:26:54.602Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4d/40/9ebd36e489696c0904df18bf4da6edc4b87f203b55f6942d3f782c69530c/republic-0.5.7.tar.gz", hash = "sha256:74cb0a02c3dffaa3438a8f41d19b137b7c8310a7d6c2c821b81cf98d5167200a", size = 155715, upload-time = "2026-03-27T06:59:32.557Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9a/ec/ca9495c023c0a0b871daf41b4ad5661bbe58aa50550872301531adebf8df/republic-0.5.6-py3-none-any.whl", hash = "sha256:da075d28897fe1e26d358e5633fa3d4dde9207aa4c1523e3f71001d3fc610f83", size = 62264, upload-time = "2026-03-16T10:26:55.561Z" },
+    { url = "https://files.pythonhosted.org/packages/aa/33/26f4ad2665f96af4d02ae9c6f629e1d0c2538f22cecece3f8df6cd4c1da0/republic-0.5.7-py3-none-any.whl", hash = "sha256:702e2a3b662a91e68cc9c5b4893460dba01e02f081f309e6ce30d1e79c336db3", size = 62290, upload-time = "2026-03-27T06:59:33.458Z" },
 ]
 
 [[package]]
