@@ -4,7 +4,7 @@
 
 <picture>
   <source srcset="https://bub.build/dark.png" media="(prefers-color-scheme: dark)">
-  <img alt="Bub logo" src="https://bub.build/light.png">
+  <img alt="Bub logo" src="https://bub.build/light.png" width="200">
 </picture>
 
 <p><strong>A common shape for agents that live alongside people.</strong></p>
