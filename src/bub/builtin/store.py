@@ -37,7 +37,7 @@ class ForkTapeStore:
 
     @property
     def _current(self) -> TapeStore:
-        return current_store.get(_emtpy_store)
+        return current_store.get(_empty_store)
 
     @property
     def _fork_tape(self) -> str | None:
@@ -52,7 +52,7 @@ class ForkTapeStore:
 
     async def reset(self, tape: str) -> None:
         self._current.reset(tape)
-        if self._current is _emtpy_store or self._fork_tape != tape:
+        if self._current is _empty_store or self._fork_tape != tape:
             await self._parent.reset(tape)
             return
         current_tape_was_reset.set(True)
@@ -138,7 +138,7 @@ class EmptyTapeStore:
         pass
 
 
-_emtpy_store = EmptyTapeStore()
+_empty_store = EmptyTapeStore()
 
 
 class FileTapeStore(InMemoryQueryMixin):
