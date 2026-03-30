@@ -42,6 +42,7 @@ def test_settings_no_keys_returns_none() -> None:
 
     assert settings.api_key is None
     assert settings.api_base is None
+    assert settings.client_args == {"extra_headers": {"HTTP-Referer": "https://bub.build/", "X-Title": "Bub"}}
 
 
 def test_settings_provider_names_are_lowercased() -> None:
@@ -74,6 +75,10 @@ api_key:
   openai: sk-yaml
 api_base:
   openai: https://api.openai.com
+client_args:
+  extra_headers:
+    HTTP-Referer: https://openclaw.ai
+    X-Title: OpenClaw
 """.strip(),
     )
 
@@ -85,6 +90,9 @@ api_base:
     assert settings.max_steps == 77
     assert settings.api_key == {"openai": "sk-yaml"}
     assert settings.api_base == {"openai": "https://api.openai.com"}
+    assert settings.client_args == {
+        "extra_headers": {"HTTP-Referer": "https://openclaw.ai", "X-Title": "OpenClaw"},
+    }
 
 
 def test_env_settings_override_yaml(tmp_path: Path) -> None:
@@ -94,6 +102,10 @@ def test_env_settings_override_yaml(tmp_path: Path) -> None:
 model: openai:gpt-5
 api_key: sk-yaml
 max_steps: 77
+client_args:
+  extra_headers:
+    HTTP-Referer: https://yaml.example
+    X-Title: YAML App
 """.strip(),
     )
 
@@ -103,6 +115,7 @@ max_steps: 77
             "BUB_HOME": str(tmp_path),
             "BUB_MODEL": "anthropic:claude-3-7-sonnet",
             "BUB_API_KEY": "sk-env",
+            "BUB_CLIENT_ARGS": '{"extra_headers":{"HTTP-Referer":"https://env.example","X-Title":"Env App"}}',
             "BUB_MAX_STEPS": "12",
         },
         clear=True,
@@ -112,6 +125,15 @@ max_steps: 77
     assert settings.model == "anthropic:claude-3-7-sonnet"
     assert settings.api_key == "sk-env"
     assert settings.max_steps == 12
+    assert settings.client_args == {
+        "extra_headers": {"HTTP-Referer": "https://env.example", "X-Title": "Env App"},
+    }
+
+
+def test_settings_client_args_can_be_disabled() -> None:
+    settings = _settings_with_env({"BUB_CLIENT_ARGS": "null"})
+
+    assert settings.client_args is None
 
 
 def test_load_settings_reads_yaml_from_bub_home(tmp_path: Path) -> None:
