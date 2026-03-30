@@ -28,7 +28,6 @@ from bub.types import State
 from bub.utils import workspace_from_state
 
 CONTINUE_PROMPT = "Continue the task."
-DEFAULT_BUB_HEADERS = {"HTTP-Referer": "https://bub.build/", "X-Title": "Bub"}
 HINT_RE = re.compile(r"\$([A-Za-z0-9_.-]+)")
 
 
@@ -222,7 +221,6 @@ class Agent:
         allowed_tools: Collection[str] | None = None,
         allowed_skills: Collection[str] | None = None,
     ) -> ToolAutoResult:
-        extra_options = {"extra_headers": DEFAULT_BUB_HEADERS} if self.settings.model.startswith("openrouter:") else {}
         prompt_text = prompt if isinstance(prompt, str) else _extract_text_from_parts(prompt)
         if allowed_tools is not None:
             allowed_tools = {name.casefold() for name in allowed_tools}
@@ -240,7 +238,6 @@ class Agent:
                 max_tokens=self.settings.max_tokens,
                 tools=model_tools(tools),
                 model=model,
-                **extra_options,
             )
 
     def _system_prompt(self, prompt: str, state: State, allowed_skills: set[str] | None = None) -> str:
@@ -284,6 +281,7 @@ def _build_llm(settings: AgentSettings, tape_store: AsyncTapeStore, tape_context
         fallback_models=settings.fallback_models,
         api_key_resolver=openai_codex_oauth_resolver(),
         tape_store=tape_store,
+        client_args=settings.client_args,
         api_format=settings.api_format,
         context=tape_context,
         verbose=settings.verbose,
