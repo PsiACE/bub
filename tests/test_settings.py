@@ -37,12 +37,12 @@ def test_settings_per_provider_keys() -> None:
     assert settings.api_base["openai"] == "https://api.openai.com"
 
 
-def test_settings_no_keys_returns_none() -> None:
+def test_settings_no_keys_return_none() -> None:
     settings = _settings_with_env({})
 
     assert settings.api_key is None
     assert settings.api_base is None
-    assert settings.client_args == {"extra_headers": {"HTTP-Referer": "https://bub.build/", "X-Title": "Bub"}}
+    assert settings.client_args is None
 
 
 def test_settings_provider_names_are_lowercased() -> None:
