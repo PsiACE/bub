@@ -32,10 +32,6 @@ def provider_specific(setting_name: str) -> Callable[[], dict[str, str] | None]:
     return default_factory
 
 
-def default_client_args() -> dict[str, Any]:
-    return {"extra_headers": {"HTTP-Referer": "https://bub.build/", "X-Title": "Bub"}}
-
-
 class AgentSettings(BaseSettings):
     """Configuration settings for the Agent."""
 
@@ -49,7 +45,7 @@ class AgentSettings(BaseSettings):
     max_steps: int = 50
     max_tokens: int = DEFAULT_MAX_TOKENS
     model_timeout_seconds: int | None = None
-    client_args: dict[str, Any] | None = Field(default_factory=default_client_args)
+    client_args: dict[str, Any] | None = None
     verbose: int = Field(default=0, description="Verbosity level for logging. Higher means more verbose.", ge=0, le=2)
 
     @classmethod
