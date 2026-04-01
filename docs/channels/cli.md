@@ -87,11 +87,11 @@ After login, you can use an OpenAI model without setting `BUB_API_KEY`:
 BUB_MODEL=openai:gpt-5-codex uv run bub chat
 ```
 
-If the upstream endpoint expects a specific OpenAI-compatible request shape, set `BUB_API_FORMAT`:
+If the upstream endpoint expects a specific request payload format, set `BUB_API_FORMAT`:
 
 - `completion`: legacy completion-style format; default
 - `responses`: OpenAI Responses API format
-- `messages`: chat-completions-style messages format
+- `messages`: Anthropic Messages API format
 
 ```bash
 BUB_MODEL=openai:gpt-5-codex BUB_API_FORMAT=responses uv run bub chat

@@ -53,10 +53,10 @@ If `AGENTS.md` exists in the workspace, it is appended to the system prompt auto
 
 Key source files:
 
-- Turn orchestrator: [`src/bub/framework.py`](src/bub/framework.py)
-- Hook contract: [`src/bub/hookspecs.py`](src/bub/hookspecs.py)
-- Builtin hooks: [`src/bub/builtin/hook_impl.py`](src/bub/builtin/hook_impl.py)
-- Skill discovery: [`src/bub/skills.py`](src/bub/skills.py)
+- Turn orchestrator: [`src/bub/framework.py`](https://github.com/bubbuild/bub/blob/main/src/bub/framework.py)
+- Hook contract: [`src/bub/hookspecs.py`](https://github.com/bubbuild/bub/blob/main/src/bub/hookspecs.py)
+- Builtin hooks: [`src/bub/builtin/hook_impl.py`](https://github.com/bubbuild/bub/blob/main/src/bub/builtin/hook_impl.py)
+- Skill discovery: [`src/bub/skills.py`](https://github.com/bubbuild/bub/blob/main/src/bub/skills.py)
 
 ## What Sets It Apart
 
@@ -109,7 +109,7 @@ Lines starting with `,` enter internal command mode (`,help`, `,skill name=my-sk
 | `BUB_API_KEY` | — | Provider key (optional with `bub login openai`) |
 | `BUB_API_BASE` | — | Custom provider endpoint |
 | `BUB_API_FORMAT` | `completion` | `completion`, `responses`, or `messages` |
-| `BUB_CLIENT_ARGS` | `{"extra_headers":{"HTTP-Referer":"https://bub.build/","X-Title":"Bub"}}` | JSON object forwarded to the underlying model client |
+| `BUB_CLIENT_ARGS` | — | JSON object forwarded to the underlying model client |
 | `BUB_MAX_STEPS` | `50` | Max tool-use loop iterations |
 | `BUB_MAX_TOKENS` | `1024` | Max tokens per model call |
 | `BUB_MODEL_TIMEOUT_SECONDS` | — | Model call timeout (seconds) |
@@ -122,13 +122,13 @@ Read more: [Context from Tape](https://tape.systems) · [Socialized Evaluation a
 
 ## Docs
 
-- [Architecture](docs/architecture.md) — lifecycle, hook precedence, error handling
-- [Features](docs/features.md) — what ships today and current boundaries
-- [Channels](docs/channels/index.md) — CLI, Telegram, and custom adapters
-- [Skills](docs/skills.md) — discovery and authoring
-- [Extension Guide](docs/extension-guide.md) — hooks, tools, plugin packaging
-- [Deployment](docs/deployment.md) — Docker, environment, upgrades
-- [Posts](docs/posts/index.md) — design notes
+- [Architecture](https://bub.build/architecture/) — lifecycle, hook precedence, error handling
+- [Features](https://bub.build/features/) — what ships today and current boundaries
+- [Channels](https://bub.build/channels/) — CLI, Telegram, and custom adapters
+- [Skills](https://bub.build/skills/) — discovery and authoring
+- [Extension Guide](https://bub.build/extension-guide/) — hooks, tools, plugin packaging
+- [Deployment](https://bub.build/deployment/) — Docker, environment, upgrades
+- [Posts](https://bub.build/posts/) — design notes
 
 ## Development
 
@@ -138,8 +138,8 @@ uv run mypy src
 uv run pytest -q
 ```
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md).
+See [CONTRIBUTING.md](https://github.com/bubbuild/bub/blob/main/CONTRIBUTING.md).
 
 ## License
 
-[Apache-2.0](./LICENSE)
+[Apache-2.0](https://github.com/bubbuild/bub/blob/main/LICENSE)

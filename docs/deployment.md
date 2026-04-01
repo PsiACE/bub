@@ -24,6 +24,12 @@ BUB_MODEL=openrouter:qwen/qwen3-coder-next
 OPENROUTER_API_KEY=sk-or-...
 ```
 
+Advanced model-client settings:
+
+- `BUB_API_FORMAT` selects the request payload format sent to the upstream model endpoint: `completion`, `responses`, or `messages`.
+- `BUB_CLIENT_ARGS` passes a JSON object through to the underlying model client.
+- The accepted `BUB_CLIENT_ARGS` keys depend on the selected provider and downstream SDK behavior, so treat it as an escape hatch rather than a stable cross-provider interface.
+
 ## 2) Runtime Modes
 
 Choose one command based on your operation target:
