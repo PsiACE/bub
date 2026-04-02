@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
 import uuid
 from dataclasses import dataclass, field
 
@@ -38,6 +39,7 @@ class ShellManager:
             cwd=cwd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            executable="/bin/bash" if os.name != "nt" else None,
         )
         shell = ManagedShell(shell_id=f"bash-{uuid.uuid4().hex[:8]}", cmd=cmd, cwd=cwd, process=process)
         shell.read_tasks.extend([
