@@ -71,6 +71,7 @@ build-backend = "hatchling.build"
 only-include = ["src/bub", "src/skills", "tests"]
 
 [tool.hatch.build.targets.wheel]
+sources = ["src"]
 only-include = ["src/bub", "src/skills"]
 
 [tool.vulture]
