@@ -104,6 +104,8 @@ uv run ${SKILL_DIR}/scripts/telegram_edit.py \
   --text '<TEXT>'
 ```
 
+When sending message to a bot, either use `--reply-to` argument or pass `--source-is-bot` with `--source-username` otherwise the bot will not receive the message.
+
 For other actions that not covered by these scripts, use `curl` to call Telegram Bot API directly with the provided token.
 
 ## Script Interface Reference

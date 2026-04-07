@@ -129,6 +129,15 @@ def main():
     )
     parser.add_argument("--token", "-t", help="Bot token (defaults to BUB_TELEGRAM_TOKEN env var)")
     parser.add_argument("--reply-to", "-r", type=int, help="Message ID to reply to (creates threaded conversation)")
+    parser.add_argument(
+        "--source-is-bot",
+        action="store_true",
+        help="Set when source message sender is a bot; disables reply mode and switches to @username style send",
+    )
+    parser.add_argument(
+        "--source-username",
+        help="Source username for @username prefix when --source-is-bot is enabled",
+    )
 
     args = parser.parse_args()
 
@@ -142,6 +151,12 @@ def main():
     chat_id = args.chat_id.strip()
     reply_to = args.reply_to
     message = args.message
+
+    if args.source_is_bot and not reply_to:
+        if not args.source_username:
+            print("❌ Error: --source-username is required when --source-is-bot is set without --reply-to")
+            sys.exit(1)
+        message = f"/bot@{args.source_username} {message}"
 
     # Send messages
     try:
