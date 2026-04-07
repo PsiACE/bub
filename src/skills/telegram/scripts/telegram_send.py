@@ -152,7 +152,7 @@ def main():
     reply_to = args.reply_to
     message = args.message
 
-    if args.source_is_bot and not reply_to:
+    if args.source_is_bot and not reply_to and not message.startswith("/"):
         if not args.source_username:
             print("❌ Error: --source-username is required when --source-is-bot is set without --reply-to")
             sys.exit(1)
