@@ -4,8 +4,7 @@ description: |
   Telegram Bot skill for sending and editing Telegram messages via Bot API.
   Use when Bub needs to: (1) Send a message to a Telegram user/group/channel,
   (2) Reply to a specific Telegram message with reply_to_message_id,
-  (3) Edit an existing Telegram message, or (4) Push proactive Telegram notifications
-  when working outside an active Telegram session.
+  (3) Edit an existing Telegram message, or (4) Push proactive Telegram notifications.
 metadata:
   channel: telegram
 ---
@@ -20,14 +19,14 @@ Assumption: `BUB_TELEGRAM_TOKEN` is already available.
 Collect these before execution:
 
 - `chat_id` (required)
-- `message_id` (required for edit or reply when source is not a bot)
+- `message_id` (required for edit or reply)
 - message content (required for send/edit)
-- `reply_to_message_id` (required for threaded reply behavior)
+- `reply_to_message_id` (required when you need a threaded reply)
 
 ## Execution Policy
 
-1. If handling a direct user message in Telegram and `message_id` is known, send a reply message (`--reply-to`).
-2. If source metadata says sender is a bot (`sender_is_bot=true`), do not use reply mode, but send a normal message and prefix content with `@<sender_username>` (or the provided source username). If the user doesn't have a username, use `--source-user-id` to mention via `tg://user?id=` link.
+1. If handling a Telegram message and `message_id` is known, send a reply message with `--reply-to`.
+2. If there is no message to reply to, send a normal message to `chat_id`.
 3. For long-running tasks, optionally send one progress message, then edit that same message for final status.
 4. For multi-line text, pass the content via heredoc command substitution instead of embedding raw line breaks in quoted strings.
 5. Avoid emitting HTML tags in message content; use Markdown for formatting instead.
@@ -90,21 +89,6 @@ uv run ${SKILL_DIR}/scripts/telegram_send.py \
   --message '<TEXT>' \
   --reply-to <MESSAGE_ID>
 
-# Source message sender is bot: no direct reply, use @username style
-uv run ${SKILL_DIR}/scripts/telegram_send.py \
-  --chat-id <CHAT_ID> \
-  --message '<TEXT>' \
-  --source-is-bot \
-  --source-username <USERNAME>
-
-# Source message sender is bot without username: use tg://user?id= link
-uv run ${SKILL_DIR}/scripts/telegram_send.py \
-  --chat-id <CHAT_ID> \
-  --message '<TEXT>' \
-  --source-is-bot \
-  --source-user-id <USER_ID> \
-  --source-display-name "Display Name"
-
 # Edit existing message
 uv run ${SKILL_DIR}/scripts/telegram_edit.py \
   --chat-id <CHAT_ID> \
@@ -122,10 +106,6 @@ For other actions that not covered by these scripts, use `curl` to call Telegram
 - `--message`, `-m`: required
 - `--reply-to`, `-r`: optional
 - `--token`, `-t`: optional (normally not needed)
-- `--source-is-bot`: optional flag, disables reply mode and adds mention prefix
-- `--source-username`: optional, uses `@username` style mention when set
-- `--source-user-id`: optional, uses `tg://user?id=` link mention when username is not available
-- `--source-display-name`: optional, display name for user ID mention (defaults to "User")
 
 ### `telegram_edit.py`
 
