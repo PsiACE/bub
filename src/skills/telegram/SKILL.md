@@ -31,6 +31,14 @@ Collect these before execution:
 4. For multi-line text, pass the content via heredoc command substitution instead of embedding raw line breaks in quoted strings.
 5. Avoid emitting HTML tags in message content; use Markdown for formatting instead.
 
+## Bot to co-Bot Communication
+
+In Telegram groups, communicate with another bot using only these patterns:
+
+1. Reply directly to the other bot's message when `message_id` is available.
+2. Use an explicit command mention such as `/command@OtherBot` when you need to invoke that bot intentionally.
+3. Do not assume free-form group text will reach another bot.
+
 ## Active Response Policy
 
 When this skill is in scope, prefer proactive and timely Telegram updates:
