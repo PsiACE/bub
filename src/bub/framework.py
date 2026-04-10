@@ -10,7 +10,7 @@ import pluggy
 import typer
 from dotenv import load_dotenv
 from loguru import logger
-from republic import AsyncTapeStore, TapeContext
+from republic import AsyncTapeStore, RepublicError, TapeContext
 from republic.tape import TapeStore
 
 from bub.envelope import content_of, field_of, unpack_batch
@@ -108,18 +108,7 @@ class BubFramework:
                 prompt = content_of(inbound)
             model_output = ""
             try:
-                model_output = await self._hook_runtime.call_first(
-                    "run_model", prompt=prompt, session_id=session_id, state=state
-                )
-                if model_output is None:
-                    await self._hook_runtime.notify_error(
-                        stage="run_model:fallback",
-                        error=RuntimeError("no model skill returned output"),
-                        message=inbound,
-                    )
-                    model_output = prompt if isinstance(prompt, str) else content_of(inbound)
-                else:
-                    model_output = str(model_output)
+                model_output = await self._run_model(inbound, prompt, session_id, state)
             finally:
                 await self._hook_runtime.call_many(
                     "save_state",
@@ -138,6 +127,29 @@ class BubFramework:
             await self._hook_runtime.notify_error(stage="turn", error=exc, message=inbound)
             raise
 
+    async def _run_model(
+        self, inbound: Envelope, prompt: str | list[dict], session_id: str, state: dict[str, Any]
+    ) -> str:
+        stream = await self._hook_runtime.run_model_stream(prompt=prompt, session_id=session_id, state=state)
+        if stream is None:
+            await self._hook_runtime.notify_error(
+                stage="run_model",
+                error=RuntimeError("no model skill returned output"),
+                message=inbound,
+            )
+            return prompt if isinstance(prompt, str) else content_of(inbound)
+        else:
+            parts: list[str] = []
+            async for event in stream:
+                await self.dispatch_event_via_router(event, inbound)
+                if event.kind == "text":
+                    parts.append(str(event.data.get("delta", "")))
+                elif event.kind == "error":
+                    await self._hook_runtime.notify_error(
+                        stage="run_model", error=RepublicError(**event.data), message=inbound
+                    )
+            return "".join(parts)
+
     def hook_report(self) -> dict[str, list[str]]:
         """Return hook implementation summary for diagnostics."""
 
@@ -149,7 +161,13 @@ class BubFramework:
     async def dispatch_via_router(self, message: Envelope) -> bool:
         if self._outbound_router is None:
             return False
-        return await self._outbound_router.dispatch(message)
+        return await self._outbound_router.dispatch_output(message)
+
+    async def dispatch_event_via_router(self, event: Any, message: Envelope) -> bool:
+        if self._outbound_router is not None:
+            await self._outbound_router.dispatch_event(event, message)
+            return True
+        return False
 
     async def quit_via_router(self, session_id: str) -> None:
         if self._outbound_router is not None:
