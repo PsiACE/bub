@@ -40,7 +40,13 @@ CompletionResult = ChatCompletion | ParsedChatCompletion[Any] | AsyncIterator[Ch
 
 
 def _stream_usage_options(llm: AnyLLM, *, stream: bool) -> dict[str, Any] | None:
-    """Make streaming completions report token usage."""
+    """Make streaming completions report token usage.
+
+    OpenAI-style streaming responses omit the `usage` block unless the request
+    sets `stream_options.include_usage`; without it every streamed run records
+    zero tokens (and zero cost). Only OpenAI-compatible providers accept the
+    field, so gate on the provider base class — anthropic/gemini reject it.
+    """
     if stream and isinstance(llm, BaseOpenAIProvider):
         return {"include_usage": True}
     return None
