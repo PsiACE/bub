@@ -93,7 +93,7 @@ bub onboard [OPTIONS]
 
 Behavior notes:
 
-- The builtin onboarding fragment prompts for: provider (one of `openrouter`, `openai`, `anthropic`, `gemini`, `azure`, `bedrock`, `ollama`, `groq`, `mistral`, `deepseek`, plus `custom`), model name, optional API key, optional API base, API format (`completion` / `responses` / `messages`), enabled channels, and stream output.
+- The builtin onboarding fragment prompts for: provider (one of `openrouter`, `openai`, `anthropic`, `gemini`, `azure`, `bedrock`, `ollama`, `groq`, `mistral`, `deepseek`, plus `custom`), model name, optional API key, optional API base, enabled channels, and stream output.
 - Each plugin's `onboard_config` hook receives the accumulated dict so far; non-dict returns abort with `TypeError`.
 - The merged dict is validated through `configure.validate` before being written.
 
@@ -185,7 +185,7 @@ bub login openai [OPTIONS]
 
 Behavior notes:
 
-- On success prints `login: ok`, the account id, the auth file path, and a usage hint to set `BUB_MODEL=openai:gpt-5-codex` and omit `BUB_API_KEY`.
+- On success prints `login: ok`, the account id, the auth file path, and a usage hint to set `BUB_MODEL=openai:<codex-model>` and omit `BUB_API_KEY`.
 - On `CodexOAuthLoginError` exits with code `1`.
 
 ## `bub hooks`

@@ -93,7 +93,7 @@ bub onboard [OPTIONS]
 
 行为说明:
 
-- builtin 的 onboarding fragment 会询问:provider(`openrouter`、`openai`、`anthropic`、`gemini`、`azure`、`bedrock`、`ollama`、`groq`、`mistral`、`deepseek` 之一,或 `custom`)、模型名、可选 API key、可选 API base、API format(`completion` / `responses` / `messages`)、启用的 channel、是否流式输出。
+- builtin 的 onboarding fragment 会询问:provider(`openrouter`、`openai`、`anthropic`、`gemini`、`azure`、`bedrock`、`ollama`、`groq`、`mistral`、`deepseek` 之一,或 `custom`)、模型名、可选 API key、可选 API base、启用的 channel、是否流式输出。
 - 每个插件的 `onboard_config` 钩子都会拿到当前已累计的 dict;返回值不是 dict 时抛 `TypeError` 并中止。
 - 合并后的 dict 会经过 `configure.validate` 验证后才写入。
 
@@ -185,7 +185,7 @@ bub login openai [OPTIONS]
 
 行为说明:
 
-- 成功时打印 `login: ok`、account id、auth 文件路径,并提示设置 `BUB_MODEL=openai:gpt-5-codex` 且不再提供 `BUB_API_KEY`。
+- 成功时打印 `login: ok`、account id、auth 文件路径,并提示设置 `BUB_MODEL=openai:<codex-model>` 且不再提供 `BUB_API_KEY`。
 - 抛出 `CodexOAuthLoginError` 时以退出码 `1` 退出。
 
 ## `bub hooks`

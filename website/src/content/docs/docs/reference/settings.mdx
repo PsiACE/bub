@@ -42,13 +42,12 @@ class AgentSettings(Settings):
     model_config = SettingsConfigDict(env_prefix="BUB_", env_parse_none_str="null", extra="ignore")
     model: str = DEFAULT_MODEL  # "openrouter:openrouter/free"
     fallback_models: list[str] | None = None
-    api_key: str | dict[str, str] | None = Field(default_factory=provider_specific("api_key"))
-    api_base: str | dict[str, str] | None = Field(default_factory=provider_specific("api_base"))
-    api_format: Literal["completion", "responses", "messages"] = "completion"
+    api_key: str | dict[str, str] | None = None
+    api_base: str | dict[str, str] | None = None
     max_steps: int = 50
     max_tokens: int = DEFAULT_MAX_TOKENS  # 16384
     model_timeout_seconds: int | None = None
-    client_args: dict[str, Any] | None = None
+    client_args: dict[str, Any] = Field(default_factory=dict)
     verbose: int = Field(default=0, ge=0, le=2)
 ```
 
@@ -60,16 +59,17 @@ Loaded under the YAML root section.
 | `BUB_FALLBACK_MODELS` | `null` | `fallback_models` | Optional list of fallback model identifiers. |
 | `BUB_API_KEY` | unset | `api_key` | Default API key. May also be a JSON object mapping provider → key. |
 | `BUB_API_BASE` | unset | `api_base` | Default API base URL or per-provider mapping. |
-| `BUB_<PROVIDER>_API_KEY` | unset | — | Provider-scoped API key, e.g. `BUB_OPENAI_API_KEY`. Collected by the `provider_specific("api_key")` factory. |
+| `BUB_<PROVIDER>_API_KEY` | unset | — | Provider-scoped API key, e.g. `BUB_OPENAI_API_KEY`. |
 | `BUB_<PROVIDER>_API_BASE` | unset | — | Provider-scoped API base URL, e.g. `BUB_OPENROUTER_API_BASE`. |
-| `BUB_API_FORMAT` | `completion` | `api_format` | One of `completion`, `responses`, `messages`. |
 | `BUB_MAX_STEPS` | `50` | `max_steps` | Maximum agent loop iterations per turn. |
 | `BUB_MAX_TOKENS` | `16384` | `max_tokens` | Maximum tokens per model call. |
 | `BUB_MODEL_TIMEOUT_SECONDS` | `null` | `model_timeout_seconds` | Per-call timeout in seconds. |
-| `BUB_CLIENT_ARGS` | `null` | `client_args` | Extra kwargs passed to the underlying model client (JSON / dict). |
+| `BUB_CLIENT_ARGS` | `{}` | `client_args` | Extra kwargs passed to the underlying model client (JSON / dict). |
 | `BUB_VERBOSE` | `0` | `verbose` | Logging verbosity level (`0`–`2`). |
 
 Provider-specific defaults are gathered at startup by scanning `os.environ` for `^BUB_(.+)_(API_KEY|API_BASE)$` and lowercasing the captured provider name.
+
+OpenAI Codex OAuth does not need a separate request-format setting. After `bub login openai`, Bub detects the stored Codex OAuth token when the selected model uses the `openai:` provider and no custom API base is set.
 
 ## Channels — `ChannelSettings`
 
