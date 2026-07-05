@@ -296,9 +296,9 @@ async def test_agent_run_injects_steering_messages_once_by_session() -> None:
     result = await agent.run_stream(session_id="user/s1", prompt="hello", state={"_runtime_workspace": "/tmp"})  # noqa: S108
     [event async for event in result]
 
-    completion_kwargs = _model_runner(agent).completion_kwargs
-    assert completion_kwargs is not None
-    completion_messages = completion_kwargs["messages"]
+    response_kwargs = _model_runner(agent).response_kwargs
+    assert response_kwargs is not None
+    completion_messages = response_kwargs["messages"]
     assert completion_messages[-3:] == [
         {"role": "user", "content": "first steer"},
         {"role": "user", "content": "second steer"},
@@ -314,9 +314,9 @@ async def test_agent_run_injects_steering_messages_once_by_session() -> None:
     result = await agent.run_stream(session_id="user/s1", prompt="again", state={"_runtime_workspace": "/tmp"})  # noqa: S108
     [event async for event in result]
 
-    completion_kwargs = _model_runner(agent).completion_kwargs
-    assert completion_kwargs is not None
-    completion_messages = completion_kwargs["messages"]
+    response_kwargs = _model_runner(agent).response_kwargs
+    assert response_kwargs is not None
+    completion_messages = response_kwargs["messages"]
     assert completion_messages[-1] == {"role": "user", "content": "again"}
     assert {"role": "user", "content": "ignore me"} not in completion_messages
 
