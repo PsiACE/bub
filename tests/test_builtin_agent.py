@@ -24,11 +24,11 @@ from bub.tools import REGISTRY, tool
 class _FakeModelRunner(ModelRunner):
     def __init__(self, settings: AgentSettings) -> None:
         super().__init__(settings)
-        self.completion_kwargs: dict[str, Any] | None = None
+        self.response_kwargs: dict[str, Any] | None = None
 
-    async def completion_response(self, **kwargs: Any) -> AsyncIterator[ChatCompletionChunk]:
-        self.completion_kwargs = kwargs
-        return _chat_stream("done")
+    async def completion_response(self, **kwargs: Any) -> AsyncIterator[ChatCompletionChunk]:  # type: ignore[override]
+        self.response_kwargs = kwargs
+        return _completion_stream("done")
 
 
 def _make_agent() -> Agent:
@@ -51,24 +51,20 @@ def _model_runner(agent: Agent) -> _FakeModelRunner:
     return agent.model_runner
 
 
-def _chat_chunk(content: str) -> ChatCompletionChunk:
-    return ChatCompletionChunk.model_validate({
+async def _completion_stream(content: str) -> AsyncIterator[ChatCompletionChunk]:
+    yield ChatCompletionChunk.model_validate({
         "id": "chatcmpl_test",
         "object": "chat.completion.chunk",
         "created": 0,
-        "model": "test:model",
+        "model": "test-model",
         "choices": [
             {
                 "index": 0,
-                "finish_reason": "stop",
+                "finish_reason": None,
                 "delta": {"role": "assistant", "content": content},
             }
         ],
     })
-
-
-async def _chat_stream(content: str) -> AsyncIterator[ChatCompletionChunk]:
-    yield _chat_chunk(content)
 
 
 class _ForkCapture:
@@ -209,9 +205,9 @@ async def test_agent_run_passes_model_to_llm() -> None:
     )
     [event async for event in result]
 
-    completion_kwargs = _model_runner(agent).completion_kwargs
-    assert completion_kwargs is not None
-    assert completion_kwargs["model"] == "openai:gpt-4o"
+    response_kwargs = _model_runner(agent).response_kwargs
+    assert response_kwargs is not None
+    assert response_kwargs["model"] == "openai:gpt-4o"
 
 
 @pytest.mark.asyncio
@@ -239,9 +235,9 @@ async def test_agent_run_model_defaults_to_none() -> None:
     result = await agent.run_stream(session_id="user/s1", prompt="hello", state={"_runtime_workspace": "/tmp"})  # noqa: S108
     [event async for event in result]
 
-    completion_kwargs = _model_runner(agent).completion_kwargs
-    assert completion_kwargs is not None
-    assert completion_kwargs["model"] == "test:model"
+    response_kwargs = _model_runner(agent).response_kwargs
+    assert response_kwargs is not None
+    assert response_kwargs["model"] == "test:model"
 
 
 @pytest.mark.asyncio
@@ -267,9 +263,9 @@ async def test_agent_run_model_override_does_not_mutate_default() -> None:
     )
     [event async for event in result]
 
-    completion_kwargs = _model_runner(agent).completion_kwargs
-    assert completion_kwargs is not None
-    assert completion_kwargs["model"] == "openai:gpt-4o"
+    response_kwargs = _model_runner(agent).response_kwargs
+    assert response_kwargs is not None
+    assert response_kwargs["model"] == "openai:gpt-4o"
     assert agent.settings.model == default_model
 
 
@@ -301,10 +297,10 @@ async def test_agent_run_resolves_allowed_tool_aliases_and_limits_prompt() -> No
     )
     [event async for event in result]
 
-    completion_kwargs = _model_runner(agent).completion_kwargs
-    assert completion_kwargs is not None
-    assert [tool.name for tool in completion_kwargs["tools"]] == ["tests_allowed_agent_tool"]
-    system_prompt = completion_kwargs["messages"][0]["content"]
+    response_kwargs = _model_runner(agent).response_kwargs
+    assert response_kwargs is not None
+    assert [tool.name for tool in response_kwargs["tools"]] == ["tests_allowed_agent_tool"]
+    system_prompt = response_kwargs["messages"][0]["content"]
     assert "- tests_allowed_agent_tool(): Allowed tool" in system_prompt
     assert "tests_denied_agent_tool" not in system_prompt
 

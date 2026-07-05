@@ -1,18 +1,17 @@
-"""OpenAI Codex OAuth provider for any-llm."""
+"""OpenAI Codex OAuth provider for any-llm Responses calls."""
 
 from __future__ import annotations
 
 import time
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any, cast, override
 
 from any_llm.exceptions import MissingApiKeyError
 from any_llm.providers.openai.base import BaseOpenAIProvider
-from any_llm.types.completion import ChatCompletion, CompletionParams
+from any_llm.types.completion import ChatCompletion, ChatCompletionChunk, CompletionParams
 from any_llm.types.model import Model
 from any_llm.types.responses import Response, ResponsesParams
-from openai import AsyncStream
-from openai.types.responses import ResponseStreamEvent
 
 from bub.builtin.auth import (
     extract_openai_codex_account_id,
@@ -35,7 +34,7 @@ class OpenAICodexTransportError(RuntimeError):
 
 
 class OpenaiCodexProvider(BaseOpenAIProvider):
-    """any-llm provider backed by OpenAI Codex OAuth credentials."""
+    """OpenAI-compatible Responses provider backed by Codex OAuth credentials."""
 
     API_BASE = DEFAULT_CODEX_BASE_URL
     ENV_API_KEY_NAME = "OPENAI_CODEX_API_KEY"
@@ -43,7 +42,7 @@ class OpenaiCodexProvider(BaseOpenAIProvider):
     PROVIDER_NAME = "openaicodex"
     PROVIDER_DOCUMENTATION_URL = "https://platform.openai.com/docs/codex"
 
-    SUPPORTS_COMPLETION_STREAMING = False
+    SUPPORTS_COMPLETION_STREAMING = True
     SUPPORTS_COMPLETION = True
     SUPPORTS_COMPLETION_REASONING = True
     SUPPORTS_RESPONSES = True
@@ -52,6 +51,8 @@ class OpenaiCodexProvider(BaseOpenAIProvider):
     SUPPORTS_IMAGE_GENERATION = False
     SUPPORTS_AUDIO_TRANSCRIPTION = False
     SUPPORTS_AUDIO_SPEECH = False
+    SUPPORTS_EMBEDDING = False
+    SUPPORTS_MODERATION = False
 
     def __init__(
         self,
@@ -100,247 +101,105 @@ class OpenaiCodexProvider(BaseOpenAIProvider):
         raise NotImplementedError("OpenAI Codex OAuth provider does not support listing models.")
 
     @override
-    async def _acompletion(self, params: CompletionParams, **kwargs: Any) -> ChatCompletion:
-        """Implement Chat Completions via Codex Responses while returning any-llm's completion type."""
+    async def _acompletion(
+        self,
+        params: CompletionParams,
+        **kwargs: Any,
+    ) -> ChatCompletion | AsyncIterator[ChatCompletionChunk]:
+        responses_params = self._completion_params_to_responses_params(params)
+        if params.stream:
+            response = await self._aresponses(responses_params.model_copy(update={"stream": True}))
+            if not hasattr(response, "__aiter__"):
+                raise OpenAICodexTransportError(None, "OpenAI Codex Responses API returned a non-streaming result.")
+            return self._response_stream_to_completion_chunks(
+                cast("AsyncIterator[Any]", response),
+                model=params.model_id,
+            )
 
-        responses_params = self._completion_params_to_responses_params(params, **kwargs)
-        response = await self._aresponses(responses_params)
-        if isinstance(response, AsyncStream):
-            msg = "OpenAI Codex completion streaming is disabled for Bub's any-llm provider."
-            raise OpenAICodexTransportError(None, msg)
-        return self._response_to_completion(response, model=params.model_id)
+        response = await self._aresponses(responses_params.model_copy(update={"stream": False}))
+        return self._response_to_completion(cast("Response", response), model=params.model_id)
 
     @override
-    async def _aresponses(self, params: ResponsesParams, **kwargs: Any) -> Response | AsyncStream[ResponseStreamEvent]:
-        payload = self._build_responses_payload(params, **kwargs)
-        response = await self.client.responses.create(**payload)
-        if params.stream:
-            return cast("AsyncStream[ResponseStreamEvent]", response)
-        if isinstance(response, AsyncStream):
-            return self._collect_response_events(await self._collect_events(response))
-        return cast("Response", response)
+    async def _aresponses(self, params: ResponsesParams, **kwargs: Any) -> Any:
+        return await super()._aresponses(self._with_codex_response_defaults(params), **kwargs)
 
-    def _completion_params_to_responses_params(self, params: CompletionParams, **kwargs: Any) -> ResponsesParams:
-        completion_kwargs = self._convert_completion_params(params, **kwargs)
-        tools = completion_kwargs.pop("tools", None)
-        tool_choice = completion_kwargs.pop("tool_choice", None)
-        response_format = completion_kwargs.pop("response_format", None)
-        parallel_tool_calls = completion_kwargs.pop("parallel_tool_calls", None)
-        max_output_tokens = completion_kwargs.pop("max_completion_tokens", None)
-        completion_kwargs.pop("stream", None)
-        completion_kwargs.pop("n", None)
-        completion_kwargs.pop("stop", None)
-        completion_kwargs.pop("logprobs", None)
-        completion_kwargs.pop("top_logprobs", None)
-        completion_kwargs.pop("logit_bias", None)
-        completion_kwargs.pop("stream_options", None)
-
-        reasoning_effort = completion_kwargs.pop("reasoning_effort", None)
-        reasoning = completion_kwargs.pop("reasoning", None)
-        if reasoning is None and reasoning_effort not in {None, "auto"}:
-            reasoning = {"effort": reasoning_effort}
+    def _completion_params_to_responses_params(self, params: CompletionParams) -> ResponsesParams:
+        reasoning = None
+        if params.reasoning_effort not in {None, "auto"}:
+            reasoning = {"effort": params.reasoning_effort}
 
         return ResponsesParams(
             model=params.model_id,
-            input=cast("Any", params.messages),
-            tools=self._convert_tools_for_responses(cast("list[dict[str, Any] | Any] | None", tools or params.tools)),
-            tool_choice=self._convert_tool_choice_for_responses(
-                cast("str | dict[str, Any] | None", tool_choice or params.tool_choice)
-            ),
-            max_output_tokens=max_output_tokens,
-            parallel_tool_calls=parallel_tool_calls or params.parallel_tool_calls,
-            response_format=response_format or params.response_format,
+            input=cast("Any", _completion_messages_to_responses_input(params.messages)),
+            tools=self._completion_tools_to_response_tools(cast("Sequence[Any] | None", params.tools)),
+            tool_choice=self._completion_tool_choice_to_response_tool_choice(params.tool_choice),
+            response_format=params.response_format,
+            stream=params.stream,
+            parallel_tool_calls=params.parallel_tool_calls,
             reasoning=reasoning,
-            **completion_kwargs,
-        )
-
-    def _build_responses_payload(self, params: ResponsesParams, **kwargs: Any) -> dict[str, Any]:
-        payload = params.model_dump(exclude_none=True, exclude={"response_format"})
-        payload["stream"] = True
-        payload.pop("max_output_tokens", None)
-        payload["store"] = payload.get("store", self._store)
-        payload["instructions"] = payload.get("instructions") or self._default_instructions
-        payload["include"] = payload.get("include") or list(self._default_include)
-
-        text = payload.get("text")
-        if isinstance(text, dict):
-            payload["text"] = {**self._default_text, **text}
-        elif text is None:
-            payload["text"] = dict(self._default_text)
-
-        payload.update(kwargs)
-        return payload
-
-    @staticmethod
-    async def _collect_events(response: AsyncIterator[Any]) -> list[Any]:
-        events: list[Any] = []
-        async for event in response:
-            events.append(event)
-        return events
-
-    @staticmethod
-    def _collect_response_events(events: list[Any]) -> Response:
-        text_parts: list[str] = []
-        tool_calls: dict[str, dict[str, Any]] = {}
-        usage: dict[str, Any] | Any | None = None
-        completed_response: Response | None = None
-
-        for event in events:
-            event_type = getattr(event, "type", None)
-            if event_type == "response.output_text.delta":
-                if isinstance(delta := getattr(event, "delta", None), str):
-                    text_parts.append(delta)
-                continue
-            if event_type == "response.output_item.done":
-                OpenaiCodexProvider._record_stream_tool_call(
-                    tool_calls,
-                    OpenaiCodexProvider._function_call_from_output_item(event),
-                )
-                continue
-            if event_type == "response.function_call_arguments.done":
-                OpenaiCodexProvider._record_stream_tool_call(
-                    tool_calls,
-                    OpenaiCodexProvider._function_call_from_arguments_done(event),
-                )
-                continue
-            if event_type == "response.completed":
-                completed = getattr(event, "response", None)
-                completed_response = completed if isinstance(completed, Response) else None
-                usage = getattr(completed, "usage", None) or usage
-                continue
-            usage = getattr(event, "usage", None) or usage
-
-        if completed_response is not None and completed_response.output:
-            return completed_response
-
-        return OpenaiCodexProvider._build_response_from_stream(
-            completed_response=completed_response,
-            text="".join(text_parts),
-            tool_calls=tool_calls,
-            usage=usage,
         )
 
     @staticmethod
-    def _build_response_from_stream(
+    def _completion_tools_to_response_tools(tools: Sequence[Any] | None) -> list[dict[str, Any]] | None:
+        if not tools:
+            return None
+        response_tools: list[dict[str, Any]] = []
+        for tool in tools:
+            payload = tool.model_dump(exclude_none=True) if hasattr(tool, "model_dump") else dict(tool)
+            function = payload.get("function")
+            if payload.get("type") == "function" and isinstance(function, dict):
+                response_tools.append({
+                    "type": "function",
+                    "name": function.get("name", ""),
+                    "description": function.get("description", ""),
+                    "parameters": function.get("parameters", {}),
+                })
+            else:
+                response_tools.append(payload)
+        return response_tools
+
+    @staticmethod
+    def _completion_tool_choice_to_response_tool_choice(tool_choice: str | dict[str, Any] | None) -> Any:
+        if not isinstance(tool_choice, dict):
+            return tool_choice
+        function = tool_choice.get("function")
+        if tool_choice.get("type") == "function" and isinstance(function, dict):
+            return {"type": "function", "name": function.get("name", "")}
+        return tool_choice
+
+    async def _response_stream_to_completion_chunks(
+        self,
+        events: AsyncIterator[Any],
         *,
-        completed_response: Response | None,
-        text: str,
-        tool_calls: dict[str, dict[str, Any]],
-        usage: dict[str, Any] | Any | None,
-    ) -> Response:
-        output: list[dict[str, Any]] = []
-        if text:
-            output.append({
-                "id": "msg_codex",
-                "type": "message",
-                "role": "assistant",
-                "status": "completed",
-                "content": [{"type": "output_text", "text": text, "annotations": []}],
-            })
-        output.extend(
-            {
-                "id": call.get("id"),
-                "type": "function_call",
-                "call_id": call["call_id"],
-                "name": call.get("name"),
-                "arguments": call.get("arguments", ""),
-                "status": "completed",
-            }
-            for call in tool_calls.values()
-        )
-
-        payload = {
-            "id": getattr(completed_response, "id", None) or "resp_codex",
-            "object": getattr(completed_response, "object", None) or "response",
-            "created_at": getattr(completed_response, "created_at", None) or time.time(),
-            "status": getattr(completed_response, "status", None) or "completed",
-            "error": getattr(completed_response, "error", None),
-            "incomplete_details": getattr(completed_response, "incomplete_details", None),
-            "instructions": getattr(completed_response, "instructions", None),
-            "metadata": getattr(completed_response, "metadata", None) or {},
-            "model": getattr(completed_response, "model", None) or "gpt-5.5",
-            "output": output,
-            "parallel_tool_calls": getattr(completed_response, "parallel_tool_calls", None) or False,
-            "temperature": getattr(completed_response, "temperature", None),
-            "tool_choice": getattr(completed_response, "tool_choice", None) or "auto",
-            "tools": getattr(completed_response, "tools", None) or [],
-            "top_p": getattr(completed_response, "top_p", None),
-            "truncation": getattr(completed_response, "truncation", None) or "disabled",
-            "usage": OpenaiCodexProvider._response_usage_payload(getattr(completed_response, "usage", None) or usage),
-            "store": getattr(completed_response, "store", None) or False,
-        }
-        return Response.model_validate(payload)
+        model: str,
+    ) -> AsyncIterator[ChatCompletionChunk]:
+        mapper = CodexCompletionChunkMapper(model=model)
+        async for event in events:
+            for chunk in mapper.map_event(event):
+                yield chunk
 
     @staticmethod
-    def _response_usage_payload(usage: dict[str, Any] | Any | None) -> dict[str, Any]:
-        model_dump = getattr(usage, "model_dump", None)
-        if callable(model_dump):
-            payload = model_dump()
-        elif isinstance(usage, dict):
-            payload = dict(usage)
-        else:
-            payload = {}
-        input_tokens = payload.get("input_tokens")
-        output_tokens = payload.get("output_tokens")
-        total_tokens = payload.get("total_tokens")
-        if not isinstance(input_tokens, int):
-            input_tokens = 0
-        if not isinstance(output_tokens, int):
-            output_tokens = 0
-        if not isinstance(total_tokens, int):
-            total_tokens = input_tokens + output_tokens
-        return {
-            "input_tokens": input_tokens,
-            "input_tokens_details": payload.get("input_tokens_details") or {"cached_tokens": 0},
-            "output_tokens": output_tokens,
-            "output_tokens_details": payload.get("output_tokens_details") or {"reasoning_tokens": 0},
-            "total_tokens": total_tokens,
-        }
+    def _response_to_completion(response: Response, *, model: str) -> ChatCompletion:
+        text_parts: list[str] = []
+        tool_calls: list[dict[str, Any]] = []
+        for item in getattr(response, "output", []) or []:
+            if getattr(item, "type", None) == "message":
+                for content in getattr(item, "content", []) or []:
+                    text = getattr(content, "text", None)
+                    if isinstance(text, str):
+                        text_parts.append(text)
+            if getattr(item, "type", None) in {"function_call", "custom_tool_call"}:
+                tool_calls.append({
+                    "id": getattr(item, "call_id", None) or getattr(item, "id", None) or f"call_{len(tool_calls)}",
+                    "type": "function",
+                    "function": {
+                        "name": getattr(item, "name", "") or "",
+                        "arguments": _tool_item_arguments(item) or "{}",
+                    },
+                })
 
-    @staticmethod
-    def _record_stream_tool_call(tool_calls: dict[str, dict[str, Any]], tool_call: dict[str, Any] | None) -> None:
-        if tool_call is None:
-            return
-        tool_calls[tool_call["call_id"]] = tool_call
-
-    @staticmethod
-    def _function_call_from_output_item(event: Any) -> dict[str, Any] | None:
-        item = getattr(event, "item", None)
-        if getattr(item, "type", None) != "function_call":
-            return None
-        call_id = getattr(item, "call_id", None) or getattr(item, "id", None)
-        if not isinstance(call_id, str) or not call_id:
-            return None
-        return {
-            "call_id": call_id,
-            "id": getattr(item, "id", None),
-            "name": getattr(item, "name", None),
-            "arguments": getattr(item, "arguments", "") or "",
-        }
-
-    @staticmethod
-    def _function_call_from_arguments_done(event: Any) -> dict[str, Any] | None:
-        call_id = getattr(event, "call_id", None) or getattr(event, "item_id", None)
-        if not isinstance(call_id, str) or not call_id:
-            return None
-        return {
-            "call_id": call_id,
-            "id": getattr(event, "item_id", None),
-            "name": getattr(event, "name", None),
-            "arguments": getattr(event, "arguments", "") or "",
-        }
-
-    def _response_to_completion(self, response: Response, *, model: str) -> ChatCompletion:
-        message: dict[str, Any] = {
-            "role": "assistant",
-            "content": self._response_output_text(response) or None,
-        }
-        if tool_calls := self._response_tool_calls(response):
-            message["tool_calls"] = tool_calls
-        if reasoning := self._response_reasoning(response):
-            message["reasoning"] = reasoning
-
-        payload = {
+        usage = _completion_usage_from_response_usage(getattr(response, "usage", None))
+        return ChatCompletion.model_validate({
             "id": getattr(response, "id", None) or "chatcmpl_codex",
             "object": "chat.completion",
             "created": int(getattr(response, "created_at", None) or time.time()),
@@ -348,137 +207,258 @@ class OpenaiCodexProvider(BaseOpenAIProvider):
             "choices": [
                 {
                     "index": 0,
-                    "finish_reason": self._completion_finish_reason(response),
-                    "message": message,
+                    "finish_reason": "tool_calls" if tool_calls else "stop",
+                    "message": {
+                        "role": "assistant",
+                        "content": "".join(text_parts) or None,
+                        "tool_calls": tool_calls or None,
+                    },
                 }
             ],
-            "usage": self._completion_usage(response),
+            "usage": usage,
+        })
+
+    def _with_codex_response_defaults(self, params: ResponsesParams) -> ResponsesParams:
+        update: dict[str, Any] = {}
+        if params.store is None:
+            update["store"] = self._store
+        if params.instructions is None:
+            update["instructions"] = self._default_instructions
+        if params.include is None:
+            update["include"] = list(self._default_include)
+        if isinstance(params.text, dict):
+            update["text"] = {**self._default_text, **params.text}
+        elif params.text is None:
+            update["text"] = dict(self._default_text)
+        return params.model_copy(update=update)
+
+
+@dataclass
+class _CodexToolState:
+    started: bool = False
+    arguments_seen: bool = False
+
+
+class CodexCompletionChunkMapper:
+    def __init__(self, *, model: str) -> None:
+        self.model = model
+        self.created = int(time.time())
+        self._tool_states: dict[int, _CodexToolState] = {}
+        self._tool_indexes_by_identifier: dict[str, int] = {}
+
+    def map_event(self, event: Any) -> list[ChatCompletionChunk]:
+        event_type = getattr(event, "type", None)
+        if event_type == "response.output_text.delta":
+            return [self._delta_chunk({"content": _string_attr(event, "delta")})]
+        if event_type in {"response.reasoning_text.delta", "response.reasoning_summary_text.delta"}:
+            return [self._delta_chunk({"reasoning": _string_attr(event, "delta")})]
+        if event_type == "response.output_item.added":
+            return self._tool_item_chunks(event)
+        if event_type in {"response.function_call_arguments.delta", "response.custom_tool_call_input.delta"}:
+            return self._tool_arguments_delta_chunks(event)
+        if event_type == "response.function_call_arguments.done":
+            return self._tool_arguments_done_chunks(event)
+        if event_type == "response.output_item.done":
+            return self._tool_item_chunks(event, done=True)
+        if event_type == "response.completed":
+            response = getattr(event, "response", None)
+            return [self._terminal_chunk(response=response)]
+        if event_type in {"response.failed", "response.incomplete"}:
+            raise OpenAICodexTransportError(None, f"OpenAI Codex response ended with {event_type}")
+        if event_type == "error":
+            message = getattr(event, "message", None) or "OpenAI Codex response stream error"
+            raise OpenAICodexTransportError(None, str(message))
+        return []
+
+    def _tool_item_chunks(self, event: Any, *, done: bool = False) -> list[ChatCompletionChunk]:
+        output_index = getattr(event, "output_index", None)
+        item = getattr(event, "item", None)
+        if getattr(item, "type", None) not in {"function_call", "custom_tool_call"} or not isinstance(
+            output_index, int
+        ):
+            return []
+
+        self._remember_tool_identifiers(item, output_index)
+        state = self._tool_states.setdefault(output_index, _CodexToolState())
+        if done and state.started and state.arguments_seen:
+            return []
+
+        tool_delta: dict[str, Any] = {
+            "index": output_index,
+            "id": getattr(item, "call_id", None) or getattr(item, "id", None) or f"call_{output_index}",
+            "type": "function",
+            "function": {
+                "name": getattr(item, "name", None) or "",
+                "arguments": "" if state.arguments_seen else _tool_item_arguments(item),
+            },
         }
-        return self._convert_completion_response(payload)
+        state.started = True
+        if tool_delta["function"]["arguments"]:
+            state.arguments_seen = True
+        return [self._delta_chunk({"tool_calls": [tool_delta]})]
 
-    @staticmethod
-    def _completion_finish_reason(response: Response) -> str:
-        if OpenaiCodexProvider._response_tool_calls(response):
-            return "tool_calls"
-        status = getattr(response, "status", None)
-        if status in {"incomplete", "failed", "cancelled"}:
-            return "length"
-        return "stop"
+    def _tool_arguments_delta_chunks(self, event: Any) -> list[ChatCompletionChunk]:
+        output_index = self._tool_index_for_event(event)
+        if output_index is None:
+            return []
+        delta = _string_attr(event, "delta")
+        if not delta:
+            return []
+        state = self._tool_states.setdefault(output_index, _CodexToolState())
+        state.arguments_seen = True
+        return [self._delta_chunk({"tool_calls": [{"index": output_index, "function": {"arguments": delta}}]})]
 
-    @staticmethod
-    def _response_output_text(response: Response) -> str:
-        output_text = getattr(response, "output_text", None)
-        if isinstance(output_text, str):
-            return output_text
+    def _tool_arguments_done_chunks(self, event: Any) -> list[ChatCompletionChunk]:
+        output_index = self._tool_index_for_event(event)
+        if output_index is None:
+            return []
+        state = self._tool_states.setdefault(output_index, _CodexToolState())
+        if state.arguments_seen:
+            return []
+        arguments = _string_attr(event, "arguments")
+        if not arguments:
+            return []
+        state.arguments_seen = True
+        name = _string_attr(event, "name")
+        function: dict[str, str] = {"arguments": arguments}
+        if name:
+            function["name"] = name
+        return [self._delta_chunk({"tool_calls": [{"index": output_index, "function": function}]})]
 
-        parts: list[str] = []
-        for item in getattr(response, "output", []) or []:
-            if getattr(item, "type", None) != "message":
-                continue
-            for content in getattr(item, "content", []) or []:
-                if getattr(content, "type", None) == "output_text":
-                    text = getattr(content, "text", None)
-                    if isinstance(text, str):
-                        parts.append(text)
-        return "".join(parts)
+    def _tool_index_for_event(self, event: Any) -> int | None:
+        output_index = getattr(event, "output_index", None)
+        if isinstance(output_index, int):
+            return output_index
+        for attr in ("item_id", "call_id"):
+            identifier = getattr(event, attr, None)
+            if isinstance(identifier, str):
+                known_index = self._tool_indexes_by_identifier.get(identifier)
+                if known_index is not None:
+                    return known_index
+        return None
 
-    @staticmethod
-    def _response_reasoning(response: Response) -> str | None:
-        parts: list[str] = []
-        for item in getattr(response, "output", []) or []:
-            if getattr(item, "type", None) != "reasoning":
-                continue
-            summary = getattr(item, "summary", None)
-            if isinstance(summary, str):
-                parts.append(summary)
-            elif isinstance(summary, list):
-                parts.extend(str(part) for part in summary if part)
-        return "\n".join(parts) or None
+    def _remember_tool_identifiers(self, item: Any, output_index: int) -> None:
+        for attr in ("id", "call_id"):
+            identifier = getattr(item, attr, None)
+            if isinstance(identifier, str) and identifier:
+                self._tool_indexes_by_identifier[identifier] = output_index
 
-    @staticmethod
-    def _response_tool_calls(response: Response) -> list[dict[str, Any]]:
-        calls: list[dict[str, Any]] = []
-        for item in getattr(response, "output", []) or []:
-            if getattr(item, "type", None) != "function_call":
-                continue
-            name = getattr(item, "name", None)
-            if not isinstance(name, str) or not name:
-                continue
-            calls.append({
-                "id": getattr(item, "call_id", None) or getattr(item, "id", None) or f"call_{len(calls)}",
-                "type": "function",
-                "function": {
-                    "name": name,
-                    "arguments": getattr(item, "arguments", None) or "{}",
-                },
-            })
-        return calls
+    def _delta_chunk(self, delta: dict[str, Any]) -> ChatCompletionChunk:
+        return ChatCompletionChunk.model_validate({
+            "id": "chatcmpl_codex",
+            "object": "chat.completion.chunk",
+            "created": self.created,
+            "model": self.model,
+            "choices": [{"index": 0, "delta": delta, "finish_reason": None}],
+        })
 
-    @staticmethod
-    def _completion_usage(response: Response) -> dict[str, Any] | None:
-        usage = getattr(response, "usage", None)
-        if usage is None:
-            return None
-        if hasattr(usage, "model_dump"):
-            payload = usage.model_dump()
-        elif isinstance(usage, dict):
-            payload = dict(usage)
-        else:
-            payload = {
-                key: value
-                for key in ("input_tokens", "output_tokens", "total_tokens")
-                if (value := getattr(usage, key, None)) is not None
-            }
-        prompt_tokens = int(payload.get("input_tokens") or 0)
-        completion_tokens = int(payload.get("output_tokens") or 0)
-        total_tokens = int(payload.get("total_tokens") or prompt_tokens + completion_tokens)
-        return {
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": total_tokens,
+    def _terminal_chunk(self, *, response: Any) -> ChatCompletionChunk:
+        usage = _completion_usage_from_response_usage(getattr(response, "usage", None))
+        finish_reason = "tool_calls" if self._tool_states else "stop"
+        return ChatCompletionChunk.model_validate({
+            "id": getattr(response, "id", None) or "chatcmpl_codex",
+            "object": "chat.completion.chunk",
+            "created": int(getattr(response, "created_at", None) or self.created),
+            "model": getattr(response, "model", None) or self.model,
+            "choices": [{"index": 0, "delta": {}, "finish_reason": finish_reason}],
+            "usage": usage,
+        })
+
+
+def _completion_usage_from_response_usage(usage: Any) -> dict[str, int]:
+    payload = usage.model_dump(exclude_none=True) if hasattr(usage, "model_dump") else usage
+    if not isinstance(payload, dict):
+        payload = {
+            "input_tokens": getattr(usage, "input_tokens", 0),
+            "output_tokens": getattr(usage, "output_tokens", 0),
+            "total_tokens": getattr(usage, "total_tokens", 0),
         }
+    prompt_tokens = int(payload.get("input_tokens") or payload.get("prompt_tokens") or 0)
+    completion_tokens = int(payload.get("output_tokens") or payload.get("completion_tokens") or 0)
+    total_tokens = int(payload.get("total_tokens") or prompt_tokens + completion_tokens)
+    return {
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+    }
 
-    @staticmethod
-    def _convert_tools_for_responses(tools: list[dict[str, Any] | Any] | None) -> list[dict[str, Any]] | None:
-        if not tools:
-            return None
 
-        converted: list[dict[str, Any]] = []
-        for tool in tools:
-            if not isinstance(tool, dict):
-                converted.append(cast("dict[str, Any]", tool))
-                continue
-            function = tool.get("function")
-            if not isinstance(function, dict):
-                converted.append(dict(tool))
-                continue
-            response_tool = {
-                "type": tool.get("type", "function"),
-                "name": function.get("name"),
-                "description": function.get("description", ""),
-                "parameters": function.get("parameters", {}),
-            }
-            if "strict" in function:
-                response_tool["strict"] = function["strict"]
-            converted.append(response_tool)
-        return converted
+def _string_attr(obj: Any, name: str) -> str:
+    value = getattr(obj, name, None)
+    return value if isinstance(value, str) else ""
 
-    @staticmethod
-    def _convert_tool_choice_for_responses(tool_choice: str | dict[str, Any] | None) -> str | dict[str, Any] | None:
-        if not isinstance(tool_choice, dict):
-            return tool_choice
-        function = tool_choice.get("function")
-        if not isinstance(function, dict):
-            return tool_choice
-        function_name = function.get("name")
-        if not isinstance(function_name, str) or not function_name:
-            return tool_choice
 
-        converted = dict(tool_choice)
-        converted.pop("function", None)
-        converted["type"] = converted.get("type", "function")
-        converted["name"] = function_name
-        return converted
+def _tool_item_arguments(item: Any) -> str:
+    return _string_attr(item, "arguments") or _string_attr(item, "input")
+
+
+def _completion_messages_to_responses_input(messages: Sequence[Any]) -> list[dict[str, Any]]:
+    response_input: list[dict[str, Any]] = []
+    for message in messages:
+        payload = _mapping_from_value(message)
+        if not payload:
+            continue
+
+        role = payload.get("role")
+        if role == "tool":
+            tool_result = _completion_tool_result_to_response_item(payload)
+            if tool_result is not None:
+                response_input.append(tool_result)
+            continue
+
+        tool_calls = payload.get("tool_calls")
+        if isinstance(tool_calls, Sequence) and not isinstance(tool_calls, str):
+            content = payload.get("content")
+            if content:
+                response_input.append({"role": "assistant", "content": content})
+            response_input.extend(_completion_tool_calls_to_response_items(tool_calls))
+            continue
+
+        if isinstance(role, str):
+            response_input.append({"role": role, "content": payload.get("content") or ""})
+    return response_input
+
+
+def _completion_tool_calls_to_response_items(tool_calls: Sequence[Any]) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for tool_call in tool_calls:
+        payload = _mapping_from_value(tool_call)
+        function = _mapping_from_value(payload.get("function"))
+        call_id = payload.get("id")
+        name = function.get("name")
+        if not isinstance(call_id, str) or not isinstance(name, str):
+            continue
+        arguments = function.get("arguments")
+        items.append({
+            "type": "function_call",
+            "call_id": call_id,
+            "name": name,
+            "arguments": arguments if isinstance(arguments, str) else "{}",
+            "status": "completed",
+        })
+    return items
+
+
+def _completion_tool_result_to_response_item(message: Mapping[str, Any]) -> dict[str, Any] | None:
+    call_id = message.get("tool_call_id")
+    if not isinstance(call_id, str) or not call_id:
+        return None
+    content = message.get("content")
+    return {
+        "type": "function_call_output",
+        "call_id": call_id,
+        "output": content if isinstance(content, str) else "",
+    }
+
+
+def _mapping_from_value(value: Any) -> Mapping[str, Any]:
+    if isinstance(value, Mapping):
+        return value
+    if hasattr(value, "model_dump"):
+        dumped = value.model_dump(exclude_none=True)
+        if isinstance(dumped, Mapping):
+            return dumped
+    return {}
 
 
 def should_use_openai_codex_provider(
