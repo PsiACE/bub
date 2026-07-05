@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pluggy
 
 from bub.runtime import AsyncStreamEvents
+from bub.runtime_options import RuntimeOptions
 from bub.tape import AsyncTapeStore, TapeContext, TapeStore
 from bub.turn_admission import AdmitDecision, TurnSnapshot
-from bub.types import Envelope, MessageHandler, State
+from bub.types import Envelope, MessageHandler, State, SteeringInboxProtocol
 
 if TYPE_CHECKING:
     from bub.channels.base import Channel
@@ -92,6 +94,14 @@ class BubHookSpecs:
         """Collect a plugin config fragment for the interactive onboarding command."""
 
     @hookspec
+    def provide_runtime_options(
+        self,
+        session_id: str,
+        workspace: Path | None,
+    ) -> RuntimeOptions | None:
+        """Provide protocol-neutral runtime choices for a session."""
+
+    @hookspec
     def on_error(self, stage: str, error: Exception, message: Envelope | None) -> None:
         """Observe framework errors from any stage."""
 
@@ -101,7 +111,7 @@ class BubHookSpecs:
         raise NotImplementedError
 
     @hookspec(firstresult=True)
-    def provide_tape_store(self) -> TapeStore | AsyncTapeStore:
+    def provide_tape_store(self) -> TapeStore | AsyncTapeStore | None:
         """Provide a tape store instance for Bub's conversation recording feature."""
         raise NotImplementedError
 
@@ -126,4 +136,9 @@ class BubHookSpecs:
 
         Return ``None`` to keep Bub's default concurrent scheduling behavior.
         """
+        raise NotImplementedError
+
+    @hookspec(firstresult=True)
+    def provide_steering_inbox(self) -> SteeringInboxProtocol | None:
+        """Provide a steering inbox for the current session, to be used to queue and drain messages."""
         raise NotImplementedError

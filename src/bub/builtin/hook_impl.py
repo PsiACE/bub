@@ -9,16 +9,18 @@ from loguru import logger
 from bub import inquirer as bub_inquirer
 from bub.builtin.agent import Agent
 from bub.builtin.context import default_tape_context
-from bub.builtin.settings import DEFAULT_MODEL
+from bub.builtin.settings import DEFAULT_MODEL, load_settings
+from bub.builtin.steering import InMemorySteeringInbox
 from bub.channels.base import Channel
 from bub.channels.message import ChannelMessage, MediaItem
 from bub.envelope import content_of, field_of
 from bub.framework import BubFramework
 from bub.hookspecs import hookimpl
 from bub.runtime import AsyncStreamEvents
+from bub.runtime_options import RuntimeChoice, RuntimeOptions
 from bub.tape import TapeContext, TapeStore
 from bub.turn_admission import AdmitDecision, TurnSnapshot
-from bub.types import Envelope, MessageHandler, State
+from bub.types import Envelope, MessageHandler, State, SteeringInboxProtocol
 
 AGENTS_FILE_NAME = "AGENTS.md"
 MODEL_PROVIDER_CHOICES: tuple[str, ...] = (
@@ -118,6 +120,12 @@ class BuiltinImpl:
             return selected
         return available_channels
 
+    @staticmethod
+    def _configured_models() -> list[str]:
+        settings = load_settings()
+        models = [settings.model, *(settings.fallback_models or [])]
+        return list(dict.fromkeys(model for model in models if model))
+
     @hookimpl
     def resolve_session(self, message: ChannelMessage) -> str:
         session_id = field_of(message, "session_id")
@@ -140,6 +148,10 @@ class BuiltinImpl:
         # fresh/unknown session never inherits another session's model.
         if model := await self._recover_session_model(session_id):
             state["model"] = model
+        if model := field_of(message, "context", {}).get("model"):
+            state["model"] = model
+        if thread_id := field_of(message, "context", {}).get("thread_id"):
+            state["_runtime_thread_id"] = thread_id
         return state
 
     @hookimpl
@@ -250,6 +262,22 @@ class BuiltinImpl:
             config["api_base"] = api_base
         return config
 
+    @hookimpl
+    def provide_runtime_options(
+        self,
+        session_id: str,
+        workspace: Path | None = None,
+    ) -> RuntimeOptions | None:
+        del session_id, workspace
+        models = self._configured_models()
+        if not models:
+            return None
+
+        return RuntimeOptions(
+            models=[RuntimeChoice(id=model, name=model) for model in models],
+            current_model=models[0],
+        )
+
     def _read_agents_file(self, state: State) -> str:
         workspace = state.get("_runtime_workspace", str(Path.cwd()))
         prompt_path = Path(workspace) / AGENTS_FILE_NAME
@@ -325,7 +353,11 @@ class BuiltinImpl:
         return default_tape_context()
 
     @hookimpl
-    def admit_message(
+    def provide_steering_inbox(self) -> SteeringInboxProtocol:
+        return InMemorySteeringInbox()
+
+    @hookimpl
+    async def admit_message(
         self,
         session_id: str,
         message: Envelope,
@@ -334,4 +366,4 @@ class BuiltinImpl:
         outbound_router = self.framework._outbound_router
         if outbound_router is None:
             return None
-        return outbound_router.admit_channel_message(session_id=session_id, message=message, turn=turn)
+        return await outbound_router.admit_channel_message(session_id=session_id, message=message, turn=turn)
