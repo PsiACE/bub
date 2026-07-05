@@ -12,15 +12,50 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from bub.builtin.context import TapeContext, build_messages
 from bub.builtin.store import ForkTapeStore
 from bub.runtime import BubError
 from bub.tape import (
     AsyncTapeStore,
-    TapeContext,
     TapeEntry,
     TapeQuery,
-    build_messages,
 )
+
+
+def _message_entry(message: dict[str, Any], **meta: Any) -> TapeEntry:
+    return TapeEntry(id=0, kind="message", payload=dict(message), meta=dict(meta))
+
+
+def _system_entry(content: str, **meta: Any) -> TapeEntry:
+    return TapeEntry(id=0, kind="system", payload={"content": content}, meta=dict(meta))
+
+
+def _anchor_entry(name: str, state: dict[str, Any] | None = None, **meta: Any) -> TapeEntry:
+    payload: dict[str, Any] = {"name": name}
+    if state is not None:
+        payload["state"] = dict(state)
+    return TapeEntry(id=0, kind="anchor", payload=payload, meta=dict(meta))
+
+
+def _tool_call_entry(calls: list[dict[str, Any]], **meta: Any) -> TapeEntry:
+    return TapeEntry(id=0, kind="tool_call", payload={"calls": calls}, meta=dict(meta))
+
+
+def _tool_result_entry(results: list[Any], **meta: Any) -> TapeEntry:
+    return TapeEntry(id=0, kind="tool_result", payload={"results": results}, meta=dict(meta))
+
+
+def _error_entry(error: object, **meta: Any) -> TapeEntry:
+    as_dict = getattr(error, "as_dict", None)
+    payload = as_dict() if callable(as_dict) else {"message": str(error)}
+    return TapeEntry(id=0, kind="error", payload=payload, meta=dict(meta))
+
+
+def _event_entry(name: str, data: dict[str, Any] | None = None, **meta: Any) -> TapeEntry:
+    payload: dict[str, Any] = {"name": name}
+    if data is not None:
+        payload["data"] = dict(data)
+    return TapeEntry(id=0, kind="event", payload=payload, meta=dict(meta))
 
 
 @dataclass(frozen=True)
@@ -45,7 +80,7 @@ class AnchorSummary:
 
 @dataclass(frozen=True)
 class Tape:
-    """Tape abstraction for recording agent interactions."""
+    """Builtin tape facade for scoped queries, sessions, and agent records."""
 
     archive_path: Path
     store: AsyncTapeStore
@@ -112,11 +147,10 @@ class Tape:
         return list(await self.store.fetch_all(query))
 
     async def append_event(self, name: str, payload: dict[str, Any], **meta: Any) -> None:
-        await self.store.append(self.name, TapeEntry.event(name, payload, **meta))
+        await self.store.append(self.name, _event_entry(name, payload, **meta))
 
     async def read_messages(self) -> list[dict[str, Any]]:
-        query = self.context.build_query(self.query())
-        entries = await self.store.fetch_all(query)
+        entries = await self.store.fetch_all(self.query())
         messages = build_messages(entries, self.context)
         if inspect.isawaitable(messages):
             messages = await messages
@@ -129,12 +163,11 @@ class Tape:
         state: dict[str, Any] | None = None,
         **meta: Any,
     ) -> list[TapeEntry]:
-        tape_name = self.name
-        entry = TapeEntry.anchor(name, state=state, **meta)
-        event = TapeEntry.event("handoff", {"name": name, "state": state or {}}, **meta)
-        await self.store.append(tape_name, entry)
-        await self.store.append(tape_name, event)
-        return [entry, event]
+        anchor = _anchor_entry(name, state=state, **meta)
+        event = _event_entry("handoff", {"name": name, "state": state or {}}, **meta)
+        await self.store.append(self.name, anchor)
+        await self.store.append(self.name, event)
+        return [anchor, event]
 
     async def record_chat(  # noqa: C901
         self,
@@ -155,21 +188,19 @@ class Tape:
         tape_name = self.name
         meta = {"run_id": run_id}
         if system_prompt:
-            await self.store.append(tape_name, TapeEntry.system(system_prompt, **meta))
+            await self.store.append(tape_name, _system_entry(system_prompt, **meta))
         if context_error is not None:
-            await self.store.append(tape_name, TapeEntry.error(context_error, **meta))
+            await self.store.append(tape_name, _error_entry(context_error, **meta))
         for message in new_messages:
-            await self.store.append(tape_name, TapeEntry.message(message, **meta))
+            await self.store.append(tape_name, _message_entry(message, **meta))
         if tool_calls:
-            await self.store.append(tape_name, TapeEntry.tool_call(tool_calls, **meta))
+            await self.store.append(tape_name, _tool_call_entry(tool_calls, **meta))
         if tool_results is not None:
-            await self.store.append(tape_name, TapeEntry.tool_result(tool_results, **meta))
+            await self.store.append(tape_name, _tool_result_entry(tool_results, **meta))
         if error is not None and error is not context_error:
-            await self.store.append(tape_name, TapeEntry.error(error, **meta))
+            await self.store.append(tape_name, _error_entry(error, **meta))
         if response_text is not None:
-            await self.store.append(
-                tape_name, TapeEntry.message({"role": "assistant", "content": response_text}, **meta)
-            )
+            await self.store.append(tape_name, _message_entry({"role": "assistant", "content": response_text}, **meta))
 
         data: dict[str, Any] = {"status": "error" if error is not None else "ok"}
         resolved_usage = usage or self._extract_usage(response)
@@ -179,7 +210,7 @@ class Tape:
             data["provider"] = provider
         if model:
             data["model"] = model
-        await self.store.append(tape_name, TapeEntry.event("run", data, **meta))
+        await self.store.append(tape_name, _event_entry("run", data, **meta))
 
     @staticmethod
     def _extract_usage(response: object) -> dict[str, Any] | None:

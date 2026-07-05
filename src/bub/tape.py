@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import json
-from collections.abc import Callable, Coroutine, Iterable, Sequence
+from collections.abc import Coroutine, Iterable
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, time
 from datetime import date as date_type
@@ -32,40 +32,6 @@ class TapeEntry:
 
     def copy(self) -> TapeEntry:
         return TapeEntry(self.id, self.kind, dict(self.payload), dict(self.meta), self.date)
-
-    @classmethod
-    def message(cls, message: dict[str, Any], **meta: Any) -> TapeEntry:
-        return cls(id=0, kind="message", payload=dict(message), meta=dict(meta))
-
-    @classmethod
-    def system(cls, content: str, **meta: Any) -> TapeEntry:
-        return cls(id=0, kind="system", payload={"content": content}, meta=dict(meta))
-
-    @classmethod
-    def anchor(cls, name: str, state: dict[str, Any] | None = None, **meta: Any) -> TapeEntry:
-        payload: dict[str, Any] = {"name": name}
-        if state is not None:
-            payload["state"] = dict(state)
-        return cls(id=0, kind="anchor", payload=payload, meta=dict(meta))
-
-    @classmethod
-    def tool_call(cls, calls: list[dict[str, Any]], **meta: Any) -> TapeEntry:
-        return cls(id=0, kind="tool_call", payload={"calls": calls}, meta=dict(meta))
-
-    @classmethod
-    def tool_result(cls, results: list[Any], **meta: Any) -> TapeEntry:
-        return cls(id=0, kind="tool_result", payload={"results": results}, meta=dict(meta))
-
-    @classmethod
-    def error(cls, error: BubError, **meta: Any) -> TapeEntry:
-        return cls(id=0, kind="error", payload=error.as_dict(), meta=dict(meta))
-
-    @classmethod
-    def event(cls, name: str, data: dict[str, Any] | None = None, **meta: Any) -> TapeEntry:
-        payload: dict[str, Any] = {"name": name}
-        if data is not None:
-            payload["data"] = dict(data)
-        return cls(id=0, kind="event", payload=payload, meta=dict(meta))
 
 
 class TapeStore(Protocol):
@@ -101,26 +67,12 @@ class TapeQuery[T: TapeStore | AsyncTapeStore]:
     tape: str
     store: T
     _query: str | None = None
-    _after_anchor: str | None = None
-    _after_last: bool = False
-    _between_anchors: tuple[str, str] | None = None
     _between_dates: tuple[str, str] | None = None
     _kinds: tuple[str, ...] = field(default_factory=tuple)
     _limit: int | None = None
 
     def query(self, value: str) -> Self:
         return replace(self, _query=value)
-
-    def after_anchor(self, name: str) -> Self:
-        if not name:
-            return replace(self, _after_anchor=None, _after_last=False)
-        return replace(self, _after_anchor=name, _after_last=False)
-
-    def last_anchor(self) -> Self:
-        return replace(self, _after_anchor=None, _after_last=True)
-
-    def between_anchors(self, start: str, end: str) -> Self:
-        return replace(self, _between_anchors=(start, end))
 
     def between_dates(self, start: str | date_type, end: str | date_type) -> Self:
         start_value = start.isoformat() if isinstance(start, date_type) else start
@@ -141,69 +93,6 @@ class TapeQuery[T: TapeStore | AsyncTapeStore]:
 
     def all(self) -> Iterable[TapeEntry] | Coroutine[None, None, Iterable[TapeEntry]]:
         return self.store.fetch_all(self)
-
-
-class _LastAnchor:
-    def __repr__(self) -> str:
-        return "LAST_ANCHOR"
-
-
-LAST_ANCHOR = _LastAnchor()
-type AnchorSelector = str | None | _LastAnchor
-type SelectedMessages = list[dict[str, Any]] | Coroutine[Any, Any, list[dict[str, Any]]]
-type ContextSelector = Callable[[Iterable[TapeEntry], "TapeContext"], SelectedMessages]
-
-
-@dataclass(frozen=True)
-class TapeContext:
-    """Rules for selecting tape entries into a prompt context."""
-
-    anchor: AnchorSelector = LAST_ANCHOR
-    select: ContextSelector | None = None
-    state: dict[str, Any] = field(default_factory=dict)
-
-    def build_query(self, query: TapeQuery) -> TapeQuery:
-        if self.anchor is None:
-            return query
-        if isinstance(self.anchor, _LastAnchor):
-            return query.last_anchor()
-        return query.after_anchor(self.anchor)
-
-
-def build_messages(entries: Iterable[TapeEntry], context: TapeContext) -> SelectedMessages:
-    if context.select is not None:
-        return context.select(entries, context)
-    return _default_messages(entries)
-
-
-def _default_messages(entries: Iterable[TapeEntry]) -> list[dict[str, Any]]:
-    messages: list[dict[str, Any]] = []
-    for entry in entries:
-        if entry.kind != "message":
-            continue
-        payload = entry.payload
-        if isinstance(payload, dict):
-            messages.append(dict(payload))
-    return messages
-
-
-def _anchor_index(
-    entries: Sequence[TapeEntry],
-    name: str | None,
-    *,
-    default: int,
-    forward: bool,
-    start: int = 0,
-) -> int:
-    rng = range(start, len(entries)) if forward else range(len(entries) - 1, start - 1, -1)
-    for idx in rng:
-        entry = entries[idx]
-        if entry.kind != "anchor":
-            continue
-        if name is not None and entry.payload.get("name") != name:
-            continue
-        return idx
-    return default
 
 
 def _parse_datetime_boundary(value: str, *, is_end: bool) -> datetime:
@@ -255,33 +144,9 @@ class InMemoryQueryMixin:
     def read(self, tape: str) -> list[TapeEntry] | None:
         raise NotImplementedError("InMemoryQueryMixin requires a read() method to be implemented.")
 
-    def fetch_all(self, query: TapeQuery) -> Iterable[TapeEntry]:  # noqa: C901
+    def fetch_all(self, query: TapeQuery) -> Iterable[TapeEntry]:
         entries = self.read(query.tape) or []
-        start_index = 0
-        end_index: int | None = None
-
-        if query._between_anchors is not None:
-            start_name, end_name = query._between_anchors
-            start_idx = _anchor_index(entries, start_name, default=-1, forward=False)
-            if start_idx < 0:
-                raise BubError(ErrorKind.NOT_FOUND, f"Anchor '{start_name}' was not found.")
-            end_idx = _anchor_index(entries, end_name, default=-1, forward=True, start=start_idx + 1)
-            if end_idx < 0:
-                raise BubError(ErrorKind.NOT_FOUND, f"Anchor '{end_name}' was not found.")
-            start_index = min(start_idx + 1, len(entries))
-            end_index = min(max(start_index, end_idx), len(entries))
-        elif query._after_last:
-            anchor_index = _anchor_index(entries, None, default=-1, forward=False)
-            if anchor_index < 0:
-                raise BubError(ErrorKind.NOT_FOUND, "No anchors found in tape.")
-            start_index = min(anchor_index + 1, len(entries))
-        elif query._after_anchor is not None:
-            anchor_index = _anchor_index(entries, query._after_anchor, default=-1, forward=False)
-            if anchor_index < 0:
-                raise BubError(ErrorKind.NOT_FOUND, f"Anchor '{query._after_anchor}' was not found.")
-            start_index = min(anchor_index + 1, len(entries))
-
-        sliced = entries[start_index:end_index]
+        sliced = list(entries)
         if query._between_dates is not None:
             start_date, end_date = query._between_dates
             start_dt = _parse_datetime_boundary(start_date, is_end=False)

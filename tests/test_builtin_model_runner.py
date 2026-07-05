@@ -9,10 +9,11 @@ from any_llm.constants import LLMProvider
 from any_llm.providers.openai.base import BaseOpenAIProvider
 from any_llm.types.completion import ChatCompletionChunk
 
+from bub.builtin.context import TapeContext
 from bub.builtin.model_runner import ModelRunner
 from bub.builtin.settings import AgentSettings, ModelCandidate
 from bub.builtin.tape import Tape
-from bub.tape import AsyncTapeStoreAdapter, InMemoryTapeStore, TapeContext
+from bub.tape import AsyncTapeStoreAdapter, InMemoryTapeStore
 
 
 class _FakeStreamingOpenAIProvider(BaseOpenAIProvider):

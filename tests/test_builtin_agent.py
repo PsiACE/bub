@@ -10,11 +10,11 @@ from any_llm.types.completion import ChatCompletionChunk
 
 import bub.builtin.tools  # noqa: F401  — registers builtin tools (incl. `model`)
 from bub.builtin.agent import Agent
+from bub.builtin.context import TapeContext
 from bub.builtin.model_runner import ModelRunner
 from bub.builtin.settings import AgentSettings
 from bub.builtin.steering import InMemorySteeringInbox
 from bub.runtime import BubError
-from bub.tape import TapeContext
 from bub.tools import REGISTRY, tool
 
 # ---------------------------------------------------------------------------

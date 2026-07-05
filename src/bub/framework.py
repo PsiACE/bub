@@ -19,7 +19,7 @@ from bub.hook_runtime import _SKIP_VALUE, HookRuntime
 from bub.hookspecs import BUB_HOOK_NAMESPACE, BubHookSpecs
 from bub.runtime import BubError, ErrorKind
 from bub.runtime_options import RuntimeOptions
-from bub.tape import AsyncTapeStore, TapeContext, TapeStore
+from bub.tape import AsyncTapeStore, TapeStore
 from bub.turn_admission import AdmitDecision, TurnSnapshot
 from bub.types import Envelope, MessageHandler, OutboundChannelRouter, State, SteeringInboxProtocol, TurnResult
 from bub.utils import maybe_context_manager
@@ -367,11 +367,11 @@ class BubFramework:
             if result
         )
 
-    def build_tape_context(self) -> TapeContext:
+    def build_tape_context(self) -> Any:
         context = self._hook_runtime.call_first_sync("build_tape_context")
-        if isinstance(context, TapeContext):
-            return context
-        raise TypeError("hook.build_tape_context must return TapeContext")
+        if context is None:
+            raise TypeError("hook.build_tape_context must return a tape context")
+        return context
 
     def collect_onboard_config(self) -> dict[str, Any]:
         current_config: dict[str, Any] = {}

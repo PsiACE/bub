@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import itertools
 import json
 import re
 import threading
@@ -55,13 +54,8 @@ class ForkTapeStore:
         for entry in self._store.read(query.tape) or []:
             if query._kinds and entry.kind not in query._kinds:
                 continue
-            if entry.kind == "anchor":  # noqa: SIM102
-                if query._after_last or (query._after_anchor and entry.payload.get("name") == query._after_anchor):
-                    this_entries.clear()
-                    parent_entries = []
-                    continue
             this_entries.append(entry)
-        return itertools.chain(parent_entries, this_entries)
+        return [*parent_entries, *this_entries]
 
     @staticmethod
     def _redact_prompt(prompt: list[dict]) -> Any:

@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 import bub.builtin.tools as builtin_tools
+from bub.builtin.context import TapeContext
 from bub.builtin.shell_manager import ShellManager
 from bub.builtin.tape import Tape
 from bub.builtin.tools import (
@@ -23,7 +24,7 @@ from bub.builtin.tools import (
     set_model,
 )
 from bub.runtime import ErrorKind
-from bub.tape import AsyncTapeStoreAdapter, InMemoryTapeStore, TapeContext
+from bub.tape import AsyncTapeStoreAdapter, InMemoryTapeStore
 from bub.tools import REGISTRY, Tool, ToolContext, ToolExecutor, tool
 
 

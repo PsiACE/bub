@@ -222,7 +222,7 @@ class BubFramework:
     async def running(self) -> AsyncGenerator[contextlib.AsyncExitStack, None]: ...
 
     def bind_outbound_router(self, router: OutboundChannelRouter | None) -> None: ...
-    def build_tape_context(self) -> TapeContext: ...
+    def build_tape_context(self) -> Any: ...
     def collect_onboard_config(self) -> dict[str, Any]: ...
 ```
 
@@ -241,7 +241,7 @@ class BubFramework:
 | `admit_message(...)` | 调用 `admit_message` hook 并返回选中的 decision。由 `ChannelManager` 使用。 |
 | `running()` | 异步 context manager;一次性解析 `provide_tape_store` 并在作用域内绑定 tape store。 |
 | `bind_outbound_router(router)` | 绑定(或传 `None` 解绑)`OutboundChannelRouter`。`ChannelManager` 在启停时调用。 |
-| `build_tape_context()` | 同步调用 `build_tape_context` 并返回 `TapeContext`。 |
+| `build_tape_context()` | 同步调用 `build_tape_context` 并返回 context 对象。builtin runtime 使用 `bub.builtin.context.TapeContext`。 |
 | `collect_onboard_config()` | 遍历 `onboard_config` 实现,通过 `configure.merge` 合并 dict 片段后再验证。 |
 
 `process_inbound` 的逐步生命周期见 [概念 › Turn 流水线](/zh-cn/docs/concepts/turn-pipeline/)。Tape 语义见 [概念 › Tape 与 context](/zh-cn/docs/concepts/tape-and-context/)。

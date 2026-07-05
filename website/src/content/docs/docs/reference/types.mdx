@@ -222,7 +222,7 @@ class BubFramework:
     async def running(self) -> AsyncGenerator[contextlib.AsyncExitStack, None]: ...
 
     def bind_outbound_router(self, router: OutboundChannelRouter | None) -> None: ...
-    def build_tape_context(self) -> TapeContext: ...
+    def build_tape_context(self) -> Any: ...
     def collect_onboard_config(self) -> dict[str, Any]: ...
 ```
 
@@ -241,7 +241,7 @@ class BubFramework:
 | `admit_message(...)` | Call the `admit_message` hook and return the selected decision. Used by `ChannelManager`. |
 | `running()` | Async context manager; resolves `provide_tape_store` once and binds the resulting store for the duration. |
 | `bind_outbound_router(router)` | Attach (or detach with `None`) the `OutboundChannelRouter`. The `ChannelManager` calls this on start/stop. |
-| `build_tape_context()` | Sync-call `build_tape_context` and return the resulting `TapeContext`. |
+| `build_tape_context()` | Sync-call `build_tape_context` and return the resulting context object. The builtin runtime uses `bub.builtin.context.TapeContext`. |
 | `collect_onboard_config()` | Iterate `onboard_config` impls, merging dict fragments via `configure.merge`, then validate. |
 
 For the lifecycle of `process_inbound` step-by-step, see [Concepts › Turn pipeline](/docs/concepts/turn-pipeline/). For tape semantics see [Concepts › Tape and context](/docs/concepts/tape-and-context/).

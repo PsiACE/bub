@@ -9,7 +9,7 @@ import pluggy
 
 from bub.runtime import AsyncStreamEvents
 from bub.runtime_options import RuntimeOptions
-from bub.tape import AsyncTapeStore, TapeContext, TapeStore
+from bub.tape import AsyncTapeStore, TapeStore
 from bub.turn_admission import AdmitDecision, TurnSnapshot
 from bub.types import Envelope, MessageHandler, State, SteeringInboxProtocol
 
@@ -121,7 +121,7 @@ class BubHookSpecs:
         raise NotImplementedError
 
     @hookspec(firstresult=True)
-    def build_tape_context(self) -> TapeContext:
+    def build_tape_context(self) -> Any:
         """Build a tape context for the current session, to be used to build context messages."""
         raise NotImplementedError
 

@@ -4,9 +4,10 @@ from pathlib import Path
 
 import pytest
 
+from bub.builtin.context import TapeContext
 from bub.builtin.store import ForkTapeStore
 from bub.builtin.tape import Tape
-from bub.tape import AsyncTapeStoreAdapter, InMemoryTapeStore, TapeContext
+from bub.tape import AsyncTapeStoreAdapter, InMemoryTapeStore
 
 
 @pytest.mark.asyncio

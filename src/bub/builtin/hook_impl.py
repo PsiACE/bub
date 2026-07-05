@@ -8,7 +8,7 @@ from loguru import logger
 
 from bub import inquirer as bub_inquirer
 from bub.builtin.agent import Agent
-from bub.builtin.context import default_tape_context
+from bub.builtin.context import TapeContext, default_tape_context
 from bub.builtin.settings import DEFAULT_MODEL, load_settings
 from bub.builtin.steering import InMemorySteeringInbox
 from bub.channels.base import Channel
@@ -18,7 +18,7 @@ from bub.framework import BubFramework
 from bub.hookspecs import hookimpl
 from bub.runtime import AsyncStreamEvents
 from bub.runtime_options import RuntimeChoice, RuntimeOptions
-from bub.tape import TapeContext, TapeStore
+from bub.tape import TapeStore
 from bub.turn_admission import AdmitDecision, TurnSnapshot
 from bub.types import Envelope, MessageHandler, State, SteeringInboxProtocol
 
