@@ -29,7 +29,7 @@ from bub.builtin.codex_provider import (
     resolve_openai_codex_api_base,
     should_use_openai_codex_provider,
 )
-from bub.builtin.model_runner import ModelRunner
+from bub.builtin.model_runner import ModelOutputAccumulator, ModelRunner
 from bub.builtin.settings import ModelCandidate
 
 TEST_REFRESH_TOKEN = "refresh"  # noqa: S105
@@ -355,4 +355,55 @@ async def test_codex_completion_stream_maps_custom_tool_call_input_deltas_to_com
     assert "".join(chunk.choices[0].delta.tool_calls[0].function.arguments or "" for chunk in chunks[1:3]) == (
         '{"cmd":"pwd"}'
     )
+    assert chunks[-1].choices[0].finish_reason == "tool_calls"
+
+
+async def _codex_tool_done_name_null_response_events():
+    yield SimpleNamespace(
+        type="response.function_call_arguments.done",
+        item_id="fc_1",
+        output_index=0,
+        name=None,
+        arguments='{"message":"hello"}',
+    )
+    yield SimpleNamespace(
+        type="response.output_item.done",
+        output_index=0,
+        item=SimpleNamespace(
+            type="function_call",
+            id="fc_1",
+            call_id="call_1",
+            name="echo",
+            arguments='{"message":"hello"}',
+            status="completed",
+        ),
+    )
+    yield SimpleNamespace(
+        type="response.completed",
+        response=SimpleNamespace(id="resp_123", created_at=1, model="gpt-5-codex", usage=None),
+    )
+
+
+@pytest.mark.asyncio
+async def test_codex_completion_stream_keeps_tool_name_when_arguments_done_name_is_null() -> None:
+    provider = OpenaiCodexProvider(api_key=_jwt_with_account("acct_123"))
+    provider._aresponses = AsyncMock(return_value=_codex_tool_done_name_null_response_events())  # type: ignore[method-assign]
+    params = CompletionParams(
+        model_id="gpt-5-codex",
+        messages=[{"role": "user", "content": "call echo"}],
+        stream=True,
+    )
+
+    completion = await provider._acompletion(params)
+    output = ModelOutputAccumulator()
+    chunks = [chunk async for chunk in completion]
+    for chunk in chunks:
+        tool_calls = chunk.choices[0].delta.tool_calls
+        if tool_calls:
+            output.merge_delta_tool_calls(tool_calls)
+
+    tool_call = output.tool_calls[0]
+    assert tool_call.id == "call_1"
+    assert tool_call.function.name == "echo"
+    assert tool_call.function.arguments == '{"message":"hello"}'
     assert chunks[-1].choices[0].finish_reason == "tool_calls"
