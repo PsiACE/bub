@@ -15,8 +15,7 @@ from bub.agent_hooks import (
     ToolCallDecision,
     ToolCallResult,
 )
-from bub.runtime import AsyncStreamEvents
-from bub.runtime_options import RuntimeOptions
+from bub.runtime import AsyncStreamEvents, RuntimeOptions
 from bub.tape import AsyncTapeStore, TapeContext, TapeStore
 from bub.turn_admission import AdmitDecision, TurnSnapshot
 from bub.types import Envelope, MessageHandler, State, SteeringInboxProtocol

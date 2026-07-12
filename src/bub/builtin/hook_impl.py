@@ -16,8 +16,7 @@ from bub.channels.message import ChannelMessage, MediaItem
 from bub.envelope import content_of, field_of
 from bub.framework import BubFramework
 from bub.hookspecs import hookimpl
-from bub.runtime import AsyncStreamEvents
-from bub.runtime_options import RuntimeChoice, RuntimeOptions
+from bub.runtime import AsyncStreamEvents, RuntimeChoice, RuntimeOptions
 from bub.tape import TapeContext, TapeStore
 from bub.turn_admission import AdmitDecision, TurnSnapshot
 from bub.types import Envelope, MessageHandler, State, SteeringInboxProtocol

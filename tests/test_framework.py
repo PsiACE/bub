@@ -19,8 +19,7 @@ from bub.channels.telegram import TelegramSettings
 from bub.configure import ensure_config
 from bub.framework import BubFramework
 from bub.hookspecs import hookimpl
-from bub.runtime import AsyncStreamEvents, StreamEvent, StreamState
-from bub.runtime_options import RuntimeChoice, RuntimeOptions
+from bub.runtime import AsyncStreamEvents, RuntimeChoice, RuntimeOptions, StreamEvent, StreamState
 from bub.turn_admission import AdmitDecision, TurnSnapshot
 
 

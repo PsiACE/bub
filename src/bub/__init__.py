@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from bub.configure import Settings, config, ensure_config
 from bub.framework import DEFAULT_HOME, BubFramework
 from bub.hookspecs import hookimpl
-from bub.runtime_options import RuntimeChoice, RuntimeOptions
+from bub.runtime import RuntimeChoice, RuntimeOptions
 from bub.tools import tool
 from bub.turn_admission import AdmitDecision, TurnSnapshot
 
