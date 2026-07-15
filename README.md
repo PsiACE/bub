@@ -1,7 +1,5 @@
 # Bub
 
-> We are actively working on version 0.4.0. Until then, please pin [0.3.9 on PyPI](https://pypi.org/project/bub/0.3.9/) or [e5d8ceb](https://github.com/bubbuild/bub/tree/e5d8ceb3b30105e0d50e872be7d6ae6fb4066236) .
-
 <div align="center">
 
 <picture>
