@@ -253,16 +253,20 @@ def fs_edit(path: str, old: str, new: str, start: int = 0, *, context: ToolConte
 
 
 @tool(context=True, name="skill")
-def skill_describe(name: str, *, context: ToolContext) -> str:
-    """Load the skill content by name. Return the location and skill content."""
+def skill_describe(name: str | None = None, *, context: ToolContext) -> str:
+    """Load the skill content by name. Return the location and skill content.
+    If name is not provided, list all available skills in the current workspace.
+    """
     from bub.utils import workspace_from_state
 
     allowed_skills = context.state.get("allowed_skills")
-    if allowed_skills is not None and name.casefold() not in allowed_skills:
+    if allowed_skills is not None and name and name.casefold() not in allowed_skills:
         return f"(skill '{name}' is not allowed in this context)"
 
     workspace = workspace_from_state(context.state)
     skill_index = {skill.name: skill for skill in discover_skills(workspace)}
+    if name is None:
+        return "Available skills:\n" + "\n".join(f"- {skill.name}" for skill in skill_index.values())
     if name.casefold() not in skill_index:
         return "(no such skill)"
     skill = skill_index[name.casefold()]
