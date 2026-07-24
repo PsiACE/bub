@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import io
 import os
 import pty
 import re
@@ -71,6 +72,11 @@ def _read_pty_until_exit(master_fd: int, process: subprocess.Popen[bytes], *, ti
 def _plain_terminal_text(raw: bytes) -> str:
     text = raw.decode(errors="replace")
     return ANSI_RE.sub("", text).replace("\r", "\n")
+
+
+class _ImmediatePresenter:
+    async def write(self, function) -> None:
+        function()
 
 
 class _FakeChannelMixin:
@@ -356,14 +362,11 @@ async def test_cli_channel_accepts_input_while_previous_message_is_running() -> 
         def __init__(self) -> None:
             self.inputs = iter(["first", "second", ",quit"])
             self.refresh_intervals: list[float | None] = []
-            self.messages: list[str] = []
             self.received_callables: list[bool] = []
 
         async def prompt_async(self, message, *, refresh_interval=None):
             self.refresh_intervals.append(refresh_interval)
             self.received_callables.append(callable(message))
-            rendered = message() if callable(message) else message
-            self.messages.append("".join(part for _, part in rendered))
             return next(self.inputs)
 
     async def on_receive(message: ChannelMessage) -> None:
@@ -382,6 +385,7 @@ async def test_cli_channel_accepts_input_while_previous_message_is_running() -> 
     channel._mode = "agent"
     channel._llm_loop_running = False
     channel._prompt = FakePrompt()
+    channel._presenter = _ImmediatePresenter()
     echoed: list[tuple[str, str]] = []
     channel._renderer = SimpleNamespace(
         welcome=lambda **kwargs: None,
@@ -392,23 +396,23 @@ async def test_cli_channel_accepts_input_while_previous_message_is_running() -> 
 
     await asyncio.wait_for(channel._main_loop(), timeout=1)
 
-    import bub.channels.cli as cli_module
-
     assert [message.content for message in received] == ["first", "second"]
-    assert channel._prompt.refresh_intervals == [cli_module._PROMPT_REFRESH_INTERVAL] * 3
+
+    assert channel._prompt.refresh_intervals == [None] * 3
     assert channel._prompt.received_callables == [True, True, True]
-    assert "Generating\n" not in channel._prompt.messages[0]
-    assert "Generating\n" in channel._prompt.messages[1]
     assert echoed == []
     assert all(message.lifespan is not None for message in received)
 
 
 def test_cli_channel_build_prompt_erases_submitted_prompt(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     captured: dict[str, object] = {}
+    from prompt_toolkit.layout import HSplit
 
     class FakePromptSession:
         def __init__(self, **kwargs) -> None:
             captured.update(kwargs)
+            self.app = SimpleNamespace(min_redraw_interval=None)
+            self.layout = SimpleNamespace(container=HSplit([]))
 
     monkeypatch.setattr("bub.channels.cli.PromptSession", FakePromptSession)
     channel = CliChannel.__new__(CliChannel)
@@ -421,38 +425,148 @@ def test_cli_channel_build_prompt_erases_submitted_prompt(monkeypatch: pytest.Mo
 
     assert isinstance(prompt, FakePromptSession)
     assert captured["erase_when_done"] is True
+    assert len(prompt.layout.container.children) == 2
 
 
-def test_cli_channel_generating_spinner_renders_above_input_not_toolbar(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_cli_live_layout_keeps_markdown_tail_and_status_visible_when_output_exceeds_terminal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from prompt_toolkit import PromptSession
+    from prompt_toolkit.formatted_text import FormattedText
+    from prompt_toolkit.input import create_pipe_input
+    from prompt_toolkit.output import DummyOutput
+    from prompt_toolkit.output.base import Size
+    from rich.console import Console
+
+    from bub.channels.cli import _PROMPT_REFRESH_INTERVAL, _StreamPrinter
+
+    class SizedOutput(DummyOutput):
+        def get_size(self) -> Size:
+            return Size(rows=35, columns=80)
+
+    def rendered_screen_text(session: PromptSession[str]) -> str:
+        screen = session.app.renderer.last_rendered_screen
+        assert screen is not None
+        lines: list[str] = []
+        for row_number in range(screen.height):
+            row = screen.data_buffer[row_number]
+            last_column = max(row.keys(), default=-1)
+            lines.append("".join(row[column].char for column in range(last_column + 1)).rstrip())
+        return "\n".join(lines)
+
     channel = CliChannel.__new__(CliChannel)
-    channel._llm_loop_running = True
     channel._mode = "agent"
-    channel._expand_thinking = False
-    channel._last_tape_info = None
-    channel._agent = SimpleNamespace(settings=SimpleNamespace(model="test-model"))
+    channel._llm_loop_running = True
+    channel._stream_printer = None
+    console = Console(file=io.StringIO(), force_terminal=True, width=80)
+    monkeypatch.setattr("bub.channels.cli.get_console", lambda: console)
 
-    prompt_text = "".join(part for _, part in channel._prompt_message())
-    toolbar_text = "".join(part for _, part in channel._render_bottom_toolbar())
+    with create_pipe_input() as pipe_input:
+        prompt: PromptSession[str] = PromptSession(
+            input=pipe_input,
+            output=SizedOutput(),
+            bottom_toolbar=lambda: FormattedText([("", "toolbar")]),
+            erase_when_done=True,
+        )
+        channel._prompt = prompt
+        channel._attach_live_layout(prompt)
+        prompt.app.min_redraw_interval = _PROMPT_REFRESH_INTERVAL
+        printer = _StreamPrinter(
+            console=console,
+            print_head=lambda: None,
+            expand_thinking=False,
+            presenter=_ImmediatePresenter(),
+            invalidate=prompt.app.invalidate,
+        )
+        channel._stream_printer = printer
+        first_render = asyncio.get_running_loop().create_future()
 
-    assert "\n" in prompt_text
-    assert "Generating\n" in prompt_text
-    assert prompt_text.endswith(f"{Path.cwd().name} > ")
-    assert "Generating" not in toolbar_text
+        def after_first_render(_) -> None:
+            if not first_render.done():
+                first_render.set_result(None)
 
-    import bub.channels.cli as cli_module
+        prompt.app.after_render.add_handler(after_first_render)
+        prompt_task = asyncio.create_task(prompt.prompt_async(channel._prompt_message))
+        after_live_render = None
+        try:
+            await asyncio.wait_for(first_render, timeout=1)
+            prompt.app.after_render.remove_handler(after_first_render)
+            live_render = asyncio.get_running_loop().create_future()
 
-    monkeypatch.setattr(cli_module, "monotonic", lambda: 0.0)
-    first_frame = "".join(part for _, part in channel._prompt_message())
-    monkeypatch.setattr(cli_module, "monotonic", lambda: 0.2)
-    second_frame = "".join(part for _, part in channel._prompt_message())
+            def after_live_render(_) -> None:
+                if not live_render.done():
+                    live_render.set_result(None)
 
-    assert first_frame != second_frame
+            prompt.app.after_render.add_handler(after_live_render)
+            paragraphs = "\n\n".join(
+                f"Paragraph {index}: terminal streaming content remains structured." for index in range(60)
+            )
+            await printer.render(StreamEvent("text", {"delta": f"# Report\n\n{paragraphs}\n\nTAIL_MARKER"}))
+            await asyncio.wait_for(live_render, timeout=1)
+            prompt.app.after_render.remove_handler(after_live_render)
+            after_live_render = None
+            visible = rendered_screen_text(prompt)
+        finally:
+            with contextlib.suppress(ValueError):
+                prompt.app.after_render.remove_handler(after_first_render)
+            if after_live_render is not None:
+                prompt.app.after_render.remove_handler(after_live_render)
+            pipe_input.send_text("\n")
+            await prompt_task
+
+    assert "TAIL_MARKER" in visible
+    assert "Generating" in visible
+    assert f"{Path.cwd().name} >" in visible
+
+
+def test_cli_generation_spinner_refreshes_only_while_model_is_running(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    invalidations: list[None] = []
+    callbacks: list[object] = []
+
+    class FakeTimerHandle:
+        def __init__(self) -> None:
+            self._cancelled = False
+
+        def cancel(self) -> None:
+            self._cancelled = True
+
+        def cancelled(self) -> bool:
+            return self._cancelled
+
+    class FakeLoop:
+        def call_later(self, delay, callback):
+            assert delay > 0
+            callbacks.append(callback)
+            return FakeTimerHandle()
+
+    monkeypatch.setattr("bub.channels.cli.asyncio.get_running_loop", FakeLoop)
+    channel = CliChannel.__new__(CliChannel)
+    channel._llm_loop_running = False
+    channel._generation_tick = None
+    channel._prompt = SimpleNamespace(app=SimpleNamespace(invalidate=lambda: invalidations.append(None)))
+
+    channel._set_llm_loop_running(True)
+    assert len(callbacks) == 1
+    first_tick = channel._generation_tick
+    callbacks.pop()()
+    assert len(callbacks) == 1
+    second_tick = channel._generation_tick
+    channel._set_llm_loop_running(False)
+
+    assert first_tick is not second_tick
+    assert second_tick.cancelled()
+    assert len(invalidations) == 3
+    assert channel._generation_tick is None
 
 
 @pytest.mark.asyncio
 async def test_cli_channel_admit_message_steers_when_turn_is_running() -> None:
     channel = CliChannel.__new__(CliChannel)
     channel._mode = "agent"
+    channel._presenter = _ImmediatePresenter()
     echoed: list[tuple[str, str, bool]] = []
     channel._renderer = SimpleNamespace(
         input_echo=lambda prompt, text, steering=False: echoed.append((prompt, text, steering)),
@@ -910,6 +1024,7 @@ async def test_cli_channel_stream_events_prints_stream_and_yields_events(monkeyp
     heads: list[str] = []
     printed: list[tuple[str, str | None, bool | None]] = []
     channel._renderer = SimpleNamespace(print_head=heads.append)
+    channel._presenter = _ImmediatePresenter()
     channel._expand_thinking = False
     monkeypatch.setattr(
         "bub.channels.cli.get_console",
@@ -922,15 +1037,220 @@ async def test_cli_channel_stream_events_prints_stream_and_yields_events(monkeyp
 
     async def source() -> asyncio.AsyncIterator[StreamEvent]:
         yield StreamEvent("text", {"delta": "  "})
-        yield StreamEvent("text", {"delta": "hel"})
-        yield StreamEvent("text", {"delta": "lo"})
+        yield StreamEvent("text", {"delta": "first paragraph\n\n"})
+        yield StreamEvent("text", {"delta": "second paragraph"})
         yield StreamEvent("final", {})
 
     yielded = [event async for event in channel.stream_events(message, source())]
 
     assert heads == ["command"]
-    assert printed == [("hel\n", "", False), ("hello\n", "", False)]
+    assert len(printed) == 1
+    assert getattr(printed[0][0], "markup", None) == "first paragraph\n\nsecond paragraph"
     assert [event.kind for event in yielded] == ["text", "text", "final"]
+
+
+@pytest.mark.asyncio
+async def test_cli_channel_stream_error_preserves_partial_markdown(monkeypatch: pytest.MonkeyPatch) -> None:
+    channel = CliChannel.__new__(CliChannel)
+    printed: list[object] = []
+    channel._renderer = SimpleNamespace(print_head=lambda kind: None)
+    channel._presenter = _ImmediatePresenter()
+    channel._expand_thinking = False
+    monkeypatch.setattr(
+        "bub.channels.cli.get_console",
+        lambda: SimpleNamespace(
+            width=80,
+            print=lambda content, end=None, highlight=None: printed.append(content),
+        ),
+    )
+
+    async def source() -> asyncio.AsyncIterator[StreamEvent]:
+        yield StreamEvent("text", {"delta": "# Partial response"})
+        raise RuntimeError("stream failed")
+
+    with pytest.raises(RuntimeError, match="stream failed"):
+        [event async for event in channel.stream_events(_message("ignored"), source())]
+
+    assert any(getattr(item, "markup", None) == "# Partial response" for item in printed)
+    assert channel._stream_printer is None
+
+
+@pytest.mark.asyncio
+async def test_cli_channel_stream_cancellation_preserves_partial_markdown(monkeypatch: pytest.MonkeyPatch) -> None:
+    channel = CliChannel.__new__(CliChannel)
+    printed: list[object] = []
+    partial_received = asyncio.Event()
+    channel._renderer = SimpleNamespace(print_head=lambda kind: None)
+    channel._presenter = _ImmediatePresenter()
+    channel._expand_thinking = False
+    monkeypatch.setattr(
+        "bub.channels.cli.get_console",
+        lambda: SimpleNamespace(
+            width=80,
+            print=lambda content, end=None, highlight=None: printed.append(content),
+        ),
+    )
+
+    async def source() -> asyncio.AsyncIterator[StreamEvent]:
+        yield StreamEvent("text", {"delta": "# Partial before cancellation"})
+        partial_received.set()
+        await asyncio.Event().wait()
+
+    async def consume() -> None:
+        [event async for event in channel.stream_events(_message("ignored"), source())]
+
+    task = asyncio.create_task(consume())
+    await partial_received.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert any(getattr(item, "markup", None) == "# Partial before cancellation" for item in printed)
+    assert channel._stream_printer is None
+
+
+@pytest.mark.asyncio
+async def test_cli_channel_final_write_cancellation_retries_partial_markdown(monkeypatch: pytest.MonkeyPatch) -> None:
+    channel = CliChannel.__new__(CliChannel)
+    printed: list[object] = []
+
+    class CancelFinalWriteOnce:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def write(self, function) -> None:
+            self.calls += 1
+            if self.calls == 2:
+                raise asyncio.CancelledError
+            function()
+
+    presenter = CancelFinalWriteOnce()
+    channel._renderer = SimpleNamespace(print_head=lambda kind: None)
+    channel._presenter = presenter
+    channel._expand_thinking = False
+    monkeypatch.setattr(
+        "bub.channels.cli.get_console",
+        lambda: SimpleNamespace(
+            width=80,
+            print=lambda content, end=None, highlight=None: printed.append(content),
+        ),
+    )
+
+    async def source() -> asyncio.AsyncIterator[StreamEvent]:
+        yield StreamEvent("text", {"delta": "# Partial during final write"})
+        yield StreamEvent("final", {})
+
+    with pytest.raises(asyncio.CancelledError):
+        [event async for event in channel.stream_events(_message("ignored"), source())]
+
+    assert presenter.calls == 3
+    assert any(getattr(item, "markup", None) == "# Partial during final write" for item in printed)
+    assert channel._stream_printer is None
+
+
+@pytest.mark.asyncio
+async def test_terminal_presenter_redraw_wait_stops_when_prompt_finishes(monkeypatch: pytest.MonkeyPatch) -> None:
+    from bub.channels.cli.terminal_output import SynchronizedVt100Output, restore_synchronized_prompt
+
+    prompt_finished = asyncio.get_running_loop().create_future()
+    handlers: list[object] = []
+    app = SimpleNamespace(
+        output=object.__new__(SynchronizedVt100Output),
+        is_running=True,
+        is_done=False,
+        future=prompt_finished,
+        renderer=SimpleNamespace(waiting_for_cpr=False, height_is_known=True),
+        after_render=SimpleNamespace(
+            add_handler=handlers.append,
+            remove_handler=handlers.remove,
+        ),
+        invalidate=lambda: prompt_finished.set_result(None),
+    )
+    monkeypatch.setattr("bub.channels.cli.terminal_output.get_app_or_none", lambda: app)
+
+    await asyncio.wait_for(restore_synchronized_prompt(), timeout=1)
+
+    assert handlers == []
+
+
+@pytest.mark.asyncio
+async def test_cli_tool_reporter_finishes_before_next_model_output() -> None:
+    from bub.channels.cli import _CliToolCallReporter
+    from bub.tools import REGISTRY, tool, tool_call_reporter
+
+    events: list[str] = []
+
+    class OrderedPresenter:
+        async def write(self, function) -> None:
+            await asyncio.sleep(0)
+            function()
+
+    renderer = SimpleNamespace(
+        tool_call_start=lambda **kwargs: events.append("tool-start"),
+        tool_call_success=lambda **kwargs: events.append("tool-success"),
+        tool_call_error=lambda **kwargs: events.append("tool-error"),
+    )
+    presenter = OrderedPresenter()
+    reporter = _CliToolCallReporter(renderer, presenter)  # type: ignore[arg-type]
+    tool_name = "tests.cli_ordered_tool"
+    REGISTRY.pop(tool_name, None)
+
+    @tool(name=tool_name)
+    def ordered_tool() -> str:
+        events.append("tool-body")
+        return "done"
+
+    try:
+        with tool_call_reporter(reporter):
+            assert await ordered_tool.run() == "done"
+        await presenter.write(lambda: events.append("next-model-text"))
+    finally:
+        REGISTRY.pop(tool_name, None)
+
+    assert events == ["tool-start", "tool-body", "tool-success", "next-model-text"]
+
+
+@pytest.mark.asyncio
+async def test_cli_markdown_stream_keeps_and_caches_complete_live_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import bub.channels.cli as cli_module
+    from bub.channels.cli import _StreamPrinter
+
+    printed: list[object] = []
+    invalidations: list[None] = []
+    render_calls: list[None] = []
+    render_to_ansi = cli_module.render_to_ansi
+
+    def count_render(*args, **kwargs) -> str:
+        render_calls.append(None)
+        return render_to_ansi(*args, **kwargs)
+
+    monkeypatch.setattr(cli_module, "render_to_ansi", count_render)
+    console = SimpleNamespace(
+        width=80,
+        print=lambda content, end=None, highlight=None: printed.append(content),
+    )
+    printer = _StreamPrinter(
+        console=console,
+        print_head=lambda: None,
+        expand_thinking=False,
+        presenter=_ImmediatePresenter(),
+        invalidate=lambda: invalidations.append(None),
+    )
+
+    await printer.render(StreamEvent("text", {"delta": "# Heading\n\n"}))
+    first_frame = printer.render_live_ansi(width=console.width)
+    assert printer.render_live_ansi(width=console.width) == first_frame
+    await printer.render(StreamEvent("text", {"delta": "Second paragraph"}))
+    second_frame = printer.render_live_ansi(width=console.width)
+
+    assert "Heading" in first_frame
+    assert "Heading" in second_frame
+    assert "Second paragraph" in second_frame
+    assert printed == []
+    assert len(invalidations) == 2
+    assert len(render_calls) == 2
 
 
 def test_cli_stream_output_does_not_overlap_active_pty_prompt() -> None:
@@ -942,20 +1262,39 @@ def test_cli_stream_output_does_not_overlap_active_pty_prompt() -> None:
         from prompt_toolkit.patch_stdout import patch_stdout
         from rich.console import Console
 
-        from bub.channels.cli import _StreamPrinter
+        import bub.channels.cli as cli_module
+        from bub.channels.cli import CliChannel, _StreamPrinter
+        from bub.channels.cli.terminal_output import TerminalPresenter, create_synchronized_output
         from bub.streaming import StreamEvent
 
 
         async def main():
             console = Console(force_terminal=True, color_system=None, width=80)
+            cli_module.get_console = lambda: console
+            output = create_synchronized_output()
+            assert output is not None
+            session = PromptSession(erase_when_done=True, output=output)
+            session.app.min_redraw_interval = 0.08
+            channel = CliChannel.__new__(CliChannel)
+            channel._mode = "agent"
+            channel._llm_loop_running = False
+            channel._generation_tick = None
+            channel._stream_printer = None
+            channel._prompt = session
+            channel._attach_live_layout(session)
+            presenter = TerminalPresenter()
             printer = _StreamPrinter(
                 console=console,
                 print_head=lambda: console.print("Assistant >"),
                 expand_thinking=False,
+                presenter=presenter,
+                invalidate=session.app.invalidate,
             )
-            session = PromptSession(erase_when_done=True)
+            channel._stream_printer = printer
+            channel._set_llm_loop_running(True)
 
             async def stream():
+                await asyncio.sleep(0.35)
                 chunks = [
                     "春风一夜入江城\\n",
                     "细雨无声湿客",
@@ -969,17 +1308,15 @@ def test_cli_stream_output_does_not_overlap_active_pty_prompt() -> None:
                     await asyncio.sleep(0.03)
                     await printer.render(StreamEvent("text", {"delta": chunk}))
                     if index == 3:
-                        await printer.commit_live_text()
-                        console.print("bub > steer now")
+                        await presenter.write(lambda: console.print("bub > steer now"))
                 await asyncio.sleep(0.03)
                 await printer.render(StreamEvent("final", {}))
+                channel._stream_printer = None
+                channel._set_llm_loop_running(False)
 
             task = asyncio.create_task(stream())
             with patch_stdout(raw=True):
-                await session.prompt_async(
-                    lambda: [("", "\\n* Generating\\nbub > ")],
-                    refresh_interval=0.02,
-                )
+                await session.prompt_async(channel._prompt_message)
             await task
 
 
@@ -989,6 +1326,7 @@ def test_cli_stream_output_does_not_overlap_active_pty_prompt() -> None:
     master_fd, slave_fd = pty.openpty()
     env = os.environ.copy()
     env["PYTHONPATH"] = f"{Path.cwd() / 'src'}{os.pathsep}{env.get('PYTHONPATH', '')}"
+    env["TERM"] = "xterm-256color"
     process = subprocess.Popen(
         [sys.executable, "-c", script],
         stdin=slave_fd,
@@ -1000,9 +1338,25 @@ def test_cli_stream_output_does_not_overlap_active_pty_prompt() -> None:
     )
     os.close(slave_fd)
     try:
-        time.sleep(0.25)
+        before_input = bytearray()
+        deadline = time.monotonic() + 15
+        final_text = "明朝山色满前庭".encode()
+        while time.monotonic() < deadline:
+            readable, _, _ = select.select([master_fd], [], [], 0.05)
+            if not readable:
+                continue
+            chunk = os.read(master_fd, 65536)
+            before_input.extend(chunk)
+            from bub.channels.cli import _GENERATION_SPINNER
+
+            frames = {frame for frame in _GENERATION_SPINNER if frame.encode() in before_input}
+            if final_text in before_input and len(frames) >= 2:
+                break
+        else:
+            pytest.fail(before_input.decode(errors="replace"))
+
         os.write(master_fd, b"next\n")
-        raw_output = _read_pty_until_exit(master_fd, process)
+        raw_output = bytes(before_input) + _read_pty_until_exit(master_fd, process, timeout=15)
     finally:
         if process.poll() is None:
             process.terminate()
@@ -1022,23 +1376,29 @@ def test_cli_stream_output_does_not_overlap_active_pty_prompt() -> None:
     assert "明朝山色满前庭bub >" not in output
     assert "明朝山色满前庭* Generating" not in output
 
+    from bub.channels.cli import _GENERATION_SPINNER
+
+    spinner_frames = {frame for frame in _GENERATION_SPINNER if frame.encode() in raw_output}
+    assert len(spinner_frames) >= 2
+
 
 @pytest.mark.asyncio
-async def test_cli_channel_input_echo_commits_active_stream_line() -> None:
+async def test_cli_channel_steering_echo_does_not_finish_active_markdown() -> None:
     channel = CliChannel.__new__(CliChannel)
     calls: list[str] = []
 
     class FakeStreamPrinter:
-        async def commit_live_text(self) -> None:
-            calls.append("commit")
+        async def finish(self) -> None:
+            calls.append("finish")
 
     channel._stream_printer = FakeStreamPrinter()
     channel._mode = "agent"
+    channel._presenter = _ImmediatePresenter()
     channel._renderer = SimpleNamespace(input_echo=lambda prompt, text, steering=False: calls.append(f"echo:{text}"))
 
-    await channel._echo_input("steer now")
+    await channel._echo_input("steer now", steering=True)
 
-    assert calls == ["commit", "echo:steer now"]
+    assert calls == ["echo:steer now"]
 
 
 @pytest.mark.asyncio
@@ -1047,6 +1407,7 @@ async def test_cli_channel_collapsed_reasoning_does_not_start_status_spinner(
 ) -> None:
     channel = CliChannel.__new__(CliChannel)
     channel._renderer = SimpleNamespace(print_head=lambda kind: None)
+    channel._presenter = _ImmediatePresenter()
     channel._expand_thinking = False
     printed: list[object] = []
 
@@ -1072,7 +1433,7 @@ async def test_cli_channel_collapsed_reasoning_does_not_start_status_spinner(
 
     assert [event.kind for event in yielded] == ["reasoning", "text", "final"]
     assert printed
-    assert any("hello" in str(item) for item in printed)
+    assert any(getattr(item, "markup", None) == "hello" for item in printed)
 
 
 def test_cli_channel_history_file_uses_workspace_hash(tmp_path: Path) -> None:

@@ -6,7 +6,7 @@ import contextvars
 import inspect
 import json
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Protocol, overload
 
@@ -139,11 +139,11 @@ class ToolExecution:
 
 
 class ToolCallReporter(Protocol):
-    def start(self, name: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> None: ...
+    def start(self, name: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> Awaitable[None] | None: ...
 
-    def success(self, name: str, result: Any, elapsed_ms: float) -> None: ...
+    def success(self, name: str, result: Any, elapsed_ms: float) -> Awaitable[None] | None: ...
 
-    def error(self, name: str, error: BaseException, elapsed_ms: float) -> None: ...
+    def error(self, name: str, error: BaseException, elapsed_ms: float) -> Awaitable[None] | None: ...
 
 
 _TOOL_CALL_REPORTER: contextvars.ContextVar[ToolCallReporter | None] = contextvars.ContextVar(
@@ -158,6 +158,11 @@ def tool_call_reporter(reporter: ToolCallReporter):
         yield
     finally:
         _TOOL_CALL_REPORTER.reset(token)
+
+
+async def _await_report(report: Awaitable[None] | None) -> None:
+    if report is not None:
+        await report
 
 
 class ToolExecutor:
@@ -328,7 +333,7 @@ def _add_logging(tool: Tool) -> Tool:
         if reporter is None:
             _log_tool_call(tool.name, args, call_kwargs)
         else:
-            reporter.start(tool.name, args, call_kwargs)
+            await _await_report(reporter.start(tool.name, args, call_kwargs))
         start = time.monotonic()
 
         try:
@@ -340,14 +345,14 @@ def _add_logging(tool: Tool) -> Tool:
             if reporter is None:
                 logger.exception("tool.call.error name={} elapsed_time={:.2f}ms", tool.name, elapsed_time)
             else:
-                reporter.error(tool.name, exc, elapsed_time)
+                await _await_report(reporter.error(tool.name, exc, elapsed_time))
             raise
         else:
             elapsed_time = (time.monotonic() - start) * 1000
             if reporter is None:
                 logger.info("tool.call.success name={} elapsed_time={:.2f}ms", tool.name, elapsed_time)
             else:
-                reporter.success(tool.name, result, elapsed_time)
+                await _await_report(reporter.success(tool.name, result, elapsed_time))
             return result
 
     return replace(tool, handler=wrapped)
