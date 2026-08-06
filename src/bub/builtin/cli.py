@@ -87,6 +87,13 @@ def gateway(
     framework = ctx.ensure_object(BubFramework)
 
     manager = ChannelManager(framework, enabled_channels=enable_channels or None)
+    if not manager.enabled_channels():
+        typer.secho(
+            "No channels are enabled. Configure at least one channel with 'bub onboard' or '--enable-channel'.",
+            err=True,
+            fg="red",
+        )
+        raise typer.Exit(1)
     asyncio.run(manager.listen_and_run())
 
 

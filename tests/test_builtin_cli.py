@@ -171,6 +171,35 @@ def test_onboard_collects_builtin_runtime_config(tmp_path: Path, monkeypatch) ->
     }
 
 
+def test_onboard_allows_no_channels(tmp_path: Path, monkeypatch) -> None:
+    config_file = tmp_path / "config.yml"
+    checkbox_validate: list[object] = []
+
+    with patch.dict(os.environ, {}, clear=True):
+        monkeypatch.chdir(tmp_path)
+        framework = BubFramework(config_file=config_file)
+        framework.load_hooks()
+        app = framework.create_cli_app()
+
+        monkeypatch.setattr(bub_inquirer, "ask_text", lambda message, default="": default)
+        monkeypatch.setattr(bub_inquirer, "ask_fuzzy", lambda message, choices, default=None: default)
+
+        def ask_checkbox(message, choices, enabled=None, validate=None):
+            checkbox_validate.append(validate)
+            return []
+
+        monkeypatch.setattr(bub_inquirer, "ask_checkbox", ask_checkbox)
+        monkeypatch.setattr(bub_inquirer, "ask_confirm", lambda message, default=False: default)
+        monkeypatch.setattr(bub_inquirer, "ask_secret", lambda message: "")
+
+        result = CliRunner().invoke(app, ["onboard"])
+        loaded = configure.load(config_file)
+
+    assert result.exit_code == 0
+    assert checkbox_validate == [None]
+    assert loaded["enabled_channels"] == ""
+
+
 def test_onboard_aborts_immediately_when_builtin_prompt_is_interrupted(tmp_path: Path, monkeypatch) -> None:
     config_file = tmp_path / "config.yml"
     asked_messages: list[str] = []
@@ -230,6 +259,22 @@ def test_onboard_aborts_immediately_when_builtin_prompt_is_interrupted(tmp_path:
         "API key (optional)",
     ]
     assert not config_file.exists()
+
+
+def test_gateway_fails_when_no_channels_are_enabled(tmp_path: Path, monkeypatch) -> None:
+    config_file = tmp_path / "config.yml"
+
+    with patch.dict(os.environ, {}, clear=True):
+        monkeypatch.chdir(tmp_path)
+        configure.save(config_file, {"enabled_channels": ""})
+        framework = BubFramework(config_file=config_file)
+        framework.load_hooks()
+        app = framework.create_cli_app()
+
+        result = CliRunner().invoke(app, ["gateway"])
+
+    assert result.exit_code == 1
+    assert "No channels are enabled." in result.output
 
 
 def test_run_command_processes_inbound_inside_framework_runtime(tmp_path: Path) -> None:

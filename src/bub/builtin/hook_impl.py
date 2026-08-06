@@ -248,7 +248,6 @@ class BuiltinImpl:
             "Channels",
             choices=available_channels,
             enabled=default_channels,
-            validate=lambda values: True if values else "Select at least one channel.",
         )
 
         stream_output = bub_inquirer.ask_confirm("Stream output", default=bool(current_config.get("stream_output")))
