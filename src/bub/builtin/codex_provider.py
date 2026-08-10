@@ -136,6 +136,9 @@ class OpenaiCodexProvider(BaseOpenAIProvider):
             response_format=params.response_format,
             stream=params.stream,
             parallel_tool_calls=params.parallel_tool_calls,
+            max_output_tokens=(
+                params.max_completion_tokens if params.max_completion_tokens is not None else params.max_tokens
+            ),
             reasoning=reasoning,
         )
 
