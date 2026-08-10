@@ -258,14 +258,12 @@ class ToolExecutor:
         else:
             await self._fire_after_tool_call(call, hook_state, started, result=result)
             if context is not None and isinstance(result, str):
-                store = context.state.get("_runtime_spill_store")
-                if store is not None:
-                    result = await maybe_spill(
-                        tool=call.tool,
-                        run_id=context.run_id,
-                        result=result,
-                        store=store,
-                    )
+                result = await maybe_spill(
+                    tool=call.tool,
+                    run_id=context.run_id,
+                    result=result,
+                    store=context.state.get("_runtime_spill_store"),
+                )
             return result
 
     async def _invoke_normalized(self, tool_obj: Tool, call: ToolCall, context: ToolContext | None) -> Any:

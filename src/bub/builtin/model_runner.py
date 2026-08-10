@@ -264,33 +264,27 @@ class ModelRunner:
         if size() <= cap:
             return messages
 
-        clamped: list[dict[str, Any]] = []
-        for message in messages:
-            content = message.get("content") if isinstance(message, dict) else None
-            if isinstance(content, str) and len(content) > 2000 and message.get("role") == "tool":
-                head = content[:1000]
-                tail = content[-1000:]
-                total = len(content)
-                message = dict(message)
-                message["content"] = (
-                    f"{head}\n\n[clamped: {total - 2000:,} chars removed to keep the request body bounded]\n\n{tail}"
-                )
-            clamped.append(message)
+        def clamp_tool_messages(messages: list[dict[str, Any]], budget: int) -> list[dict[str, Any]]:
+            """Head+tail clamp every oversized tool message to ``budget`` chars."""
+            result: list[dict[str, Any]] = []
+            for message in messages:
+                content = message.get("content")
+                if isinstance(content, str) and message.get("role") == "tool" and len(content) > budget:
+                    head = content[: budget // 2]
+                    tail = content[-(budget - budget // 2) :]
+                    message = dict(message)
+                    message["content"] = (
+                        f"{head}\n\n[clamped: {len(content) - budget:,} chars removed to keep the request body bounded]\n\n{tail}"
+                    )
+                result.append(message)
+            return result
+
+        clamped = clamp_tool_messages(messages, budget=2000)
         if size() <= cap:
             return clamped
 
-        # Still over: keep head+tail of every tool message within the cap.
-        budget = cap // max(1, len(clamped))
-        result: list[dict[str, Any]] = []
-        for message in clamped:
-            content = message.get("content") if isinstance(message, dict) else None
-            if isinstance(content, str) and message.get("role") == "tool" and len(content) > budget:
-                head = content[: budget // 2]
-                tail = content[-(budget // 2) :]
-                message = dict(message)
-                message["content"] = f"{head}\n...[clamped to keep request body bounded]...\n{tail}"
-            result.append(message)
-        return result
+        # Still over: shrink every tool message to a per-message budget within the cap.
+        return clamp_tool_messages(clamped, budget=cap // max(1, len(clamped)))
 
     async def _fire_after_llm_call(
         self,

@@ -13,9 +13,9 @@ cleanup: the user owns retention, exactly like the session tapes themselves.
 from __future__ import annotations
 
 import uuid
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol
 
-from bub.tape import TapeEntry, TapeQuery
+from bub.tape import AsyncTapeStore, TapeEntry, TapeQuery
 
 SPILL_TAPE = "spill"
 """Name of the tape that stores full tool outputs."""
@@ -33,13 +33,10 @@ MAX_READ_CHARS = 50_000
 """Hard cap on characters returned by one read_tool_result call."""
 
 
-@runtime_checkable
 class SpillStore(Protocol):
-    """The store must support appending entries and querying them back."""
+    """The only capability spilling needs: append entries."""
 
     async def append(self, tape: str, entry: TapeEntry) -> None: ...
-
-    async def fetch_all(self, query: TapeQuery) -> Any: ...
 
 
 def needs_spill(output: str, *, threshold: int) -> bool:
@@ -86,17 +83,20 @@ async def maybe_spill(
     tool: str,
     run_id: str | None,
     result: Any,
-    store: SpillStore,
+    store: SpillStore | None,
 ) -> Any:
     """Rewrite an oversized string tool result into a spill ref; no-op otherwise.
 
-    Errors and non-string results are never spilled (the model needs full error
-    text to recover). A failed spill write degrades to the original result —
-    spilling must never fail a turn.
+    Every "can't spill" case — non-string result, the read-back tool itself, a
+    missing store, spilling disabled, or a failed write — keeps the original
+    result. Errors are never spilled (the model needs full error text to
+    recover) and spilling must never fail a turn.
     """
     if not isinstance(result, str):
         return result
     if tool == READ_TOOL_RESULT_NAME:
+        return result
+    if store is None:
         return result
 
     from bub.builtin.settings import load_settings
@@ -114,7 +114,7 @@ async def maybe_spill(
     return spill_ref(handle, result)
 
 
-async def read_spilled(*, store: Any, handle: str) -> str | None:
+async def read_spilled(*, store: AsyncTapeStore, handle: str) -> str | None:
     """Return the full spilled payload for ``handle``, or None when unknown."""
     key = handle.strip().lstrip("/")
     query = TapeQuery(tape=SPILL_TAPE, store=store).kinds("tool_result")
