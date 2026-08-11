@@ -1,5 +1,6 @@
 import sys
 from datetime import datetime
+from difflib import get_close_matches
 from pathlib import Path
 from typing import cast
 
@@ -18,6 +19,7 @@ from bub.channels.message import ChannelMessage, MediaItem
 from bub.envelope import Envelope, content_of, field_of
 from bub.framework import BubFramework
 from bub.hooks import hookimpl
+from bub.hooks.interception import ToolCall, ToolCallDecision
 from bub.model_selection import ModelChoice, ModelOptions
 from bub.streaming import AsyncStreamEvents
 from bub.tape import TapeContext, TapeStore
@@ -378,3 +380,31 @@ class BuiltinImpl:
         if channel_router is None:
             return None
         return await channel_router.admit_channel_message(session_id=session_id, message=message, turn=turn)
+
+    @hookimpl
+    async def before_tool_call(
+        self,
+        call: ToolCall,
+        state: TurnState,
+    ) -> ToolCallDecision | None:
+        """Recover hallucinated/unknown tool names without interrupting the turn.
+
+        When the model invokes a tool outside the current model-facing tool set,
+        replace it with a guidance ``tool_result`` so the model can re-issue a
+        valid call on the next step.
+        """
+        from bub.tools import REGISTRY, model_tools
+
+        available_tools = tuple(tool_item.name for tool_item in model_tools(REGISTRY.values()))
+        if call.tool in available_tools:
+            return None
+
+        matches = get_close_matches(call.tool, available_tools, n=3, cutoff=0.6)
+        if matches:
+            suggestions = "\n".join(f"- {name}" for name in matches)
+            guidance = f"Tool `{call.tool}` does not exist. Did you mean one of the following?\n{suggestions}"
+        elif "skill" in available_tools:
+            guidance = f"Tool `{call.tool}` does not exist. Invoke the `skill` tool to list available skills."
+        else:
+            guidance = f"Tool `{call.tool}` does not exist. No similar tool is available."
+        return ToolCallDecision.replace(guidance)
