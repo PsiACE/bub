@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import pluggy
 import typer
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from loguru import logger
 
 from bub import configure
@@ -32,8 +32,7 @@ from bub.utils import maybe_context_manager
 if TYPE_CHECKING:
     from bub.channels.base import Channel
 
-
-load_dotenv()
+load_dotenv(find_dotenv(usecwd=True))
 DEFAULT_HOME = Path.home() / ".bub"
 DEFAULT_CONFIG_FILE = (DEFAULT_HOME / "config.yml").resolve()
 
