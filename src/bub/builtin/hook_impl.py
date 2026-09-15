@@ -9,7 +9,7 @@ from loguru import logger
 
 from bub import inquirer as bub_inquirer
 from bub.builtin.agent import Agent
-from bub.builtin.context import default_tape_context
+from bub.builtin.context import default_tape_context, render_tool_result
 from bub.builtin.settings import DEFAULT_MODEL, load_settings
 from bub.builtin.steering import InMemorySteeringInbox
 from bub.channels.admission import AdmitDecision, SteeringInbox, TurnSnapshot
@@ -17,6 +17,7 @@ from bub.channels.base import Channel
 from bub.channels.contracts import MessageHandler
 from bub.channels.message import ChannelMessage, MediaItem, audio_format_from_mime_type
 from bub.envelope import Envelope, content_of, field_of
+from bub.errors import BubError
 from bub.framework import BubFramework
 from bub.hooks import hookimpl
 from bub.hooks.interception import ToolCall, ToolCallDecision, ToolCallResult
@@ -441,7 +442,7 @@ class BuiltinImpl:
             guidance = f"Tool `{call.tool}` does not exist. No similar tool is available."
         return ToolCallDecision.replace(guidance)
 
-    @hookimpl
+    @hookimpl(trylast=True)
     async def after_tool_call(
         self,
         call: ToolCall,
@@ -450,17 +451,26 @@ class BuiltinImpl:
     ) -> None:
         from bub.builtin.spill import SPILL_SIDECAR_NAME, SpillStore
 
-        if result.error is not None or not isinstance(result.result, str):
-            return
         tape = state.get("_runtime_tape")
         if tape is None:
             return
         spill = tape.get_sidecar(SPILL_SIDECAR_NAME)
         if not isinstance(spill, SpillStore):
             return
-        result.result = await spill.spill_tool_result(
+
+        if result.error is None:
+            tool_result = result.result
+        elif isinstance(result.error, BubError):
+            tool_result = result.error.as_dict() if result.result is None else result.result
+        else:
+            return
+
+        rendered_result = render_tool_result(tool_result)
+        bounded_result = await spill.spill_tool_result(
             tape,
-            result.result,
+            rendered_result,
             tool=call.tool,
             run_id=call.run_id,
         )
+        if isinstance(tool_result, str) or bounded_result != rendered_result:
+            result.result = bounded_result
