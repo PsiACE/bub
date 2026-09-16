@@ -110,8 +110,11 @@ class TapeEntry:
         return cls(id=0, kind="anchor", payload=payload, meta=dict(meta))
 
     @classmethod
-    def tool_call(cls, calls: list[dict[str, Any]], **meta: Any) -> TapeEntry:
-        return cls(id=0, kind="tool_call", payload={"calls": calls}, meta=dict(meta))
+    def tool_call(cls, calls: list[dict[str, Any]], *, content: str | None = None, **meta: Any) -> TapeEntry:
+        payload: dict[str, Any] = {"calls": calls}
+        if content is not None:
+            payload["content"] = content
+        return cls(id=0, kind="tool_call", payload=payload, meta=dict(meta))
 
     @classmethod
     def tool_result(cls, results: list[Any], **meta: Any) -> TapeEntry:
@@ -345,12 +348,12 @@ class Tape:
         for message in new_messages:
             await self.store.append(tape_name, TapeEntry.message(message, **meta))
         if tool_calls:
-            await self.store.append(tape_name, TapeEntry.tool_call(tool_calls, **meta))
+            await self.store.append(tape_name, TapeEntry.tool_call(tool_calls, content=response_text, **meta))
         if tool_results is not None:
             await self.store.append(tape_name, TapeEntry.tool_result(tool_results, **meta))
         if error is not None and error is not context_error:
             await self.store.append(tape_name, TapeEntry.error(error, **meta))
-        if response_text is not None:
+        if response_text is not None and not tool_calls:
             await self.store.append(
                 tape_name, TapeEntry.message({"role": "assistant", "content": response_text}, **meta)
             )

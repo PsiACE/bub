@@ -258,7 +258,7 @@ class ModelRunner:
                     run_id=run_id,
                     system_prompt=system_prompt,
                     new_messages=new_messages,
-                    response_text=None,
+                    response_text=output.text or None,
                     tool_calls=serialized_tool_calls,
                     tool_results=execution.tool_results,
                     response=output.response,
@@ -531,7 +531,7 @@ def tool_invocation_from_native(
 
 
 def parse_native_function_call(tool_call: ChatCompletionMessageToolCall) -> tuple[str, dict[str, Any]]:
-    if not isinstance(tool_call, ChatCompletionMessageFunctionToolCall):
+    if tool_call.type != "function":
         raise BubError(ErrorKind.INVALID_INPUT, "Expected a function tool call with JSON object arguments.")
     try:
         arguments = TOOL_ARGUMENTS_ADAPTER.validate_json(tool_call.function.arguments or "{}")
